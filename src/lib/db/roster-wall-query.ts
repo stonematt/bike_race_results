@@ -91,8 +91,8 @@ export async function loadRosterWallResults(
   seasonId: number,
 ): Promise<RosterWallResult[]> {
   const result = await db.execute(sql`
-    select rr.rider_id, rr.round_ordinal, rr.place, rr.status, rr.is_lapped,
-           rr.pct_back, rr.field_size, rr.category
+    select rr.rider_id, rr.round_ordinal, rr.place, rr.status,
+           rr.pct_back, rr.laps_down, rr.field_size, rr.category
       from v_rider_result rr
       join squad_member sm on sm.rider_id = rr.rider_id
      where sm.squad_id = ${squadId}
@@ -103,8 +103,8 @@ export async function loadRosterWallResults(
     roundOrdinal: num(row.round_ordinal),
     place: str(row.place),
     status: row.status === 'dnf' ? 'dnf' : 'finished',
-    isLapped: row.is_lapped === true,
     pctBack: numOrNull(row.pct_back),
+    lapsDown: numOrNull(row.laps_down),
     fieldSize: num(row.field_size),
     category: str(row.category),
   }));

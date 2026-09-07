@@ -10,6 +10,7 @@ import {
   anchorHeadline,
   listDescription,
   ordinal,
+  rowDeficit,
   rowMark,
   scopeStatement,
 } from './category-view.ts';
@@ -21,8 +22,8 @@ function row(over: Partial<CategoryFieldRow>): CategoryFieldRow {
     scoringTeam: 'Some Team',
     place: '3',
     status: 'finished',
-    isLapped: false,
     pctBack: 5.2,
+    lapsDown: 0,
     riderId: null,
     isSquadMate: false,
     ...over,
@@ -86,25 +87,42 @@ describe('anchorHeadline', () => {
     expect(text).not.toMatch(/\d+(st|nd|rd|th)/);
   });
 
-  it('never invents an ordinal for a lapped rider even though she has a numeric place', () => {
+  it('states a short-lap rider’s published place as an ordinal, same as anyone else’s (issue #111)', () => {
+    // NICA orders her in the same single sequence as everyone else, so her
+    // place is never invented, demoted, or replaced with a state name.
     const text = anchorHeadline(
-      row({ place: '65', status: 'finished', isLapped: true, pctBack: null }),
+      row({ place: '65', status: 'finished', lapsDown: 5, pctBack: null }),
       70,
     );
-    expect(text).toBe('Lapped, field of 70');
+    expect(text).toBe('65th of 70');
   });
 });
 
 describe('rowMark', () => {
-  it('shows the published place verbatim for a finished, unlapped rider', () => {
+  it('shows the published place verbatim for a finished rider', () => {
     expect(rowMark(row({ place: '3' }))).toBe('3');
     // Never parsed, never re-derived.
     expect(rowMark(row({ place: '10' }))).toBe('10');
   });
 
-  it('names DNF and lapped instead of printing whatever place string arrived', () => {
+  it('names DNF instead of printing whatever place string arrived', () => {
     expect(rowMark(row({ status: 'dnf', place: '*' }))).toBe('DNF');
-    expect(rowMark(row({ status: 'finished', isLapped: true, place: '65' }))).toBe('Lapped');
+  });
+
+  it('shows a short-lap rider’s published place, same as anyone else’s', () => {
+    expect(rowMark(row({ status: 'finished', lapsDown: 5, place: '65' }))).toBe('65');
+  });
+});
+
+describe('rowDeficit', () => {
+  it('is null for a full-distance finisher and for a DNF', () => {
+    expect(rowDeficit(row({ lapsDown: 0 }))).toBeNull();
+    expect(rowDeficit(row({ status: 'dnf', lapsDown: null }))).toBeNull();
+  });
+
+  it('names a short-lap rider’s deficit, with the real minus sign, beside her place', () => {
+    expect(rowDeficit(row({ lapsDown: 1 }))).toBe('−1 lap');
+    expect(rowDeficit(row({ lapsDown: 5 }))).toBe('−5 laps');
   });
 });
 

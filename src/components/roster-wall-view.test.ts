@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { RosterWallCell, RosterWallRound } from '../lib/roster-wall.ts';
 import {
   buildRosterWallColumns,
+  cellDeficit,
   cellMark,
   describeCell,
   pctBackText,
@@ -46,14 +47,14 @@ const positioned: RosterWallCell = {
   state: 'positioned',
   place: '3',
   pctBack: 8.4,
-  isLapped: false,
+  lapsDown: 0,
   fieldSize: 30,
   category: 'HS1 Boys',
 };
 
 const positionedNoGap: RosterWallCell = { ...positioned, pctBack: null };
+const shortLap: RosterWallCell = { ...positioned, place: '65', pctBack: null, lapsDown: 1 };
 const dnf: RosterWallCell = { state: 'started-not-positioned', reason: 'dnf' };
-const lapped: RosterWallCell = { state: 'started-not-positioned', reason: 'lapped' };
 const absent: RosterWallCell = { state: 'did-not-start' };
 
 describe('cellMark', () => {
@@ -63,13 +64,28 @@ describe('cellMark', () => {
     expect(cellMark({ ...positioned, place: '*' })).toBe('*');
   });
 
+  it('shows a short-lap rider’s published place, same as anyone else’s (issue #111)', () => {
+    expect(cellMark(shortLap)).toBe('65');
+  });
+
   it('names the reason for a started-not-positioned cell', () => {
     expect(cellMark(dnf)).toBe('DNF');
-    expect(cellMark(lapped)).toBe('Lapped');
   });
 
   it('is empty for a did-not-start cell', () => {
     expect(cellMark(absent)).toBe('');
+  });
+});
+
+describe('cellDeficit', () => {
+  it('is null for a full-distance finisher', () => {
+    expect(cellDeficit(positioned as Extract<RosterWallCell, { state: 'positioned' }>)).toBeNull();
+  });
+
+  it('names a short-lap rider’s deficit, with the real minus sign', () => {
+    expect(cellDeficit(shortLap as Extract<RosterWallCell, { state: 'positioned' }>)).toBe(
+      '−1 lap',
+    );
   });
 });
 
@@ -95,10 +111,12 @@ describe('describeCell', () => {
     expect(describeCell(positionedNoGap)).not.toMatch(/0%/);
   });
 
-  it('tells DNF and lapped apart in words', () => {
+  it('names DNF as a start with no finish', () => {
     expect(describeCell(dnf)).toBe('Started, did not finish');
-    expect(describeCell(lapped)).toBe('Started, lapped');
-    expect(describeCell(dnf)).not.toBe(describeCell(lapped));
+  });
+
+  it('states a short-lap rider’s deficit beside her place, in the same sentence', () => {
+    expect(describeCell(shortLap)).toBe('Place 65 of 30, no gap published, −1 lap');
   });
 
   it('says a did-not-start cell is a non-start, not a blank', () => {

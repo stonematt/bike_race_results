@@ -24,14 +24,19 @@ const positionedCell: RosterWallCell = {
   state: 'positioned',
   place: '3',
   pctBack: 8.4,
-  isLapped: false,
+  lapsDown: 0,
   fieldSize: 30,
   category: 'HS1 Boys',
 };
 
 const positionedNoGapCell: RosterWallCell = { ...positionedCell, pctBack: null, place: '1' };
+const shortLapCell: RosterWallCell = {
+  ...positionedCell,
+  place: '65',
+  pctBack: null,
+  lapsDown: 1,
+};
 const dnfCell: RosterWallCell = { state: 'started-not-positioned', reason: 'dnf' };
-const lappedCell: RosterWallCell = { state: 'started-not-positioned', reason: 'lapped' };
 const absentCell: RosterWallCell = { state: 'did-not-start' };
 
 const ROWS: RosterWallRow[] = [
@@ -41,7 +46,7 @@ const ROWS: RosterWallRow[] = [
   },
   {
     rider: { riderId: 2, riderName: '«RIDER-B»' },
-    cells: [lappedCell, positionedNoGapCell, absentCell],
+    cells: [shortLapCell, positionedNoGapCell, absentCell],
   },
 ];
 
@@ -111,16 +116,22 @@ describe('the three cell states', () => {
     expect(markup).toContain('>*<');
   });
 
-  it('marks a DNF and a lapped rider with different words, not just different colours', () => {
+  it('marks a DNF with its own chip, and a short-lap rider with her place and deficit (issue #111)', () => {
+    // NICA orders a short-lap rider in the same single sequence as everyone
+    // else, so her cell carries her published place, not a state word.
     const markup = render();
     expect(markup).toContain('>DNF<');
-    expect(markup).toContain('>Lapped<');
+    expect(markup).toContain('>65<');
+    expect(markup).toContain('−1 lap');
+    expect(markup).not.toContain('>Lapped<');
   });
 
-  it('gives DNF and lapped their own chip class, distinct from each other', () => {
+  it('gives DNF its own chip class; a short-lap rider gets no chip, just her place', () => {
     const markup = render();
     expect(markup).toMatch(/bg-fg[^"]*"[^>]*>DNF/);
-    expect(markup).toMatch(/bg-navy[^"]*"[^>]*>Lapped/);
+    // `bg-navy` was the lapped chip's tone (issue #111) — retired along with
+    // the chip it painted, since a short-lap rider is a positioned cell now.
+    expect(markup).not.toContain('bg-navy');
   });
 
   it('draws a did-not-start cell empty of any visible mark or chip', () => {
@@ -128,11 +139,11 @@ describe('the three cell states', () => {
       { rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [absentCell] },
     ];
     const markup = render(single, [ROUNDS[0]!]);
-    // No DNF/Lapped chip, no place, no percent — but the fact still reaches a
-    // screen reader via the sr-only span, so it does not read as a silent gap
-    // in the data. (The table's own sr-only caption names "DNF" and "lapped"
-    // in prose describing the wall's states in general, so match the chip's
-    // own shape rather than the bare word.)
+    // No DNF chip, no place, no percent — but the fact still reaches a screen
+    // reader via the sr-only span, so it does not read as a silent gap in the
+    // data. (The table's own sr-only caption names "DNF" in prose describing
+    // the wall's states in general, so match the chip's own shape rather than
+    // the bare word.)
     expect(markup).not.toContain('>DNF<');
     expect(markup).not.toContain('>Lapped<');
     expect(markup).not.toMatch(/<td[^>]*>\s*<[^s][^>]*>\d/);

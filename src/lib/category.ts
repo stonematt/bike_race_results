@@ -14,8 +14,8 @@
  * as `roster-wall.ts` / `roster-wall-query.ts`.
  *
  * ADR-0001 line, restated for this module: a row carries place (as
- * published), percent back, lapped and the Category's own field size — all
- * description. It never carries or invents points, season place, Category
+ * published), percent back, lap deficit and the Category's own field size —
+ * all description. It never carries or invents points, season place, Category
  * assignment, DQ or eligibility. Those are adjudication, and NICA is the
  * scoring authority.
  *
@@ -41,13 +41,18 @@ export type CategoryFieldRow = {
   /** Verbatim. May carry `*` or be empty for a non-finisher — never rewritten. */
   place: string;
   status: 'finished' | 'dnf';
-  isLapped: boolean;
   /**
-   * Null for a DNF, a lapped rider, and — today, issue #98 — every rider at a
-   * time trial. Read exactly as `v_race_result` publishes it; never derived
+   * Null for a DNF, a short-lap rider, and — today, issue #98 — every rider at
+   * a time trial. Read exactly as `v_race_result` publishes it; never derived
    * from times here.
    */
   pctBack: number | null;
+  /**
+   * Null for a DNF or a row whose lap count could not be compared; 0 for a
+   * rider who rode the full distance. A positive count rides beside her
+   * place as an annotation — it never replaces it (issue #111).
+   */
+  lapsDown: number | null;
   /** The Rider this row resolves to, when its plate is mapped. Null for the rest of the field. */
   riderId: number | null;
   /** True when `riderId` is a member of the Squad the caller asked about. */

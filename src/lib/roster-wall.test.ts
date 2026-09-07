@@ -26,8 +26,8 @@ function result(over: Partial<RosterWallResult>): RosterWallResult {
     roundOrdinal: 1,
     place: '3',
     status: 'finished',
-    isLapped: false,
     pctBack: 5.2,
+    lapsDown: 0,
     fieldSize: 40,
     category: 'HS2 Girls',
     ...over,
@@ -41,7 +41,7 @@ describe('the three states', () => {
       state: 'positioned',
       place: '3',
       pctBack: 5.2,
-      isLapped: false,
+      lapsDown: 0,
       fieldSize: 40,
       category: 'HS2 Girls',
     });
@@ -49,19 +49,27 @@ describe('the three states', () => {
 
   it('marks a DNF as started but not positioned', () => {
     const wall = buildRosterWall(RIDERS, ROUNDS, [
-      result({ status: 'dnf', place: '*', pctBack: null }),
+      result({ status: 'dnf', place: '*', pctBack: null, lapsDown: null }),
     ]);
     expect(wall[0]!.cells[0]).toEqual({ state: 'started-not-positioned', reason: 'dnf' });
   });
 
-  it('marks a lapped finisher as started but not positioned, even though she has a rank', () => {
+  it('positions a short-lap finisher with her published place, her deficit riding beside it', () => {
     // NICA still prints a numeric place for a rider it pulled at the line —
-    // 2025 Race 4 North ranked lapped riders 65th and 67th. The wall's
-    // "positioned" state means comparable, not merely numbered.
+    // 2025 Race 4 North ranked short-lap riders 65th and 67th, in the same
+    // single sequence as everyone else (issue #111). "Positioned" means she
+    // holds a published place, not that her time is comparable.
     const wall = buildRosterWall(RIDERS, ROUNDS, [
-      result({ status: 'finished', isLapped: true, place: '65', pctBack: null }),
+      result({ status: 'finished', place: '65', pctBack: null, lapsDown: 1 }),
     ]);
-    expect(wall[0]!.cells[0]).toEqual({ state: 'started-not-positioned', reason: 'lapped' });
+    expect(wall[0]!.cells[0]).toEqual({
+      state: 'positioned',
+      place: '65',
+      pctBack: null,
+      lapsDown: 1,
+      fieldSize: 40,
+      category: 'HS2 Girls',
+    });
   });
 
   it('marks a rider with no result row at the Round as did-not-start', () => {

@@ -18,6 +18,7 @@
  */
 
 import type { CategoryField, CategoryFieldRow } from '@/lib/category.ts';
+import { lapsDownText } from './race-detail.ts';
 import { CROSSING_ANCHOR } from './roster-wall-view.ts';
 
 /**
@@ -57,16 +58,14 @@ export function ordinal(n: number): string {
 /**
  * The headline stat for her own row — "3rd of 30" when the source published
  * a numeric place. When it did not, this names her state instead of
- * inventing a rank for it: a DNF or a lapped rider carries no ordinal to
- * give, and both still state the field size in words.
+ * inventing a rank for it: a DNF carries no ordinal to give, and still states
+ * the field size in words. A short-lap rider's place IS a numeric ordinal —
+ * NICA orders her in the same single sequence as everyone else (issue #111)
+ * — so she reaches the ordinal branch like anyone else; her lap deficit is a
+ * separate fact, rendered beside this headline by `rowDeficit`, never inside it.
  */
 export function anchorHeadline(row: CategoryFieldRow, fieldSize: number): string {
-  // Lapped is checked before place, matching `src/lib/roster-wall.ts`'s
-  // `markFor`: NICA still prints a numeric finishing rank for a rider it
-  // pulled at the line, but that rank is not a position she holds, so it
-  // never becomes an ordinal here.
   if (row.status === 'dnf') return `DNF, field of ${fieldSize}`;
-  if (row.isLapped) return `Lapped, field of ${fieldSize}`;
   const trimmed = row.place.trim();
   if (WHOLE_NUMBER.test(trimmed)) return `${ordinal(Number(trimmed))} of ${fieldSize}`;
   return `Unplaced, field of ${fieldSize}`;
@@ -76,12 +75,23 @@ export function anchorHeadline(row: CategoryFieldRow, fieldSize: number): string
  * The mark one row of the ranked list shows — the source's own place,
  * verbatim, or the reason there is none. The three states render inline,
  * here as everywhere else in this app: a DNF is a row with this mark, never
- * a row that is simply missing.
+ * a row that is simply missing. A short-lap rider's mark is her place, like
+ * anyone else's — her deficit is a separate annotation, from `rowDeficit`.
  */
 export function rowMark(row: CategoryFieldRow): string {
   if (row.status === 'dnf') return 'DNF';
-  if (row.isLapped) return 'Lapped';
   return row.place;
+}
+
+/**
+ * The lap deficit beside a row's mark, when NICA recorded one — the
+ * annotation issue #111 keeps distinct from the place itself. Null for a DNF,
+ * a full-distance finisher, or a row whose lap count could not be compared;
+ * `lapsDownText` (`src/components/race-detail.ts`) is the one place that
+ * spells the deficit out, reused here rather than reimplemented.
+ */
+export function rowDeficit(row: CategoryFieldRow): string | null {
+  return row.lapsDown ? lapsDownText(row.lapsDown) : null;
 }
 
 /**

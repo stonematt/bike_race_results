@@ -84,13 +84,16 @@ const dnf = row({
   lapSeconds: [962.44],
 });
 
-describe('guard 1 — a lapped rider never renders a percentage', () => {
-  it('renders the lap deficit, with a real minus sign', () => {
+describe('guard 1 — a short-lap rider renders her published place, never a percentage', () => {
+  it('leads with the published place; the lap deficit is the caption, with a real minus sign', () => {
+    // NICA still orders a short-lap rider in the same single sequence as
+    // everyone else (issue #111) — her place is not invented or demoted.
     const h = headline(lapped);
-    expect(h.kind).toBe('laps-down');
-    expect(h.value).toBe('−1 lap');
+    expect(h.kind).toBe('place-deficit');
+    expect(h.value).toBe('65');
+    expect(h.caption).toBe('−1 lap');
     // U+2212, not a hyphen-minus. A lap deficit is a number, not a dash.
-    expect(h.value.charCodeAt(0)).toBe(0x2212);
+    expect(h.caption?.charCodeAt(0)).toBe(0x2212);
   });
 
   it('pluralises a deficit of more than one lap', () => {
@@ -110,10 +113,12 @@ describe('guard 1 — a lapped rider never renders a percentage', () => {
     expect(rendered).not.toMatch(/%/);
   });
 
-  it('gives them no position on the axis, and a line beside it instead', () => {
-    expect(riderCard(lapped, '«RIDER-B»').mark.pct).toBeNull();
+  it('gives them no position on the axis, and her place with its deficit beside it instead', () => {
+    const card = riderCard(lapped, '«RIDER-B»');
+    expect(card.mark.pct).toBeNull();
+    expect(card.mark.place).toBe('65');
     expect(outsideFor(lapped, '«RIDER-B»')).toEqual({
-      text: '«RIDER-B» — −1 lap · 65 of 24',
+      text: '«RIDER-B» — 65 of 24 · −1 lap',
       kind: 'lapped',
     });
   });

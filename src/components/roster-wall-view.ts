@@ -21,6 +21,7 @@
  */
 
 import type { RosterWallCell, RosterWallRound } from '@/lib/roster-wall.ts';
+import { lapsDownText } from './race-detail.ts';
 
 /** One column header: the Round it names, and where it links. */
 export type RosterWallColumn = {
@@ -77,23 +78,37 @@ export function buildRosterWallColumns(
     }));
 }
 
-/** One cell's short, on-face mark — the text that sits in the grid square. */
+/** One cell's short, on-face mark — the text that sits in the grid square.
+ *  A short-lap rider's mark is her published place, same as anyone else's
+ *  (issue #111); her deficit is a separate annotation, from `cellDeficit`. */
 export function cellMark(cell: RosterWallCell): string {
   switch (cell.state) {
     case 'positioned':
       return cell.place;
     case 'started-not-positioned':
-      return cell.reason === 'dnf' ? 'DNF' : 'Lapped';
+      return 'DNF';
     case 'did-not-start':
       return '';
   }
 }
 
 /**
+ * The lap deficit beside a positioned cell's place, when NICA recorded one —
+ * the annotation issue #111 keeps distinct from the place itself. Null for a
+ * full-distance finisher or a row whose lap count could not be compared.
+ * `lapsDownText` (`src/components/race-detail.ts`) is the one place that
+ * spells the deficit out, reused here rather than reimplemented.
+ */
+export function cellDeficit(cell: Extract<RosterWallCell, { state: 'positioned' }>): string | null {
+  return cell.lapsDown ? lapsDownText(cell.lapsDown) : null;
+}
+
+/**
  * The percent-back reading, worded so a null never reads as zero or as a
- * blank that could be mistaken for one. A DNF, a lapped rider, and (today)
- * every rider at a time trial carry a null here — this is the different kind
- * of statement the null becomes, never `0%` and never silence.
+ * blank that could be mistaken for one. A DNF, a short-lap rider, and
+ * (today) every rider at a time trial carry a null here — this is the
+ * different kind of statement the null becomes, never `0%` and never
+ * silence.
  */
 export function pctBackText(pctBack: number | null): string {
   return pctBack === null ? 'no gap published' : `+${pctBack}% back`;
@@ -108,10 +123,13 @@ export function pctBackText(pctBack: number | null): string {
  */
 export function describeCell(cell: RosterWallCell): string {
   switch (cell.state) {
-    case 'positioned':
-      return `Place ${cell.place} of ${cell.fieldSize}, ${pctBackText(cell.pctBack)}`;
+    case 'positioned': {
+      const base = `Place ${cell.place} of ${cell.fieldSize}, ${pctBackText(cell.pctBack)}`;
+      const deficit = cellDeficit(cell);
+      return deficit ? `${base}, ${deficit}` : base;
+    }
     case 'started-not-positioned':
-      return cell.reason === 'dnf' ? 'Started, did not finish' : 'Started, lapped';
+      return 'Started, did not finish';
     case 'did-not-start':
       return 'Did not start this round';
   }
