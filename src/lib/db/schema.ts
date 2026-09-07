@@ -385,14 +385,27 @@ export const seasonTeamStanding = pgTable(
  * Config layer — hand-maintained. Normalize never writes here.
  * ========================================================================= */
 
-/** The organisation a coach runs, e.g. Salem Composite Descenders. Ours. */
+/**
+ * The organisation a coach runs, e.g. Salem Composite Descenders. Ours.
+ *
+ * `slug` is globally unique and carries no season — ADR-0002 keeps `club`
+ * deliberately season-independent, so a club's address in a URL identifies it
+ * across every season, not one year of it (issue #114). `$defaultFn` is a
+ * fallback for a row inserted with no opinion about its slug (test fixtures,
+ * mainly); every real write goes through `upsertClub` (`src/lib/seed.ts`),
+ * which always resolves a real one — an explicit config value, or one derived
+ * from the name — before it ever reaches here.
+ */
 export const club = pgTable(
   'club',
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull(),
+    slug: text('slug')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
   },
-  (t) => [uniqueIndex('club_name_key').on(t.name)],
+  (t) => [uniqueIndex('club_name_key').on(t.name), uniqueIndex('club_slug_key').on(t.slug)],
 );
 
 /**
@@ -539,6 +552,14 @@ export const coach = pgTable('coach', {
  * will and we record where a rider ended up, never the churn. What is
  * season-keyed is the squad itself (#81).
  */
+/**
+ * `slug` is unique on `(club_id, season_id)`, not globally — squads are
+ * season-keyed, so two clubs may each hold a `descenders` in the same season,
+ * and scoping to the club lets one squad keep the same slug year over year so
+ * a bookmark survives a season rollover (issue #114). `$defaultFn` is the
+ * same fixture-only fallback `club.slug` carries; `upsertSquad`
+ * (`src/lib/seed.ts`) always resolves a real value first.
+ */
 export const squad = pgTable(
   'squad',
   {
@@ -550,8 +571,14 @@ export const squad = pgTable(
       .notNull()
       .references(() => season.id),
     name: text('name').notNull(),
+    slug: text('slug')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
   },
-  (t) => [uniqueIndex('squad_club_season_name_key').on(t.clubId, t.seasonId, t.name)],
+  (t) => [
+    uniqueIndex('squad_club_season_name_key').on(t.clubId, t.seasonId, t.name),
+    uniqueIndex('squad_club_season_slug_key').on(t.clubId, t.seasonId, t.slug),
+  ],
 );
 
 /** ~20 coaches across ~6 squads is roughly three apiece. Many-to-many. */

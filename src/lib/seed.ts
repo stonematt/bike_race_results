@@ -45,6 +45,7 @@ import {
 } from './club-config.ts';
 import * as schema from './db/schema.ts';
 import { findOrCreateUser } from './db/users.ts';
+import { slugify } from './slug.ts';
 
 type Db = PgliteDatabase<typeof schema>;
 /**
@@ -354,7 +355,7 @@ export async function seedClubConfig(
     await assertNoStrandedCoach(tx, config.club);
 
     const seasonId = await upsertSeason(tx, config.season);
-    const clubId = await upsertClub(tx, config.club);
+    const clubId = await upsertClub(tx, config.club, config.clubSlug);
 
     // Read the club's current roster reach before rewriting anything: after the
     // squads are reconciled, a rider dropped from the config is unreachable.
@@ -517,7 +518,7 @@ async function replaceSquads(
   let squadMembers = 0;
   let squadCoaches = 0;
   for (const squadConfig of config.squads) {
-    const squadId = await upsertSquad(tx, clubId, seasonId, squadConfig.name);
+    const squadId = await upsertSquad(tx, clubId, seasonId, squadConfig.name, squadConfig.slug);
     await tx.delete(schema.squadMember).where(eq(schema.squadMember.squadId, squadId));
     if (squadConfig.members.length > 0) {
       await tx
@@ -595,21 +596,30 @@ async function assertNoStrandedCoach(executor: Executor, clubName: string): Prom
   if (stranded[0]) throw new StrandedCoachError(clubName, stranded[0].name);
 }
 
-async function upsertClub(executor: Executor, name: string): Promise<number> {
+/**
+ * `slug` falls back to one derived from `name` when the caller passes none —
+ * the explicit-config-value-or-derive rule issue #114 settles for both club
+ * and squad slugs. Applied only on creation: `club` is matched by name, so an
+ * existing row is returned as-is and never has its slug rewritten out from
+ * under a bookmark that already points at it.
+ */
+async function upsertClub(executor: Executor, name: string, slug?: string): Promise<number> {
   const existing = await executor.select().from(schema.club).where(eq(schema.club.name, name));
   if (existing[0]) return existing[0].id;
   const [row] = await executor
     .insert(schema.club)
-    .values({ name })
+    .values({ name, slug: slug ?? slugify(name) })
     .returning({ id: schema.club.id });
   return row!.id;
 }
 
+/** Same fallback rule as `upsertClub`, scoped to `(clubId, seasonId, name)` instead of `name` alone. */
 async function upsertSquad(
   tx: Tx,
   clubId: number,
   seasonId: number,
   name: string,
+  slug?: string,
 ): Promise<number> {
   const existing = await tx
     .select()
@@ -624,7 +634,7 @@ async function upsertSquad(
   if (existing[0]) return existing[0].id;
   const [row] = await tx
     .insert(schema.squad)
-    .values({ clubId, seasonId, name })
+    .values({ clubId, seasonId, name, slug: slug ?? slugify(name) })
     .returning({ id: schema.squad.id });
   return row!.id;
 }

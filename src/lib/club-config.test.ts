@@ -243,6 +243,23 @@ describe('rider and plate validation', () => {
   });
 });
 
+describe('club slug validation (issue #114)', () => {
+  it('is undefined when the field is absent, so the seeder can derive one from the name', () => {
+    const config = parse({});
+    expect(config.clubSlug).toBeUndefined();
+  });
+
+  it('accepts an explicit, valid slug', () => {
+    const config = parse({ clubSlug: 'descenders' });
+    expect(config.clubSlug).toBe('descenders');
+  });
+
+  it('refuses a clubSlug that is not a slug', () => {
+    const problems = problemsOf(() => parse({ clubSlug: 'The Descenders' }));
+    expect(problems[0]).toContain('clubSlug');
+  });
+});
+
 describe('squad validation', () => {
   it('refuses a member that is not a declared rider', () => {
     const problems = problemsOf(() =>
@@ -265,6 +282,25 @@ describe('squad validation', () => {
   it('defaults to no coaches when the field is absent, so old config files still parse', () => {
     const config = parse({ squads: [{ name: 'Descenders', members: ['rider-a'] }] });
     expect(config.squads[0]!.coaches).toEqual([]);
+  });
+
+  it('is undefined when slug is absent, so the seeder can derive one from the name', () => {
+    const config = parse({ squads: [{ name: 'Descenders', members: ['rider-a'] }] });
+    expect(config.squads[0]!.slug).toBeUndefined();
+  });
+
+  it('accepts an explicit, valid squad slug', () => {
+    const config = parse({
+      squads: [{ name: 'Descenders', slug: 'descenders', members: ['rider-a'] }],
+    });
+    expect(config.squads[0]!.slug).toBe('descenders');
+  });
+
+  it('refuses a squad slug that is not a slug', () => {
+    const problems = problemsOf(() =>
+      parse({ squads: [{ name: 'Descenders', slug: 'The Descenders', members: ['rider-a'] }] }),
+    );
+    expect(problems[0]).toContain('.slug');
   });
 
   it('accepts coach keys in the same slug shape as a rider key', () => {
