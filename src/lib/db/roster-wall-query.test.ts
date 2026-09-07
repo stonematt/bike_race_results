@@ -168,4 +168,18 @@ describe('loadRosterWallInputs, assembled through buildRosterWall', () => {
 
     expect(byRider.get(3)!.cells.every((c) => c.state === 'did-not-start')).toBe(true);
   });
+
+  it('derives most-recent category from results already conference-stripped by the view', async () => {
+    // Rider 1's Round 2 row was ingested as `HS2 Girls - North` — the view's
+    // own fallback strips the conference before this ever reaches
+    // `RosterWallResult.category` (issue #113, #106). A rider with no result
+    // row at all gets no category rather than one invented for the rider.
+    const { riders, rounds, results } = await loadRosterWallInputs(db, 1, 1);
+    const wall = buildRosterWall(riders, rounds, results);
+    const byRider = new Map(wall.map((row) => [row.rider.riderId, row]));
+
+    expect(byRider.get(1)!.category).toBe('HS2 Girls');
+    expect(byRider.get(2)!.category).toBe('HS2 Girls');
+    expect(byRider.get(3)!.category).toBeNull();
+  });
 });
