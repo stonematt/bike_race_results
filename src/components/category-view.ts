@@ -5,9 +5,9 @@
  * Same split as `roster-wall-view.ts`: `src/lib/category.ts` and
  * `src/lib/db/category-query.ts` already resolve, rank and package the
  * field (ADR-0002's crossing). This module only chooses the words the page
- * says about facts those two already settled — the headline stat for her own
- * row, the mark each row shows, and the sentence stating exactly who is in
- * the list.
+ * says about facts those two already settled — the headline stat for the
+ * anchor row, the mark each row shows, and the sentence stating exactly who
+ * is in the list.
  *
  * ADR-0001 line, restated for this module: everything here is a description
  * of what the source already published, dressed in words for a coach to
@@ -22,14 +22,14 @@ import { deficitText } from './lap-deficit.ts';
 import { CROSSING_ANCHOR } from './roster-wall-view.ts';
 
 /**
- * The `id` her own row on the Category page carries, so the crossing link's
- * `#` fragment lands the browser on it natively — the mechanism "visible on
- * load" runs on, at both ends of the corpus (2 riders, 80 riders), with no
- * client script required. Re-exported from `roster-wall-view.ts` so the two
- * sides of the crossing (the link, and the row it points at) can never name
- * two different anchors.
+ * The `id` the anchor row on the Category page carries, so the crossing
+ * link's `#` fragment lands the browser on it natively — the mechanism
+ * "visible on load" runs on, at both ends of the corpus (2 riders, 80
+ * riders), with no client script required. Re-exported from
+ * `roster-wall-view.ts` so the two sides of the crossing (the link, and the
+ * row it points at) can never name two different anchors.
  */
-export const HER_ROW_ID = CROSSING_ANCHOR;
+export const ANCHOR_ROW_ID = CROSSING_ANCHOR;
 
 const WHOLE_NUMBER = /^\d+$/;
 
@@ -56,13 +56,14 @@ export function ordinal(n: number): string {
 }
 
 /**
- * The headline stat for her own row — "3rd of 30" when the source published
- * a numeric place. When it did not, this names her state instead of
- * inventing a rank for it: a DNF carries no ordinal to give, and still states
- * the field size in words. A short-lap rider's place IS a numeric ordinal —
- * NICA orders her in the same single sequence as everyone else (issue #111)
- * — so she reaches the ordinal branch like anyone else; her lap deficit is a
- * separate fact, rendered beside this headline by `rowDeficit`, never inside it.
+ * The headline stat for the anchor row — "3rd of 30" when the source
+ * published a numeric place. When it did not, this names the rider's state
+ * instead of inventing a rank for it: a DNF carries no ordinal to give, and
+ * still states the field size in words. A short-lap rider's place IS a
+ * numeric ordinal — NICA orders the rider in the same single sequence as
+ * everyone else (issue #111) — so the row reaches the ordinal branch like
+ * anyone else's; the lap deficit is a separate fact, rendered beside this
+ * headline by `rowDeficit`, never inside it.
  */
 export function anchorHeadline(row: CategoryFieldRow, fieldSize: number): string {
   if (row.status === 'dnf') return `DNF, field of ${fieldSize}`;
@@ -75,8 +76,9 @@ export function anchorHeadline(row: CategoryFieldRow, fieldSize: number): string
  * The mark one row of the ranked list shows — the source's own place,
  * verbatim, or the reason there is none. The three states render inline,
  * here as everywhere else in this app: a DNF is a row with this mark, never
- * a row that is simply missing. A short-lap rider's mark is her place, like
- * anyone else's — her deficit is a separate annotation, from `rowDeficit`.
+ * a row that is simply missing. A short-lap rider's mark is the rider's
+ * place, like anyone else's — the deficit is a separate annotation, from
+ * `rowDeficit`.
  */
 export function rowMark(row: CategoryFieldRow): string {
   if (row.status === 'dnf') return 'DNF';
@@ -110,13 +112,16 @@ export function scopeStatement(field: CategoryField): string {
 
 /**
  * The screen-reader summary for the ranked list as a whole — the field size,
- * her own row (when she has one to point at), and that squad-mates are
+ * the anchor row (when there is one to point at), and that squad-mates are
  * marked separately. Sighted and non-sighted readers get the same facts;
  * this is the non-sighted phrasing, matching the split `describeCell` makes
  * in `roster-wall-view.ts`.
  */
-export function listDescription(field: CategoryField, her: CategoryFieldRow | undefined): string {
+export function listDescription(
+  field: CategoryField,
+  anchor: CategoryFieldRow | undefined,
+): string {
   const base = `Ranked list of ${field.fieldSize} starter${field.fieldSize === 1 ? '' : 's'} in ${field.categoryName}.`;
-  if (her === undefined) return base;
-  return `${base} ${her.displayName}'s row is marked. Squad-mates are marked separately.`;
+  if (anchor === undefined) return base;
+  return `${base} ${anchor.displayName}'s row is marked. Squad-mates are marked separately.`;
 }

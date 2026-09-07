@@ -116,9 +116,9 @@ describe('the three cell states', () => {
     expect(markup).toContain('>*<');
   });
 
-  it('marks a DNF with its own chip, and a short-lap rider with her place and deficit (issue #111)', () => {
+  it('marks a DNF with its own chip, and a short-lap rider with the place and deficit (issue #111)', () => {
     // NICA orders a short-lap rider in the same single sequence as everyone
-    // else, so her cell carries her published place, not a state word.
+    // else, so the cell carries the published place, not a state word.
     const markup = render();
     expect(markup).toContain('>DNF<');
     expect(markup).toContain('>65<');
@@ -126,7 +126,7 @@ describe('the three cell states', () => {
     expect(markup).not.toContain('>Lapped<');
   });
 
-  it('gives DNF its own chip class; a short-lap rider gets no chip, just her place', () => {
+  it('gives DNF its own chip class; a short-lap rider gets no chip, just the place', () => {
     const markup = render();
     expect(markup).toMatch(/bg-fg[^"]*"[^>]*>DNF/);
     // `bg-navy` was the lapped chip's tone (issue #111) — retired along with
@@ -151,23 +151,29 @@ describe('the three cell states', () => {
     expect(markup).toContain('sr-only');
   });
 
-  it('crosses to her Category from a cell she started, and only from one', () => {
+  it('crosses to the rider’s Category from a cell the rider started, and only from one', () => {
     // The crossing is the one link that leaves the club tree (ADR-0002), so
     // which cells carry it is the rule worth pinning. RIDER-A: positioned at
     // Race 1, DNF at Race 2, absent at Race 3.
     const markup = render();
-    expect(markup).toContain('href="/2026/round/1/category/1#her"');
-    expect(markup).toContain('href="/2026/round/2/category/1#her"');
+    expect(markup).toContain('href="/2026/round/1/category/1#rider"');
+    expect(markup).toContain('href="/2026/round/2/category/1#rider"');
     expect(markup).not.toContain('/2026/round/3/category/1');
   });
 
-  it('opens no Category for a Round she did not start', () => {
+  it('never addresses a rider by pronoun — the wall renders boys’ and girls’ categories alike (issue #112)', () => {
+    const markup = render();
+    expect(markup).toMatch(/Open this rider.*?s Category at this round\./);
+    expect(markup).not.toMatch(/\bher\b|\bshe\b|\bhers\b|\bherself\b/i);
+  });
+
+  it('opens no Category for a Round the rider did not start', () => {
     const single: RosterWallRow[] = [
       { rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [absentCell] },
     ];
     const markup = render(single, [ROUNDS[0]!]);
     // The column header still links to the Round page; nothing links to a
-    // Category, because there is no field she was in to open.
+    // Category, because there is no field the rider was in to open.
     expect(markup).not.toContain('/category/');
   });
 

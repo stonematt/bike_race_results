@@ -1,9 +1,10 @@
 /*
  * The guards at the render boundary — the half `category-view.test.ts`
  * cannot reach. The ticket's central constraints are claims about markup:
- * her row is marked and carries the anchor id, squad-mates are tinted, the
- * three states render inline, and none of the three is told apart by colour
- * alone. All four are only really held by looking at the output.
+ * the anchor row is marked and carries the anchor id, squad-mates are
+ * tinted, the three states render inline, and none of the three is told
+ * apart by colour alone. All four are only really held by looking at the
+ * output.
  *
  * `renderToStaticMarkup`, matching `RosterWall.test.tsx`: a server component
  * with no state and no events has nothing to drive.
@@ -86,30 +87,53 @@ const withDnfAndShortLap: CategoryField = {
   ],
 };
 
-describe('her row', () => {
+describe('the anchor row', () => {
   it('is marked with a text badge, not colour alone, and carries the anchor id', () => {
     const markup = render(smallField, 1);
-    expect(markup).toContain('id="her"');
-    expect(markup).toContain('Her result');
+    expect(markup).toContain('id="rider"');
+    expect(markup).toContain('This rider');
     expect(markup).toContain('«RIDER-A»');
   });
 
-  it('states her headline as an ordinal against the field size', () => {
+  it('states the headline as an ordinal against the field size', () => {
     const markup = render(smallField, 1);
     expect(markup).toContain('2nd of 2');
+  });
+
+  it('labels the card with the rider’s own name, never a pronoun', () => {
+    const markup = render(smallField, 1);
+    expect(markup).toContain('«RIDER-A»');
+    expect(markup).not.toMatch(/\bher\b|\bshe\b/i);
+  });
+});
+
+describe('no pronoun, on a boys’ category (issue #112)', () => {
+  const boysField: CategoryField = {
+    categoryName: 'MS3 Boys - North',
+    scope: 'conference',
+    conference: 'North',
+    fieldSize: 31,
+    rows: [row({ plate: '1', place: '1', displayName: '«RIDER-A»', riderId: 1 })],
+  };
+
+  it('labels the anchor card and row by name, never "her" or "she"', () => {
+    const markup = render(boysField, 1);
+    expect(markup).toContain('«RIDER-A»');
+    expect(markup).toContain('This rider');
+    expect(markup).not.toMatch(/\bher\b|\bshe\b|\bhers\b|\bherself\b/i);
   });
 });
 
 describe('squad-mates', () => {
-  it('are tinted and carry their own text badge, distinct from her own', () => {
+  it('are tinted and carry their own text badge, distinct from the anchor’s', () => {
     const markup = render(largeField, 1);
     expect(markup).toContain('Squad');
-    // Her own row says "Her result", not "Squad", even though she is also a
-    // squad-mate — the two badges never collide on one row.
-    const herRowMatch = markup.match(/<li id="her"[^]*?<\/li>/);
-    expect(herRowMatch).not.toBeNull();
-    expect(herRowMatch![0]).toContain('Her result');
-    expect(herRowMatch![0]).not.toContain('>Squad<');
+    // The anchor row says "This rider", not "Squad", even though it is also
+    // a squad-mate's row — the two badges never collide on one row.
+    const anchorRowMatch = markup.match(/<li id="rider"[^]*?<\/li>/);
+    expect(anchorRowMatch).not.toBeNull();
+    expect(anchorRowMatch![0]).toContain('This rider');
+    expect(anchorRowMatch![0]).not.toContain('>Squad<');
   });
 
   it('reads correctly at the small end of the corpus: a two-rider Category', () => {
@@ -121,7 +145,7 @@ describe('squad-mates', () => {
 
   it('reads correctly at the large end of the corpus: an eighty-rider Category', () => {
     const markup = render(largeField, 1);
-    expect(markup).toContain('id="her"');
+    expect(markup).toContain('id="rider"');
     expect(markup).toContain('80th of 80');
     expect((markup.match(/<li/g) ?? []).length).toBe(80);
   });
@@ -148,9 +172,9 @@ describe('the three states render inline', () => {
     expect((markup.match(/<li/g) ?? []).length).toBe(3);
   });
 
-  it('draws a short-lap rider with her published place, her deficit riding beside it (issue #111)', () => {
-    // NICA orders her in the same single sequence as everyone else, so her
-    // row carries the numeral like anyone else's — never a state chip in
+  it('draws a short-lap rider with the published place, the deficit riding beside it (issue #111)', () => {
+    // NICA orders the rider in the same single sequence as everyone else, so
+    // the row carries the numeral like anyone else's — never a state chip in
     // place of it.
     const markup = render(withDnfAndShortLap, 1);
     expect(markup).toContain('«SHORT-LAP-RIDER»');
@@ -165,7 +189,7 @@ describe('the three states render inline', () => {
     expect(markup).not.toMatch(/>0%</);
   });
 
-  it('gives DNF its own chip class; a short-lap rider gets no chip, just her numeral', () => {
+  it('gives DNF its own chip class; a short-lap rider gets no chip, just the numeral', () => {
     const markup = render(withDnfAndShortLap, 1);
     expect(markup).toMatch(/bg-fg[^"]*"[^>]*>DNF/);
     // `bg-navy` was the lapped chip's tone (issue #111) — retired along with

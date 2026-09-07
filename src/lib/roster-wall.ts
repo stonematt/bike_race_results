@@ -6,12 +6,12 @@
  * a magnitude:
  *
  *   - **positioned** — the rider has a published place at that Round. This
- *     includes a rider who rode fewer laps than her category's leaders: NICA
- *     orders her in the same single sequence as everyone else (issue #111),
- *     so her lap deficit rides beside her place as an annotation, never in
- *     place of it.
- *   - **started but not positioned** — she started and the source gives her
- *     no ordinal: a DNF. (Before issue #111 this bucket also caught a
+ *     includes a rider who rode fewer laps than the category's leaders: NICA
+ *     orders the rider in the same single sequence as everyone else (issue
+ *     #111), so the lap deficit rides beside the place as an annotation,
+ *     never in place of it.
+ *   - **started but not positioned** — the rider started and the source
+ *     gives no ordinal: a DNF. (Before issue #111 this bucket also caught a
  *     short-lap finisher; that was the bug, not a second real case.)
  *   - **did not start** — on the roster for the Season, no `individual_result`
  *     row at any Event belonging to that Round. This is the *absence* of a
@@ -33,7 +33,7 @@
 
 export type RosterWallCellState = 'positioned' | 'started-not-positioned' | 'did-not-start';
 
-/** A rider on the Squad, as the wall renders her — one row. */
+/** A rider on the Squad, as the wall renders it — one row. */
 export type RosterWallRider = {
   riderId: number;
   riderName: string;
@@ -68,7 +68,7 @@ export type RosterWallResult = {
   /**
    * Null for a DNF or a row whose lap count could not be compared; 0 for a
    * rider who rode the full distance. A positive count is the annotation
-   * beside her place, never a reason to withhold it (issue #111).
+   * beside the place, never a reason to withhold it (issue #111).
    */
   lapsDown: number | null;
   fieldSize: number;
@@ -81,15 +81,15 @@ export type RosterWallPositionedCell = {
   state: 'positioned';
   place: string;
   pctBack: number | null;
-  /** Her lap deficit, when NICA recorded one — an annotation beside `place`,
-   *  never a reason it goes missing (issue #111). Null when unknown, 0 when
-   *  she rode the full distance. */
+  /** The rider's lap deficit, when NICA recorded one — an annotation beside
+   *  `place`, never a reason it goes missing (issue #111). Null when
+   *  unknown, 0 when the rider rode the full distance. */
   lapsDown: number | null;
   fieldSize: number;
   category: string;
 };
 
-/** She started and the source gives her no ordinal at all: a DNF. */
+/** The rider started and the source gives no ordinal at all: a DNF. */
 export type RosterWallStartedCell = {
   state: 'started-not-positioned';
   reason: 'dnf';
@@ -103,7 +103,7 @@ export type RosterWallAbsentCell = {
 export type RosterWallCell =
   RosterWallPositionedCell | RosterWallStartedCell | RosterWallAbsentCell;
 
-/** One row of the wall: a rider, and her mark at every column in `rounds` order. */
+/** One row of the wall: a rider, and the rider's mark at every column in `rounds` order. */
 export type RosterWallRow = {
   rider: RosterWallRider;
   /** Parallel to the `rounds` array `buildRosterWall` was given, in that order. */
@@ -116,8 +116,8 @@ function byOrdinal(a: RosterWallRound, b: RosterWallRound): number {
 }
 
 /** The mark for one resolved result. DNF is the only reason a result carries
- *  no position — a short-lap finisher is positioned with her published place,
- *  her lap deficit riding beside it as an annotation (issue #111). */
+ *  no position — a short-lap finisher is positioned with the published
+ *  place, the lap deficit riding beside it as an annotation (issue #111). */
 function markFor(result: RosterWallResult): RosterWallPositionedCell | RosterWallStartedCell {
   if (result.status === 'dnf') return { state: 'started-not-positioned', reason: 'dnf' };
   return {
