@@ -21,8 +21,8 @@ function row(over: Partial<CategoryFieldRow>): CategoryFieldRow {
     scoringTeam: 'Some Team',
     place: '3',
     status: 'finished',
-    isLapped: false,
     pctBack: 5.2,
+    lapsDown: 0,
     riderId: null,
     isSquadMate: false,
     ...over,
@@ -58,7 +58,7 @@ const largeField: CategoryField = {
   ],
 };
 
-const withDnfAndLapped: CategoryField = {
+const withDnfAndShortLap: CategoryField = {
   categoryName: 'HS2 Girls',
   scope: 'league',
   conference: null,
@@ -69,9 +69,9 @@ const withDnfAndLapped: CategoryField = {
       plate: '2',
       place: '65',
       status: 'finished',
-      isLapped: true,
+      lapsDown: 1,
       pctBack: null,
-      displayName: '«LAPPED-RIDER»',
+      displayName: '«SHORT-LAP-RIDER»',
       riderId: null,
     }),
     row({
@@ -79,6 +79,7 @@ const withDnfAndLapped: CategoryField = {
       place: '*',
       status: 'dnf',
       pctBack: null,
+      lapsDown: null,
       displayName: '«DNF-RIDER»',
       riderId: null,
     }),
@@ -134,36 +135,42 @@ describe('who is included', () => {
   });
 
   it('says league-wide instead of naming a Conference, at State Champs', () => {
-    const markup = render(withDnfAndLapped, 1);
+    const markup = render(withDnfAndShortLap, 1);
     expect(markup).toContain('every starter across the league');
   });
 });
 
 describe('the three states render inline', () => {
   it('draws a DNF as a row with no position, not a missing row', () => {
-    const markup = render(withDnfAndLapped, 1);
+    const markup = render(withDnfAndShortLap, 1);
     expect(markup).toContain('«DNF-RIDER»');
     expect(markup).toContain('>DNF<');
     expect((markup.match(/<li/g) ?? []).length).toBe(3);
   });
 
-  it('draws a lapped rider as a row with no position, not her published rank', () => {
-    const markup = render(withDnfAndLapped, 1);
-    expect(markup).toContain('«LAPPED-RIDER»');
-    expect(markup).toContain('>Lapped<');
-    expect(markup).not.toContain('>65<');
+  it('draws a short-lap rider with her published place, her deficit riding beside it (issue #111)', () => {
+    // NICA orders her in the same single sequence as everyone else, so her
+    // row carries the numeral like anyone else's — never a state chip in
+    // place of it.
+    const markup = render(withDnfAndShortLap, 1);
+    expect(markup).toContain('«SHORT-LAP-RIDER»');
+    expect(markup).toContain('>65<');
+    expect(markup).toContain('−1 lap');
+    expect(markup).not.toContain('>Lapped<');
   });
 
   it('never renders a null percent back as zero or as blank silence', () => {
-    const markup = render(withDnfAndLapped, 1);
+    const markup = render(withDnfAndShortLap, 1);
     expect(markup).toContain('no gap published');
     expect(markup).not.toMatch(/>0%</);
   });
 
-  it('gives DNF and lapped their own chip class, matching the wall’s tones', () => {
-    const markup = render(withDnfAndLapped, 1);
+  it('gives DNF its own chip class; a short-lap rider gets no chip, just her numeral', () => {
+    const markup = render(withDnfAndShortLap, 1);
     expect(markup).toMatch(/bg-fg[^"]*"[^>]*>DNF/);
-    expect(markup).toMatch(/bg-navy[^"]*"[^>]*>Lapped/);
+    // `bg-navy` was the lapped chip's tone (issue #111) — retired along with
+    // the chip it painted, since a short-lap rider gets no chip at all now.
+    expect(markup).not.toContain('bg-navy');
   });
 });
 

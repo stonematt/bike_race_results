@@ -91,11 +91,23 @@ season individual standings cover both.
 
 **Percent Back**:
 How far behind the Category's winner a Rider finished, as a percentage. The form metric.
-Null for a DNF and for a lapped rider. Measured within Category, so it is **not**
-comparable across Conferences: through Round 4 two riders at 8% back are each 8% behind
-a different person. The Prologue is not an exception — it is chip-timed with a real
+Null for a DNF and for a Rider carrying a Lap Deficit. Measured within Category, so it is
+**not** comparable across Conferences: through Round 4 two riders at 8% back are each 8%
+behind a different person. The Prologue is not an exception — it is chip-timed with a real
 podium and a comparable time, so Percent Back works there, and it is the cleanest
 reading of the season.
+
+**Lap Deficit**:
+How many laps fewer than her Category's leaders a Rider rode, as a count. Description,
+and an annotation only: it rides beside her published place and never replaces it. NICA
+orders short-lap Riders in the same single sequence as everyone else — laps first, then
+time — so the place is real and contiguous, and the app renders it verbatim. What the
+deficit does withhold is Percent Back, which stays null: her clock can be _faster_ than
+the winner's because she rode less, and a naive ratio would rank her first.
+_Avoid_: Lapped, pulled, short-lapped — none of them are knowable. The league runs a
+required lap plus a bonus lap, and nothing published distinguishes a Rider caught at the
+line from one who simply did not take the bonus lap. The count is the whole of what is
+known.
 
 **Season Points**:
 The league's published season standing totals. The standing metric. Read verbatim,
@@ -122,7 +134,7 @@ Rider. The queue a coach drains to grow the Roster from what actually raced.
 
 **Description**:
 Anything recomputable from the published rows that carries no consequence — Percent
-Back, lapped, field size, Start count. Ours to derive.
+Back, Lap Deficit, field size, Start count. Ours to derive.
 
 **Adjudication**:
 Anything the league decides and acts on — Season Points, season place, category

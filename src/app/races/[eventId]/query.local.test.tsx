@@ -111,15 +111,16 @@ describe('the page opens a real archived race', () => {
   });
 });
 
-describe('guard 1 — the lapped riders at Race 4 North', () => {
-  it('renders eight of them as a lap deficit, and none as a percentage', () => {
-    const lapped = cards(raceFour).filter((rider) => rider.card.headline.kind === 'laps-down');
+describe('guard 1 — the short-lap riders at Race 4 North', () => {
+  it('renders eight of them with their published place, a lap-deficit caption, and never a percentage', () => {
+    const lapped = cards(raceFour).filter((rider) => rider.card.headline.kind === 'place-deficit');
     expect(lapped).toHaveLength(8);
 
     for (const rider of lapped) {
-      expect(rider.card.headline.value).toMatch(/^−\d+ laps?$/);
+      expect(rider.card.headline.value).toBe(rider.card.mark.place);
+      expect(rider.card.headline.caption).toMatch(/^of \d+ · −\d+ laps?$/);
       expect(rider.card.mark.pct).toBeNull();
-      expect(rider.card.outside?.kind).toBe('lapped');
+      expect(rider.card.outside?.kind).toBe('lap-deficit');
     }
   });
 

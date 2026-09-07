@@ -14,7 +14,7 @@ import type { FieldMark } from './field-strip.ts';
 
 const CHIP_TONE: Record<Chip['tone'], string> = {
   dnf: 'bg-fg text-bg',
-  lapped: 'bg-navy text-white',
+  'lap-deficit': 'bg-navy text-white',
   // Orange is a highlight, never a field — and ink on orange, never white.
   good: 'bg-accent on-accent',
 };

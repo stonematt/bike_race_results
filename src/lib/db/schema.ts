@@ -186,10 +186,12 @@ export const individualResult = pgTable(
     place: text('place').notNull(),
     /**
      * finished | dnf — the only values ingest ever writes. No DQ, no DNS —
-     * zero of each in a full season. Lapped-ness is not a value of this
-     * column: it needs the category's leading lap count, which no single row
-     * carries, so `v_race_result` derives it as a separate `is_lapped`
-     * boolean rather than a third status here.
+     * zero of each in a full season. A short lap count is not a value of this
+     * column and never became one: it needs the category's leading lap count,
+     * which no single row carries, so `v_race_result` derives `laps_down`
+     * alongside rather than adding a third status here. That it is not a
+     * status is the whole of ADR-0004 — a rider who rode fewer laps still
+     * holds the place NICA published, and the deficit only annotates it.
      */
     status: text('status').notNull(),
     /** "[H:]MM:SS.cc", or "DNF". Verbatim. */

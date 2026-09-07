@@ -5,10 +5,14 @@
  * columns are Rounds in the Season**, and each cell is a three-state mark, not
  * a magnitude:
  *
- *   - **positioned** — the rider has a published place at that Round.
- *   - **started but not positioned** — she started and has no position: a DNF,
- *     or lapped. (`v_race_result`'s `is_lapped` already excludes DNFs, so a
- *     lapped rider here always has `status = 'finished'`.)
+ *   - **positioned** — the rider has a published place at that Round. This
+ *     includes a rider who rode fewer laps than her category's leaders: NICA
+ *     orders her in the same single sequence as everyone else (issue #111),
+ *     so her lap deficit rides beside her place as an annotation, never in
+ *     place of it.
+ *   - **started but not positioned** — she started and the source gives her
+ *     no ordinal: a DNF. (Before issue #111 this bucket also caught a
+ *     short-lap finisher; that was the bug, not a second real case.)
  *   - **did not start** — on the roster for the Season, no `individual_result`
  *     row at any Event belonging to that Round. This is the *absence* of a
  *     result, never a status value — the source publishes only
@@ -21,9 +25,10 @@
  * boundary honest — this file only arranges facts, it never computes one.
  *
  * ADR-0001 line, restated for this module: a positioned cell carries place (as
- * published), percent back, lapped, field size and category — all description.
- * It never carries or invents points, season place, category assignment, DQ or
- * eligibility. Those are adjudication, and NICA is the scoring authority.
+ * published), percent back, lap deficit, field size and category — all
+ * description. It never carries or invents points, season place, category
+ * assignment, DQ or eligibility. Those are adjudication, and NICA is the
+ * scoring authority.
  */
 
 export type RosterWallCellState = 'positioned' | 'started-not-positioned' | 'did-not-start';
@@ -58,28 +63,36 @@ export type RosterWallResult = {
   /** Verbatim. `*`, `DNF` or empty for a non-finisher — never rewritten. */
   place: string;
   status: 'finished' | 'dnf';
-  isLapped: boolean;
-  /** Null for a DNF, a lapped rider, or anyone the source could not compare. */
+  /** Null for a DNF, or anyone the source could not compare. */
   pctBack: number | null;
+  /**
+   * Null for a DNF or a row whose lap count could not be compared; 0 for a
+   * rider who rode the full distance. A positive count is the annotation
+   * beside her place, never a reason to withhold it (issue #111).
+   */
+  lapsDown: number | null;
   fieldSize: number;
   /** The canonical category name, as `v_individual_result` resolves it. */
   category: string;
 };
 
-/** A published place, a comparable time, and the description around it. */
+/** A published place, a comparable time (or not), and the description around it. */
 export type RosterWallPositionedCell = {
   state: 'positioned';
   place: string;
   pctBack: number | null;
-  isLapped: false;
+  /** Her lap deficit, when NICA recorded one — an annotation beside `place`,
+   *  never a reason it goes missing (issue #111). Null when unknown, 0 when
+   *  she rode the full distance. */
+  lapsDown: number | null;
   fieldSize: number;
   category: string;
 };
 
-/** She started and the source gives her no position: a DNF, or lapped. */
+/** She started and the source gives her no ordinal at all: a DNF. */
 export type RosterWallStartedCell = {
   state: 'started-not-positioned';
-  reason: 'dnf' | 'lapped';
+  reason: 'dnf';
 };
 
 /** No `individual_result` row at any Event of this Round. */
@@ -102,17 +115,16 @@ function byOrdinal(a: RosterWallRound, b: RosterWallRound): number {
   return a.roundOrdinal - b.roundOrdinal;
 }
 
-/** The mark for one resolved result. Lapped is checked before place, per the
- *  model: a lapped rider is "started but not positioned" even though the
- *  source still prints her a numeric finishing rank. */
+/** The mark for one resolved result. DNF is the only reason a result carries
+ *  no position — a short-lap finisher is positioned with her published place,
+ *  her lap deficit riding beside it as an annotation (issue #111). */
 function markFor(result: RosterWallResult): RosterWallPositionedCell | RosterWallStartedCell {
   if (result.status === 'dnf') return { state: 'started-not-positioned', reason: 'dnf' };
-  if (result.isLapped) return { state: 'started-not-positioned', reason: 'lapped' };
   return {
     state: 'positioned',
     place: result.place,
     pctBack: result.pctBack,
-    isLapped: false,
+    lapsDown: result.lapsDown,
     fieldSize: result.fieldSize,
     category: result.category,
   };

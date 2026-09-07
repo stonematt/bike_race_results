@@ -149,18 +149,27 @@ already finds the queue and the race page already warns about it; nothing yet ac
 
 ## Three states, everywhere
 
-Percent Back is null for a DNF and for a lapped rider. A season trend built on it
-therefore has holes by construction — and the rider most likely to have them is the
-finish-focused rider, not the podium chaser. So a rider's mark is never
+Percent Back is null for a DNF and for a rider carrying a Lap Deficit. A season trend
+built on it therefore has holes by construction — and the rider most likely to have them
+is the finish-focused rider, not the podium chaser. So a rider's mark is never
 present-or-missing. It is one of three:
 
-- **positioned** — has a Percent Back
-- **started, no comparable position** — DNF or lapped
+- **positioned** — the league published a place for her
+- **started, no comparable position** — DNF
 - **did not start** — no result row at all
 
-The middle state narrowed on 2026-09-06: the Prologue is chip-timed with a real podium
-and a comparable time, so it is not a hole at x=1 but the season's cleanest Percent Back
-and the natural first point of every rider's arc. **Watch the cost.** With Percent Back
+The middle state narrowed twice on 2026-09-06, and it is now a DNF and nothing else.
+
+First, **positioned stopped meaning "on the axis"** (ADR-0004). A rider who rode fewer
+laps than her Category's leaders still holds a published, contiguous place, so she is
+positioned and her place renders verbatim — but her Percent Back stays null and she gets
+no dot on the field strip. Her Lap Deficit renders beside her place as the annotation
+that says why. She had been filed in the middle state and her place discarded, which was
+a bug: the app was overriding a placement the league published.
+
+Second, the Prologue came out of it: it is chip-timed with a real podium and a comparable
+time, so it is not a hole at x=1 but the season's cleanest Percent Back and the natural
+first point of every rider's arc. **Watch the cost.** With Percent Back
 comparable at every Round, the cell of any grid _can_ carry magnitude instead of a mark.
 The three-state mark was doing protective work for the finish-oriented half of the
 roster; do not spend it just because the data now allows it.

@@ -100,7 +100,6 @@ function toResultRow(row: Row): RaceResultRow {
     status: row.status === 'dnf' ? 'dnf' : 'finished',
     timeRaw: str(row.time_raw),
     points: numOrNull(row.points),
-    isLapped: row.is_lapped === true,
     lapsDown: numOrNull(row.laps_down),
     pctBack: numOrNull(row.pct_back),
     fieldSize: num(row.field_size),

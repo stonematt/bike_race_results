@@ -27,7 +27,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
     status: 'finished',
     timeRaw: '47:09.83',
     points: 500,
-    isLapped: false,
     lapsDown: 0,
     pctBack: 0,
     fieldSize: 24,
@@ -44,7 +43,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
 const lapped = row({
   plate: '204',
   place: '65',
-  isLapped: true,
   lapsDown: 1,
   pctBack: null,
   fieldTopPct: 90,
@@ -60,7 +58,6 @@ const dnf = row({
   status: 'dnf',
   timeRaw: 'DNF',
   pctBack: null,
-  isLapped: false,
   lapsDown: null,
   fieldTopPct: null,
   points: 80,
@@ -81,9 +78,11 @@ function renderCard(source: RaceResultRow, name: string): string {
   return renderToStaticMarkup(<RiderCardView card={rider.card} field={rider.field} />);
 }
 
-describe('a lapped rider', () => {
-  it('shows the lap deficit', () => {
-    expect(renderCard(lapped, '«RIDER-B»')).toContain('−1 lap');
+describe('a short-lap rider', () => {
+  it('shows her published place as the headline, with the lap deficit beside it', () => {
+    const markup = renderCard(lapped, '«RIDER-B»');
+    expect(markup).toContain('>65<');
+    expect(markup).toContain('−1 lap');
   });
 
   it('shows no percentage of their own, anywhere on the card', () => {
@@ -91,7 +90,7 @@ describe('a lapped rider', () => {
     // may survive are the axis ceiling and the description that names it, both
     // of which are written `+N%` and are facts about the field rather than
     // about this rider. Take those out and no percent sign may remain — a
-    // lapped rider's clock time is not comparable to the winner's, so any
+    // short-lap rider's clock time is not comparable to the winner's, so any
     // percentage here would be the inversion this guard exists to prevent.
     const text = renderCard(lapped, '«RIDER-B»')
       .replace(/<[^>]*>/g, ' ')
@@ -100,8 +99,8 @@ describe('a lapped rider', () => {
     expect(text).toContain('−1 lap');
   });
 
-  it('names them beside the strip rather than on it', () => {
-    expect(renderCard(lapped, '«RIDER-B»')).toContain('«RIDER-B» — −1 lap · 65 of 24');
+  it('names them beside the strip, place first, rather than on it', () => {
+    expect(renderCard(lapped, '«RIDER-B»')).toContain('«RIDER-B» — 65 of 24 · −1 lap');
   });
 });
 

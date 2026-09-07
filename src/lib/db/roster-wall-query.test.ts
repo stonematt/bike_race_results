@@ -156,7 +156,7 @@ describe('loadRosterWallInputs, assembled through buildRosterWall', () => {
       state: 'positioned',
       place: '3',
       pctBack: expect.any(Number),
-      isLapped: false,
+      lapsDown: expect.any(Number),
       fieldSize: expect.any(Number),
       category: 'HS2 Girls',
     });

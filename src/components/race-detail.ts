@@ -5,10 +5,14 @@
  * each of these five is a real defect in the real data rather than a matter of
  * taste, and a rule you can call in a test is a rule that stays true:
  *
- *   1. A lapped rider renders `−1 lap` and **never a percentage**. At 2025 Race
- *      4 North a naive percent-back puts five 2-lap HS1 Boys ahead of the
- *      actual winner, because NICA pulls them at the line and scores them with
- *      a valid — and faster — clock time.
+ *   1. A rider who rode fewer laps than her category's leaders renders her
+ *      published place, verbatim, with the lap deficit (`−1 lap`) beside it —
+ *      and **never a percentage**. At 2025 Race 4 North a naive percent-back
+ *      puts five 2-lap HS1 Boys ahead of the actual winner, because NICA pulls
+ *      them at the line and scores them with a valid — and faster — clock
+ *      time. NICA orders them in the same single sequence as everyone else
+ *      (issue #111), so the place is not invented or demoted; only the
+ *      percentage is withheld.
  *   2. A category with fewer than ten starters shows **no percentile**. HS2
  *      Girls fielded 7 at that event, and Varsity Girls fielded ONE at Race 2
  *      North; "100th percentile" over n=1 reads as an achievement.
@@ -28,13 +32,14 @@
  * ascending, then the riders the source could not place. See `compareRiders`.
  *
  * The one thing this module never does is arithmetic on a result. Percent back,
- * the percentile, the lap deficit and the lapped flag all arrive computed from
+ * the percentile and the lap deficit all arrive computed from
  * `v_race_result`; place, time and points are the source's own strings. **NICA
  * is the scoring authority** (issue #1) — this file decides what is shown, not
  * what is true.
  */
 
 import type { FieldMark, OutsideMark } from './field-strip.ts';
+import { lapsDownText } from './lap-deficit.ts';
 
 /**
  * One row of `v_race_result`, narrowed to what the page reads.
@@ -51,7 +56,10 @@ export type RaceResultRow = {
   /** Verbatim, `DNF` included. */
   timeRaw: string;
   points: number | null;
-  isLapped: boolean;
+  /**
+   * Laps fewer than her Category's leaders. Populated for a DNF too, where it
+   * means nothing — every reader below rules out a DNF first (ADR-0004).
+   */
   lapsDown: number | null;
   pctBack: number | null;
   fieldSize: number;
@@ -65,11 +73,13 @@ export type RaceResultRow = {
   lapSeconds: number[];
 };
 
-/** The big number on a card. Exactly one of three kinds — never a percentage
- *  for a rider whose time is not comparable. */
+/** The big number on a card. Exactly one of four kinds — never a percentage
+ *  for a rider whose time is not comparable. `place-deficit` is a published
+ *  place carrying a lap-deficit caption, not a different rank: NICA orders a
+ *  short-lap rider in the same single sequence as everyone else (issue #111). */
 export type Headline =
   | { kind: 'pct-back'; value: string; caption: string }
-  | { kind: 'laps-down'; value: string; caption: string }
+  | { kind: 'place-deficit'; value: string; caption: string }
   | { kind: 'place'; value: string; caption: string }
   | { kind: 'dnf'; value: string; caption: null };
 
@@ -80,7 +90,7 @@ export type LapDisplay =
   | { kind: 'value'; label: string; value: string }
   | { kind: 'bars'; bars: { label: string; seconds: number; height: number; best: boolean }[] };
 
-export type Chip = { text: string; tone: 'lapped' | 'dnf' | 'good' };
+export type Chip = { text: string; tone: 'lap-deficit' | 'dnf' | 'good' };
 
 export type RiderCard = {
   plate: string;
@@ -109,11 +119,6 @@ export type SquadCard = {
 
 export type UnmappedRider = { plate: string; name: string; scoringTeam: string };
 
-/** The minus sign is U+2212, not a hyphen. A lap deficit is a number, not a dash. */
-export function lapsDownText(lapsDown: number): string {
-  return `−${lapsDown} lap${lapsDown === 1 ? '' : 's'}`;
-}
-
 /**
  * The "Field" cell, and guards 2 and 3 in four lines.
  *
@@ -133,17 +138,26 @@ export function fieldPosition(row: RaceResultRow): string | null {
  * Guard 1, and the reason this function exists at all.
  *
  * A percentage is offered only to a rider whose time is comparable to the
- * winner's. `pctBack` is null for everyone else — a DNF, a lapped rider, and
- * every rider in a time trial — and a null here becomes a different kind of
- * headline rather than a blank or a zero.
+ * winner's. `pctBack` is null for everyone else — a DNF, a short-lap rider,
+ * and every rider in a time trial — and a null here becomes a different kind
+ * of headline rather than a blank or a zero.
+ *
+ * A short-lap rider's headline is her published place, exactly as printed —
+ * NICA orders her in the same single sequence as everyone else (issue #111),
+ * so the place is never demoted. The lap deficit rides beside it as the
+ * caption, which is the one fact that distinguishes this from an ordinary
+ * `place` headline.
  */
 export function headline(row: RaceResultRow): Headline {
   if (row.status === 'dnf') return { kind: 'dnf', value: 'DNF', caption: null };
-  if (row.isLapped && row.lapsDown !== null) {
+  if (row.lapsDown) {
     return {
-      kind: 'laps-down',
-      value: lapsDownText(row.lapsDown),
-      caption: `${row.place} of ${row.fieldSize}`,
+      kind: 'place-deficit',
+      value: row.place,
+      // Field size first, exactly as the `place` kind below captions it — she
+      // is read against the same field as everyone else, and dropping it here
+      // would make her card the one that does not say how big her race was.
+      caption: `of ${row.fieldSize} · ${lapsDownText(row.lapsDown)}`,
     };
   }
   if (row.pctBack === null) {
@@ -213,8 +227,8 @@ export function lapDisplay(row: RaceResultRow): LapDisplay {
 export function chips(row: RaceResultRow): Chip[] {
   const out: Chip[] = [];
   if (row.status === 'dnf') out.push({ text: 'DNF', tone: 'dnf' });
-  else if (row.isLapped && row.lapsDown !== null) {
-    out.push({ text: lapsDownText(row.lapsDown), tone: 'lapped' });
+  else if (row.lapsDown) {
+    out.push({ text: lapsDownText(row.lapsDown), tone: 'lap-deficit' });
   }
   if (row.scored) out.push({ text: 'scored', tone: 'good' });
   if (row.ptsLeader) out.push({ text: 'pts leader', tone: 'good' });
@@ -226,13 +240,15 @@ export function markFor(row: RaceResultRow, name: string): FieldMark {
   return { pct: row.pctBack, place: row.place, ours: true, label: name };
 }
 
-/** Their line beside the strip, when the axis has no place for them. */
+/** Their line beside the strip, when the axis has no place for them. Leads
+ *  with the published place — the fact that carries the race — and the lap
+ *  deficit follows as the reason there is no dot on the axis. */
 export function outsideFor(row: RaceResultRow, name: string): OutsideMark | null {
   if (row.status === 'dnf') return { text: `${name} — DNF`, kind: 'dnf' };
-  if (row.isLapped && row.lapsDown !== null) {
+  if (row.lapsDown) {
     return {
-      text: `${name} — ${lapsDownText(row.lapsDown)} · ${row.place} of ${row.fieldSize}`,
-      kind: 'lapped',
+      text: `${name} — ${row.place} of ${row.fieldSize} · ${lapsDownText(row.lapsDown)}`,
+      kind: 'lap-deficit',
     };
   }
   return null;

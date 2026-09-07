@@ -4,6 +4,7 @@ import {
   HER_ROW_ID,
   anchorHeadline,
   listDescription,
+  rowDeficit,
   rowMark,
   scopeStatement,
 } from './category-view.ts';
@@ -12,7 +13,7 @@ import {
  * The crossing's destination (ADR-0002, issue #92): a ranked list anchored on
  * her own row, not a distribution. `docs/adr/0001-description-not-adjudication.md`
  * line, restated here: every fact this component draws — place, percent
- * back, lapped, field size — comes verbatim from `CategoryField`
+ * back, lap deficit, field size — comes verbatim from `CategoryField`
  * (`src/lib/category.ts`), already ranked; this component never re-sorts or
  * re-derives any of it.
  *
@@ -26,11 +27,14 @@ import {
  * corpus: 2 riders (`Varsity Girls - South`) or 80 (`HS1 Boys - North`), her
  * row is one native scroll away, never a search through a wall of names.
  *
- * The three states render inline, in the list's own order: a DNF or a
- * lapped rider is a row with no numeric place, never a row that is missing.
- * Her row and a squad-mate's row are told apart from an ordinary row by more
- * than colour — each carries its own text badge and its own left border, not
- * only a tint.
+ * The three states render inline, in the list's own order: a DNF is a row
+ * with no numeric place, never a row that is missing. A short-lap rider is
+ * NOT a fourth state — NICA orders her in the same single sequence as
+ * everyone else (issue #111), so her row carries a numeral like anyone
+ * else's, with her lap deficit as an annotation beside it, never a chip in
+ * place of the numeral. Her row and a squad-mate's row are told apart from an
+ * ordinary row by more than colour — each carries its own text badge and its
+ * own left border, not only a tint.
  */
 export type CategoryViewProps = {
   field: CategoryField;
@@ -38,16 +42,15 @@ export type CategoryViewProps = {
   riderId: number;
 };
 
-const CHIP_TONE: Record<'dnf' | 'lapped', string> = {
-  dnf: 'bg-fg text-bg',
-  lapped: 'bg-navy text-white',
-};
+/* Only DNF gets a chip now (issue #111): a short-lap rider holds a published
+ * place, so she gets the numeral like anyone else, not a chip in its place.
+ */
+const DNF_CHIP_TONE = 'bg-fg text-bg';
 
 function RowMark({ row }: { row: CategoryFieldRow }) {
-  if (row.status === 'dnf' || row.isLapped) {
-    const tone = row.status === 'dnf' ? 'dnf' : 'lapped';
+  if (row.status === 'dnf') {
     return (
-      <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${CHIP_TONE[tone]}`}>
+      <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${DNF_CHIP_TONE}`}>
         {rowMark(row)}
       </span>
     );
@@ -57,6 +60,14 @@ function RowMark({ row }: { row: CategoryFieldRow }) {
       {rowMark(row)}
     </span>
   );
+}
+
+/** Her lap deficit, beside her mark — the annotation, never a replacement
+ *  for the numeral `RowMark` already drew (issue #111). */
+function RowDeficit({ row }: { row: CategoryFieldRow }) {
+  const deficit = rowDeficit(row);
+  if (deficit === null) return null;
+  return <span className="text-muted block text-[10px] leading-none">{deficit}</span>;
 }
 
 /** One row of the ranked list. `isHer` and `isSquadMate` are mutually
@@ -75,7 +86,10 @@ function Row({ row, isHer }: { row: CategoryFieldRow; isHer: boolean }) {
       className={`border-border flex items-center justify-between gap-3 border-b p-2 text-sm ${tone}`}
     >
       <div className="flex items-center gap-3">
-        <RowMark row={row} />
+        <div>
+          <RowMark row={row} />
+          <RowDeficit row={row} />
+        </div>
         <div>
           <div className="font-semibold">
             {row.displayName}
@@ -117,6 +131,9 @@ export function CategoryView({ field, riderId }: CategoryViewProps) {
           <p className="font-display mt-1 text-3xl leading-none">
             {anchorHeadline(her, field.fieldSize)}
           </p>
+          {rowDeficit(her) ? (
+            <p className="text-muted mt-0.5 text-xs font-semibold">{rowDeficit(her)}</p>
+          ) : null}
           <p
             className={
               her.pctBack === null

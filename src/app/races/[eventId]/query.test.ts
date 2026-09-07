@@ -227,19 +227,19 @@ describe('the strip is drawn against the whole category', () => {
     expect(rider.field).toHaveLength(HS2_GIRLS.length);
   });
 
-  it('leaves the lapped and the DNF off the axis', async () => {
+  it('leaves the short-lap rider and the DNF off the axis', async () => {
     const field = (await cardFor('«RIDER-A»')).field;
     expect(field.filter((m) => m.pct === null)).toHaveLength(2);
   });
 });
 
 describe('the five guards, on rows that came out of the database', () => {
-  it('renders a lapped rider as a lap deficit and never a percentage', async () => {
+  it('renders a short-lap rider’s published place, with the lap deficit as its caption', async () => {
     const rider = await cardFor('«RIDER-B»');
     expect(rider.card.headline).toEqual({
-      kind: 'laps-down',
-      value: '−1 lap',
-      caption: '11 of 12',
+      kind: 'place-deficit',
+      value: '11',
+      caption: 'of 12 · −1 lap',
     });
     expect(rider.card.mark.pct).toBeNull();
   });

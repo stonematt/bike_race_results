@@ -18,7 +18,6 @@ import {
   fieldsByCategory,
   headline,
   lapDisplay,
-  lapsDownText,
   outsideFor,
   placeRank,
   riderCard,
@@ -26,6 +25,7 @@ import {
   stats,
   type RaceResultRow,
 } from './race-detail.ts';
+import { lapsDownText } from './lap-deficit.ts';
 
 /** A finisher who rode the full distance, in a field big enough to rank. */
 function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
@@ -36,7 +36,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
     status: 'finished',
     timeRaw: '47:09.83',
     points: 500,
-    isLapped: false,
     lapsDown: 0,
     pctBack: 0,
     fieldSize: 24,
@@ -58,7 +57,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
 const lapped = row({
   plate: '204',
   place: '65',
-  isLapped: true,
   lapsDown: 1,
   pctBack: null,
   fieldTopPct: 90,
@@ -75,7 +73,6 @@ const dnf = row({
   status: 'dnf',
   timeRaw: 'DNF',
   pctBack: null,
-  isLapped: false,
   lapsDown: null,
   fieldTopPct: null,
   points: 80,
@@ -84,13 +81,18 @@ const dnf = row({
   lapSeconds: [962.44],
 });
 
-describe('guard 1 — a lapped rider never renders a percentage', () => {
-  it('renders the lap deficit, with a real minus sign', () => {
+describe('guard 1 — a short-lap rider renders her published place, never a percentage', () => {
+  it('leads with the published place; the lap deficit is the caption, with a real minus sign', () => {
+    // NICA still orders a short-lap rider in the same single sequence as
+    // everyone else (issue #111) — her place is not invented or demoted.
     const h = headline(lapped);
-    expect(h.kind).toBe('laps-down');
-    expect(h.value).toBe('−1 lap');
+    expect(h.kind).toBe('place-deficit');
+    expect(h.value).toBe('65');
+    // Field size first, exactly as an ordinary `place` headline captions it;
+    // the deficit follows as the one fact that distinguishes the two.
+    expect(h.caption).toBe('of 24 · −1 lap');
     // U+2212, not a hyphen-minus. A lap deficit is a number, not a dash.
-    expect(h.value.charCodeAt(0)).toBe(0x2212);
+    expect(h.caption?.charCodeAt(h.caption.indexOf('1') - 1)).toBe(0x2212);
   });
 
   it('pluralises a deficit of more than one lap', () => {
@@ -110,11 +112,13 @@ describe('guard 1 — a lapped rider never renders a percentage', () => {
     expect(rendered).not.toMatch(/%/);
   });
 
-  it('gives them no position on the axis, and a line beside it instead', () => {
-    expect(riderCard(lapped, '«RIDER-B»').mark.pct).toBeNull();
+  it('gives them no position on the axis, and her place with its deficit beside it instead', () => {
+    const card = riderCard(lapped, '«RIDER-B»');
+    expect(card.mark.pct).toBeNull();
+    expect(card.mark.place).toBe('65');
     expect(outsideFor(lapped, '«RIDER-B»')).toEqual({
-      text: '«RIDER-B» — −1 lap · 65 of 24',
-      kind: 'lapped',
+      text: '«RIDER-B» — 65 of 24 · −1 lap',
+      kind: 'lap-deficit',
     });
   });
 });

@@ -3,6 +3,7 @@ import type { RosterWallCell, RosterWallRound, RosterWallRow } from '@/lib/roste
 import {
   buildRosterWallColumns,
   categoryHref,
+  cellDeficit,
   cellMark,
   describeCell,
   pctBackText,
@@ -19,11 +20,12 @@ import {
  * deliberate constraint, restated here because it is the one thing this
  * component must never quietly undo: no bar, no sparkline, nothing that
  * encodes "how well" as a length or an area. A positioned cell states its
- * place, its field size and its percent back, verbatim, in words. A
- * started-not-positioned cell says DNF or Lapped, in words. A did-not-start
- * cell is visibly empty — and, because empty must not read as a bad result,
- * it carries no chip, no colour and no glyph that a coach could mistake for
- * one.
+ * place, its field size, its percent back and — when NICA recorded one — her
+ * lap deficit, verbatim, in words; a rider who rode fewer laps than her
+ * category's leaders is positioned, same as anyone else (issue #111). A
+ * started-not-positioned cell says DNF, in words. A did-not-start cell is
+ * visibly empty — and, because empty must not read as a bad result, it
+ * carries no chip, no colour and no glyph that a coach could mistake for one.
  *
  * The three states are told apart by more than colour: each has its own
  * shape (numeral vs. chip vs. nothing) and its own words, so a coach who
@@ -44,32 +46,33 @@ export type RosterWallProps = {
   rows: readonly RosterWallRow[];
 };
 
-/** A started-not-positioned cell's chip. Tone matches `RaceDetail.tsx`'s
- *  `CHIP_TONE` — the same words mean the same colours everywhere in the app. */
+/** A started-not-positioned cell's chip — always DNF now (issue #111): a
+ *  short-lap finisher is positioned, not this state. Tone matches
+ *  `RaceDetail.tsx`'s `CHIP_TONE.dnf` — the same word means the same colour
+ *  everywhere in the app. */
 function StartedNotPositionedCell({
   cell,
 }: {
   cell: Extract<RosterWallCell, { state: 'started-not-positioned' }>;
 }) {
-  const dnf = cell.reason === 'dnf';
   return (
-    <span
-      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-        dnf ? 'bg-fg text-bg' : 'bg-navy text-white'
-      }`}
-    >
+    <span className="rounded bg-fg px-2 py-0.5 text-[11px] font-semibold text-bg">
       {cellMark(cell)}
     </span>
   );
 }
 
-/** A positioned cell's place, field size and percent back — all read
- *  verbatim from the source, never re-derived (ADR-0001). */
+/** A positioned cell's place, field size, percent back and lap deficit — all
+ *  read verbatim from the source, never re-derived (ADR-0001). A short-lap
+ *  rider's deficit rides beside her place here, an annotation rather than a
+ *  reason her place goes unshown (issue #111). */
 function PositionedCell({ cell }: { cell: Extract<RosterWallCell, { state: 'positioned' }> }) {
+  const deficit = cellDeficit(cell);
   return (
     <div>
       <div className="font-display text-lg leading-none">{cell.place}</div>
       <div className="text-muted text-[10px]">of {cell.fieldSize}</div>
+      {deficit ? <div className="text-muted text-[10px]">{deficit}</div> : null}
       <div
         className={`text-[11px] ${
           cell.pctBack === null ? 'text-muted italic' : 'text-accent font-semibold'
@@ -174,7 +177,7 @@ export function RosterWall({ seasonYear, rounds, rows }: RosterWallProps) {
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">
           Roster wall: one row per rider, one column per round. Each cell states whether the rider
-          was positioned, started without a position — a DNF or lapped — or did not start.
+          was positioned, started without a position — a DNF — or did not start.
         </caption>
         <thead>
           <tr>

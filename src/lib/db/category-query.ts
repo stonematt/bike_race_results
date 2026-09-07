@@ -138,7 +138,7 @@ async function loadCategoryRows(
 
   const result = await db.execute(sql`
     select rr.plate, rr.display_name, rr.scoring_team, rr.place, rr.status,
-           rr.is_lapped, rr.pct_back, ident.rider_id
+           rr.pct_back, rr.laps_down, ident.rider_id
       from v_race_result rr
       left join (
         select event_id, plate, rider_id from v_rider_result
@@ -152,8 +152,8 @@ async function loadCategoryRows(
     scoringTeam: str(row.scoring_team),
     place: str(row.place),
     status: row.status === 'dnf' ? 'dnf' : 'finished',
-    isLapped: row.is_lapped === true,
     pctBack: numOrNull(row.pct_back),
+    lapsDown: numOrNull(row.laps_down),
     riderId: row.rider_id === null || row.rider_id === undefined ? null : num(row.rider_id),
   }));
 }

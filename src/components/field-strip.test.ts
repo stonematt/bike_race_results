@@ -28,10 +28,10 @@ describe('the invariant', () => {
   it('renders an unplaceable rider beside the strip when the caller says so', () => {
     const model = buildFieldStrip(
       [{ pct: null, ours: true, place: '*' }],
-      [{ text: '«RIDER-A» — −1 lap · 65 of 24', kind: 'lapped' }],
+      [{ text: '«RIDER-A» — 65 of 24 · −1 lap', kind: 'lap-deficit' }],
     );
     expect(model.dots).toHaveLength(0);
-    expect(model.outside[0]!.kind).toBe('lapped');
+    expect(model.outside[0]!.kind).toBe('lap-deficit');
   });
 });
 

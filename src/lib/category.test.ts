@@ -17,8 +17,8 @@ function row(over: Partial<CategoryFieldRow>): CategoryFieldRow {
     scoringTeam: 'Some Team',
     place: '3',
     status: 'finished',
-    isLapped: false,
     pctBack: 5.2,
+    lapsDown: 0,
     riderId: null,
     isSquadMate: false,
     ...over,
@@ -123,13 +123,17 @@ describe('description, never adjudication', () => {
     expect(field.rows[0]!.pctBack).toBeNull();
   });
 
-  it('carries a lapped rider’s pctBack as null even though she has a numeric place', () => {
-    // NICA still prints a rank for a rider it pulled at the line. Null pctBack
-    // here is exactly what the source view published — never recomputed.
+  it('carries a short-lap rider’s pctBack as null even though she has a numeric place', () => {
+    // NICA still prints a rank for a rider it pulled at the line, and orders
+    // her in the same single sequence as everyone else (issue #111). Null
+    // pctBack here is exactly what the source view published — never
+    // recomputed. Her place is untouched, and her lap deficit passes through
+    // as its own fact.
     const field = buildCategoryField('HS2 Girls - North', 'North', 1, [
-      row({ status: 'finished', isLapped: true, place: '65', pctBack: null }),
+      row({ status: 'finished', lapsDown: 1, place: '65', pctBack: null }),
     ]);
-    expect(field.rows[0]!.isLapped).toBe(true);
+    expect(field.rows[0]!.place).toBe('65');
+    expect(field.rows[0]!.lapsDown).toBe(1);
     expect(field.rows[0]!.pctBack).toBeNull();
   });
 });
