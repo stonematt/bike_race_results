@@ -49,7 +49,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { isRecord } from './is-record.ts';
-import { SLUG_PATTERN } from './slug.ts';
+import { SLUG_PATTERN, slugify } from './slug.ts';
 
 /** Repo root, resolved from this file so it does not depend on the cwd. */
 const repoRoot = path.join(import.meta.dirname, '..', '..');
@@ -340,6 +340,7 @@ export function parseClubConfig(raw: unknown, options: ParseClubConfigOptions): 
   if (club === '') problems.push('"club" must be a non-empty club name');
 
   const clubSlug = parseOptionalSlug(raw.clubSlug, '"clubSlug"', problems);
+  requireDerivableSlug(club, clubSlug, '"club"', problems);
 
   const season = raw.season;
   if (typeof season !== 'number' || !Number.isInteger(season)) {
@@ -368,6 +369,29 @@ function parseOptionalSlug(raw: unknown, where: string, problems: string[]): str
     return undefined;
   }
   return raw;
+}
+
+/**
+ * Refuse a name that cannot produce a slug when none was pinned.
+ *
+ * `slugify` returns the empty string for a name with nothing sluggable in it
+ * — punctuation only, or a script it does not transliterate. An empty slug
+ * satisfies the column's NOT NULL and then addresses nothing: the route would
+ * be `/2025/squad/` and the row would be unreachable. Nothing downstream
+ * catches it, so it is caught here, where there is an operator to tell — and
+ * the remedy is one they already have, since both fields accept an explicit
+ * slug precisely so a name never has to be the only source of one.
+ */
+function requireDerivableSlug(
+  name: string,
+  slug: string | undefined,
+  where: string,
+  problems: string[],
+): void {
+  if (name === '' || slug !== undefined || slugify(name) !== '') return;
+  problems.push(
+    `${where} "${name}" has no characters a slug can be derived from — set an explicit slug`,
+  );
 }
 
 function parseScoringTeams(
@@ -548,6 +572,7 @@ function parseSquads(raw: unknown, riderKeys: Set<string>, problems: string[]): 
     seenNames.add(name);
 
     const slug = parseOptionalSlug(entry.slug, `${where}.slug`, problems);
+    requireDerivableSlug(name, slug, `${where}.name`, problems);
 
     const rawMembers = entry.members;
     if (!Array.isArray(rawMembers)) {

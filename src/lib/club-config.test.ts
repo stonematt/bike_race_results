@@ -258,9 +258,35 @@ describe('club slug validation (issue #114)', () => {
     const problems = problemsOf(() => parse({ clubSlug: 'The Descenders' }));
     expect(problems[0]).toContain('clubSlug');
   });
+
+  it('refuses a club name no slug can be derived from, when none was pinned', () => {
+    // An empty derivation satisfies the column's NOT NULL and then addresses
+    // nothing — `/2025/squad/`. Caught here because this is the last point
+    // there is an operator to tell.
+    const problems = problemsOf(() => parse({ club: '!!!' }));
+    expect(problems.join(' ')).toContain('no characters a slug can be derived from');
+  });
+
+  it('accepts that same name once a slug is pinned explicitly', () => {
+    // The remedy the error names has to actually work.
+    const config = parse({ club: '!!!', clubSlug: 'descenders' });
+    expect(config.clubSlug).toBe('descenders');
+  });
 });
 
 describe('squad validation', () => {
+  it('refuses a squad name no slug can be derived from, when none was pinned', () => {
+    const problems = problemsOf(() => parse({ squads: [{ name: '???', members: ['rider-a'] }] }));
+    expect(problems.join(' ')).toContain('no characters a slug can be derived from');
+  });
+
+  it('accepts that same squad name once a slug is pinned explicitly', () => {
+    const config = parse({
+      squads: [{ name: '???', slug: 'descenders', members: ['rider-a'] }],
+    });
+    expect(config.squads[0]!.slug).toBe('descenders');
+  });
+
   it('refuses a member that is not a declared rider', () => {
     const problems = problemsOf(() =>
       parse({ squads: [{ name: 'Descenders', members: ['rider-z'] }] }),

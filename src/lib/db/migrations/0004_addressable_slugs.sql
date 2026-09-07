@@ -29,22 +29,40 @@
 --
 -- The backfill derives a slug from `name` in SQL: lower-case, every run of
 -- non-alphanumeric characters collapsed to one hyphen, leading and trailing
--- hyphens trimmed — the same algorithm `src/lib/slug.ts`'s `slugify` applies
--- in application code, so a freshly-seeded row and a backfilled one read the
--- same way. Two different names can slugify to the same value ("JV Squad" and
+-- hyphens trimmed. That is `src/lib/slug.ts`'s `slugify` minus one step —
+-- slugify also strips diacritics first, so "Cafe Racers" with an accent
+-- derives "cafe-racers" there and "caf-racers" here. The two do not have to
+-- agree: this runs once, over rows that already exist, and from then on the
+-- column is the identity. `slugify` only ever names a row this backfill
+-- never saw.
+--
+-- A name with nothing sluggable in it derives the empty string, which would
+-- satisfy NOT NULL and then address nothing — the route would be
+-- `/2025/squad/`. Those fall back to `club-<id>` / `squad-<id>`: ugly, but
+-- reachable, and a slug is editable afterwards. `club-config.ts` refuses such
+-- a name outright at seed time, where there is an operator to tell; here
+-- there is nobody to ask.
+--
+-- Two different names can slugify to the same value ("JV Squad" and
 -- "JV--Squad" both derive "jv-squad"), so the backfill closes with a
--- collision pass that appends the row's own id to every slug sharing one with
--- another row in its uniqueness scope — deterministic, and it never needs a
--- second pass because appending a unique id can only ever create a new
--- collision with another already-suffixed row from the same pass, which itself
--- carries a different id.
+-- collision pass appending the row's own id within its uniqueness scope.
+-- That is deterministic but not total: a scope holding "Foo" (id 5), "Foo"
+-- (id 7) and "Foo 5" (id 9) suffixes the first two to "foo-5" and "foo-7",
+-- and "foo-5" then collides with the untouched slug id 9 already had. The
+-- unique index below is what catches that — the migration aborts inside its
+-- transaction rather than seeding a duplicate, which is the right failure.
+-- Pin explicit slugs in the config if a real database ever holds names
+-- shaped like that.
 
 --------------------------------------------------------------------------------
 -- club.slug — globally unique, no season in the key (see header)
 --------------------------------------------------------------------------------
 ALTER TABLE "club" ADD COLUMN "slug" text;--> statement-breakpoint
 
-UPDATE "club" SET "slug" = trim(both '-' from regexp_replace(lower("name"), '[^a-z0-9]+', '-', 'g'));--> statement-breakpoint
+UPDATE "club" SET "slug" = coalesce(
+  nullif(trim(both '-' from regexp_replace(lower("name"), '[^a-z0-9]+', '-', 'g')), ''),
+  'club-' || "id"
+);--> statement-breakpoint
 
 -- Collision pass: every dev database seeds exactly one club today, so this is
 -- a no-op in practice and exists for the database that is not that one.
@@ -61,7 +79,10 @@ CREATE UNIQUE INDEX "club_slug_key" ON "club" USING btree ("slug");--> statement
 --------------------------------------------------------------------------------
 ALTER TABLE "squad" ADD COLUMN "slug" text;--> statement-breakpoint
 
-UPDATE "squad" SET "slug" = trim(both '-' from regexp_replace(lower("name"), '[^a-z0-9]+', '-', 'g'));--> statement-breakpoint
+UPDATE "squad" SET "slug" = coalesce(
+  nullif(trim(both '-' from regexp_replace(lower("name"), '[^a-z0-9]+', '-', 'g')), ''),
+  'squad-' || "id"
+);--> statement-breakpoint
 
 -- Collision pass, scoped to the same (club_id, season_id) the unique index
 -- below is scoped to — two clubs sharing a squad slug across each other is
