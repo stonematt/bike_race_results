@@ -27,6 +27,17 @@
  * signing in as `Coach@x` and `coach@x` cannot leave two rows behind — that
  * property lives with them because it is the allowlist's normalisation, not a
  * fact about this table.
+ *
+ * `user` carries no unique index on email (`schema.ts`), which is why this
+ * resolves by query rather than by an `on conflict` target. That leaves the
+ * check-then-act open in principle: two simultaneous first sign-ins for the
+ * same brand-new address could each miss the select and insert a row. Not
+ * worth closing here — the only caller that races is the development shim,
+ * behind a loopback bind and one operator — and closing it properly means a
+ * unique index on an adapter-owned table, which is a schema decision rather
+ * than a detail of this function. Written down so it is a known gap and not a
+ * surprise: the casing guarantee above is enforced by the callers, not by the
+ * database.
  */
 
 import { eq } from 'drizzle-orm';

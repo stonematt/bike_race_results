@@ -226,29 +226,6 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
 }
 
 /**
- * Find the `user` row for a normalised email, creating one if none exists.
- *
- * Shared by three callers with the same "resolve an address to a real user
- * row" problem: `seedAdmin`, for its own `--email`; squad-coach reconciliation
- * below, for whatever the coach-emails map names; and the dev credentials
- * provider (src/auth.ts), for whatever address was typed at sign-in — which is
- * why this is exported rather than kept private to seeding. All three need the
- * adapter's `user` table to hold a row keyed on that address before anything
- * can reference it by id.
- *
- * `user` is adapter-owned and carries no unique index on email (see
- * src/lib/db/schema.ts), so this resolves by query rather than an ON CONFLICT
- * target — the same reason `seedAdmin` already read before this was factored
- * out of it. A direct insert here is not a new liberty: `seedAdmin` has always
- * inserted into this table when an address has no row yet, and the shape
- * written — `email`, `name`, `id` left to its default — is exactly the shape
- * the adapter's own `createUser` would write. What would actually fight an
- * adapter upgrade is inventing a *different* shape (an extra required column,
- * a second identity index) out from under it; matching the one it already
- * expects does not.
- */
-
-/**
  * Make sure a coach holds a `squad_coach` row for every squad of their club in
  * a season, without touching any assignment already there.
  *

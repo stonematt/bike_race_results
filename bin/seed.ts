@@ -29,6 +29,15 @@
  *
  * Given both, the club config runs first so the admin lands on the club it
  * created. Safe to re-run — a second pass changes nothing and says so.
+ *
+ * **That order is load-bearing for `squad_coach` too, not only for club
+ * identity.** `seedClubConfig` reconciles squad coaches — it deletes the rows
+ * for a squad and re-inserts whatever the config names, so a dropped
+ * assignment actually disappears — while `seedAdmin` is add-only, guaranteeing
+ * the bootstrap admin can see their own squads. Run the other way round, the
+ * reconciliation's delete would wipe the link `seedAdmin` had just made, and a
+ * fresh database would come up with the admin coaching nothing. Do not swap
+ * these two blocks.
  */
 
 import { ClubConfigError, loadClubConfig, loadCoachEmails } from '../src/lib/club-config.ts';
