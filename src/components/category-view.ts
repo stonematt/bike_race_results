@@ -18,7 +18,7 @@
  */
 
 import type { CategoryField, CategoryFieldRow } from '@/lib/category.ts';
-import { lapsDownText } from './race-detail.ts';
+import { deficitText } from './lap-deficit.ts';
 import { CROSSING_ANCHOR } from './roster-wall-view.ts';
 
 /**
@@ -85,13 +85,13 @@ export function rowMark(row: CategoryFieldRow): string {
 
 /**
  * The lap deficit beside a row's mark, when NICA recorded one — the
- * annotation issue #111 keeps distinct from the place itself. Null for a DNF,
+ * annotation ADR-0004 keeps distinct from the place itself. Null for a DNF,
  * a full-distance finisher, or a row whose lap count could not be compared;
- * `lapsDownText` (`src/components/race-detail.ts`) is the one place that
- * spells the deficit out, reused here rather than reimplemented.
+ * `src/components/lap-deficit.ts` is the one place the deficit is spelled
+ * out, so the Category list and the wall cannot word it differently.
  */
 export function rowDeficit(row: CategoryFieldRow): string | null {
-  return row.lapsDown ? lapsDownText(row.lapsDown) : null;
+  return deficitText(row.lapsDown);
 }
 
 /**

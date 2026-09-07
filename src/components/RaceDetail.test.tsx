@@ -27,7 +27,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
     status: 'finished',
     timeRaw: '47:09.83',
     points: 500,
-    isLapped: false,
     lapsDown: 0,
     pctBack: 0,
     fieldSize: 24,
@@ -44,7 +43,6 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
 const lapped = row({
   plate: '204',
   place: '65',
-  isLapped: true,
   lapsDown: 1,
   pctBack: null,
   fieldTopPct: 90,
@@ -60,7 +58,6 @@ const dnf = row({
   status: 'dnf',
   timeRaw: 'DNF',
   pctBack: null,
-  isLapped: false,
   lapsDown: null,
   fieldTopPct: null,
   points: 80,

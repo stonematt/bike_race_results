@@ -21,7 +21,7 @@
  */
 
 import type { RosterWallCell, RosterWallRound } from '@/lib/roster-wall.ts';
-import { lapsDownText } from './race-detail.ts';
+import { deficitText } from './lap-deficit.ts';
 
 /** One column header: the Round it names, and where it links. */
 export type RosterWallColumn = {
@@ -94,13 +94,13 @@ export function cellMark(cell: RosterWallCell): string {
 
 /**
  * The lap deficit beside a positioned cell's place, when NICA recorded one —
- * the annotation issue #111 keeps distinct from the place itself. Null for a
+ * the annotation ADR-0004 keeps distinct from the place itself. Null for a
  * full-distance finisher or a row whose lap count could not be compared.
- * `lapsDownText` (`src/components/race-detail.ts`) is the one place that
- * spells the deficit out, reused here rather than reimplemented.
+ * `src/components/lap-deficit.ts` is the one place the deficit is spelled
+ * out, so the wall and the Category list cannot word it differently.
  */
 export function cellDeficit(cell: Extract<RosterWallCell, { state: 'positioned' }>): string | null {
-  return cell.lapsDown ? lapsDownText(cell.lapsDown) : null;
+  return deficitText(cell.lapsDown);
 }
 
 /**

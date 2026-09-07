@@ -39,6 +39,7 @@
  */
 
 import type { FieldMark, OutsideMark } from './field-strip.ts';
+import { lapsDownText } from './lap-deficit.ts';
 
 /**
  * One row of `v_race_result`, narrowed to what the page reads.
@@ -55,7 +56,10 @@ export type RaceResultRow = {
   /** Verbatim, `DNF` included. */
   timeRaw: string;
   points: number | null;
-  isLapped: boolean;
+  /**
+   * Laps fewer than her Category's leaders. Populated for a DNF too, where it
+   * means nothing — every reader below rules out a DNF first (ADR-0004).
+   */
   lapsDown: number | null;
   pctBack: number | null;
   fieldSize: number;
@@ -115,11 +119,6 @@ export type SquadCard = {
 
 export type UnmappedRider = { plate: string; name: string; scoringTeam: string };
 
-/** The minus sign is U+2212, not a hyphen. A lap deficit is a number, not a dash. */
-export function lapsDownText(lapsDown: number): string {
-  return `−${lapsDown} lap${lapsDown === 1 ? '' : 's'}`;
-}
-
 /**
  * The "Field" cell, and guards 2 and 3 in four lines.
  *
@@ -151,7 +150,7 @@ export function fieldPosition(row: RaceResultRow): string | null {
  */
 export function headline(row: RaceResultRow): Headline {
   if (row.status === 'dnf') return { kind: 'dnf', value: 'DNF', caption: null };
-  if (row.isLapped && row.lapsDown !== null) {
+  if (row.lapsDown) {
     return {
       kind: 'place-deficit',
       value: row.place,
@@ -228,7 +227,7 @@ export function lapDisplay(row: RaceResultRow): LapDisplay {
 export function chips(row: RaceResultRow): Chip[] {
   const out: Chip[] = [];
   if (row.status === 'dnf') out.push({ text: 'DNF', tone: 'dnf' });
-  else if (row.isLapped && row.lapsDown !== null) {
+  else if (row.lapsDown) {
     out.push({ text: lapsDownText(row.lapsDown), tone: 'lap-deficit' });
   }
   if (row.scored) out.push({ text: 'scored', tone: 'good' });
@@ -246,7 +245,7 @@ export function markFor(row: RaceResultRow, name: string): FieldMark {
  *  deficit follows as the reason there is no dot on the axis. */
 export function outsideFor(row: RaceResultRow, name: string): OutsideMark | null {
   if (row.status === 'dnf') return { text: `${name} — DNF`, kind: 'dnf' };
-  if (row.isLapped && row.lapsDown !== null) {
+  if (row.lapsDown) {
     return {
       text: `${name} — ${row.place} of ${row.fieldSize} · ${lapsDownText(row.lapsDown)}`,
       kind: 'lap-deficit',
