@@ -40,6 +40,15 @@
 
 import type { FieldMark, OutsideMark } from './field-strip.ts';
 import { lapsDownText } from './lap-deficit.ts';
+/**
+ * The fourteen published categories in the league's own ranking order. It
+ * moved out from under `src/components/` (issue #113) once the season roster
+ * wall needed the same fourteen the other way round — two copies of a
+ * league's category order would drift. This file's cards want them MS1 up to
+ * Varsity, which is `categoryRank`'s default `'ascending'`; see that module's
+ * header for why the list is written out rather than derived from
+ * `GRADE_BANDS`/`GENDERS`.
+ */
 import { categoryRank } from '../lib/category-order.ts';
 
 /**
@@ -306,16 +315,6 @@ export function categoryMarks(
 
 /** One of the club's riders at this race: their result, and who they are. */
 export type RiderEntry = { row: RaceResultRow; name: string };
-
-/**
- * `categoryRank`, imported above from `src/lib/category-order.ts`, ranks the
- * fourteen published categories in the order this file's cards want them:
- * MS1 up to Varsity, `categoryRank`'s default `'ascending'` direction. It
- * moved out from under `src/components/` (issue #113) once the season roster
- * wall needed the same fourteen the other way round; see that module's own
- * header for why the list is written out rather than derived from
- * `GRADE_BANDS`/`GENDERS`.
- */
 
 /** The only shape a published string is allowed to be read as a number in. */
 const WHOLE_NUMBER = /^\d+$/;
