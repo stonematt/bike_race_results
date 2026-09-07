@@ -20,8 +20,8 @@ import {
  * deliberate constraint, restated here because it is the one thing this
  * component must never quietly undo: no bar, no sparkline, nothing that
  * encodes "how well" as a length or an area. A positioned cell states its
- * place, its field size, its percent back and — when NICA recorded one — her
- * lap deficit, verbatim, in words; a rider who rode fewer laps than her
+ * place, its field size, its percent back and — when NICA recorded one — its
+ * lap deficit, verbatim, in words; a rider who rode fewer laps than the
  * category's leaders is positioned, same as anyone else (issue #111). A
  * started-not-positioned cell says DNF, in words. A did-not-start cell is
  * visibly empty — and, because empty must not read as a bad result, it
@@ -32,8 +32,8 @@ import {
  * cannot see colour still reads three different things.
  *
  * **The crossing** (ADR-0002, issue #92): a `positioned` or
- * `started-not-positioned` cell — any Round she started — links to her own
- * Category field at that Round (`categoryHref`, `src/components/roster-wall-view.ts`).
+ * `started-not-positioned` cell — any Round the rider started — links to the
+ * rider's own Category field at that Round (`categoryHref`, `src/components/roster-wall-view.ts`).
  * A `did-not-start` cell links nowhere; there is no Category to open for a
  * non-start. This is the one kind of link on the page that leaves the club
  * tree, so `Crossing` gives it its own mark rather than the plain underline
@@ -64,8 +64,8 @@ function StartedNotPositionedCell({
 
 /** A positioned cell's place, field size, percent back and lap deficit — all
  *  read verbatim from the source, never re-derived (ADR-0001). A short-lap
- *  rider's deficit rides beside her place here, an annotation rather than a
- *  reason her place goes unshown (issue #111). */
+ *  rider's deficit rides beside the place here, an annotation rather than a
+ *  reason the place goes unshown (issue #111). */
 function PositionedCell({ cell }: { cell: Extract<RosterWallCell, { state: 'positioned' }> }) {
   const deficit = cellDeficit(cell);
   return (
@@ -86,9 +86,9 @@ function PositionedCell({ cell }: { cell: Extract<RosterWallCell, { state: 'posi
 
 /**
  * The crossing (ADR-0002): the one link out of the club tree, from a cell
- * that started to her own Category field at that Round. Everywhere else on
- * this page is a link within the club tree (a round header to the Round
- * page); this is the single kind of link that leaves it, so it carries its
+ * that started to the rider's own Category field at that Round. Everywhere
+ * else on this page is a link within the club tree (a round header to the
+ * Round page); this is the single kind of link that leaves it, so it carries its
  * own small "↗ category" mark rather than the plain underline a round header
  * gets — a shape difference, not just a colour, and named in words for a
  * screen reader too.
@@ -114,7 +114,7 @@ function Crossing({
       >
         ↗ category
       </span>
-      <span className="sr-only">{`${describeCell(cell)}. Open her Category at this round.`}</span>
+      <span className="sr-only">{`${describeCell(cell)}. Open this rider's Category at this round.`}</span>
     </Link>
   );
 }
@@ -124,8 +124,8 @@ function Cell({ cell, href }: { cell: RosterWallCell; href: string | null }) {
     // Visibly empty, on purpose: a non-start must not read as a bad result,
     // so there is no chip, no glyph and no colour here at all — only the
     // fact, for a reader who cannot see that the cell is blank. It also
-    // never links: there is no Category to open for a Round she did not
-    // start.
+    // never links: there is no Category to open for a Round the rider did
+    // not start.
     return (
       <td className="border-border border p-2 text-center align-middle">
         <span className="sr-only">{describeCell(cell)}</span>

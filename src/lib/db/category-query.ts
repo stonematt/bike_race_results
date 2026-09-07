@@ -1,12 +1,13 @@
 /**
  * Everything the crossing reads, and the one place it reads it.
  *
- * Given a Rider and a Round, this module resolves the single Event her own
- * result sits in (`docs/ux/coach-flow-session.md`, Rule 3: a Squad-mate races
- * exactly one of the Round's Events, because a Club sits in one Conference),
- * reads every starter the source published in her Category at that Event, and
- * flags which of them are on the caller's Squad. `src/lib/category.ts`'s
- * `buildCategoryField` ranks and packages what this hands over.
+ * Given a Rider and a Round, this module resolves the single Event the
+ * Rider's own result sits in (`docs/ux/coach-flow-session.md`, Rule 3: a
+ * Squad-mate races exactly one of the Round's Events, because a Club sits in
+ * one Conference), reads every starter the source published in the Rider's
+ * Category at that Event, and flags which of them are on the caller's Squad.
+ * `src/lib/category.ts`'s `buildCategoryField` ranks and packages what this
+ * hands over.
  *
  * Three reads:
  *
@@ -14,13 +15,13 @@
  *     Category name of the Rider's own result at the Round, and whether that
  *     Category still carries a Conference. Reads `v_rider_result`, so a plate
  *     change or reissue mid-season is already resolved within its bounds.
- *     Null when she has no result at the Round — there is no Category to
- *     open for a non-start.
+ *     Null when the Rider has no result at the Round — there is no Category
+ *     to open for a non-start.
  *   - `loadCategoryRows` — the field itself: every starter `v_race_result`
  *     published in that Category, at that Event, in that Conference,
  *     left-joined to `v_rider_result` so a plate that happens to belong to a
- *     tracked Rider (usually one of ours) carries her `rider_id`; everyone
- *     else's is null.
+ *     tracked Rider (usually one of ours) carries that Rider's `rider_id`;
+ *     everyone else's is null.
  *   - `loadSquadRiderIds` — the caller's own Squad, for flagging squad-mates
  *     in the field without the caller doing that join itself.
  *
@@ -68,10 +69,10 @@ async function resolveRound(
 }
 
 /**
- * Where the Rider's own result puts her: the Event to cross into, the
- * Category to filter the field on, and the Conference her Category still
- * carries (null at State Champs). Null when she has no result at this Round
- * — a non-start opens no Category.
+ * Where the Rider's own result puts the Rider: the Event to cross into, the
+ * Category to filter the field on, and the Conference that Category still
+ * carries (null at State Champs). Null when the Rider has no result at this
+ * Round — a non-start opens no Category.
  *
  * Two names for the same Category, on purpose. `category` is the canonical,
  * Conference-stripped form `v_individual_result` coalesces to

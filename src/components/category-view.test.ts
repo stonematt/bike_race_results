@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CategoryField, CategoryFieldRow } from '../lib/category.ts';
 import {
-  HER_ROW_ID,
+  ANCHOR_ROW_ID,
   anchorHeadline,
   listDescription,
   ordinal,
@@ -69,7 +69,7 @@ describe('ordinal', () => {
 });
 
 describe('anchorHeadline', () => {
-  it('states her place as an ordinal against the field size — "3rd of 30"', () => {
+  it('states the place as an ordinal against the field size — "3rd of 30"', () => {
     expect(anchorHeadline(row({ place: '3' }), 30)).toBe('3rd of 30');
   });
 
@@ -88,8 +88,8 @@ describe('anchorHeadline', () => {
   });
 
   it('states a short-lap rider’s published place as an ordinal, same as anyone else’s (issue #111)', () => {
-    // NICA orders her in the same single sequence as everyone else, so her
-    // place is never invented, demoted, or replaced with a state name.
+    // NICA orders the rider in the same single sequence as everyone else, so
+    // the place is never invented, demoted, or replaced with a state name.
     const text = anchorHeadline(
       row({ place: '65', status: 'finished', lapsDown: 5, pctBack: null }),
       70,
@@ -120,7 +120,7 @@ describe('rowDeficit', () => {
     expect(rowDeficit(row({ status: 'dnf', lapsDown: null }))).toBeNull();
   });
 
-  it('names a short-lap rider’s deficit, with the real minus sign, beside her place', () => {
+  it('names a short-lap rider’s deficit, with the real minus sign, beside the place', () => {
     expect(rowDeficit(row({ lapsDown: 1 }))).toBe('−1 lap');
     expect(rowDeficit(row({ lapsDown: 5 }))).toBe('−5 laps');
   });
@@ -139,9 +139,9 @@ describe('scopeStatement', () => {
 });
 
 describe('listDescription', () => {
-  it('states the field size and points at her row when she has one', () => {
-    const her = row({ displayName: '«RIDER-A»' });
-    const text = listDescription(conferenceField, her);
+  it('states the field size and points at the anchor row when there is one', () => {
+    const anchor = row({ displayName: '«RIDER-A»' });
+    const text = listDescription(conferenceField, anchor);
     expect(text).toContain('30 starters');
     expect(text).toContain('«RIDER-A»');
     expect(text).toContain('Squad-mates');
@@ -158,8 +158,8 @@ describe('listDescription', () => {
   });
 });
 
-describe('HER_ROW_ID', () => {
+describe('ANCHOR_ROW_ID', () => {
   it('is the same anchor the wall’s crossing link points at', () => {
-    expect(HER_ROW_ID).toBe('her');
+    expect(ANCHOR_ROW_ID).toBe('rider');
   });
 });

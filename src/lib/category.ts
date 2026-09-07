@@ -4,7 +4,7 @@
  * ADR-0002 names it the single door from the club tree into the league tree.
  * Everywhere else in this app moves inside the club tree (Club → Squad →
  * Rider); this module is the one place a Rider's own result hands over to the
- * league's own ranked peer group — her Category (`CONTEXT.md`).
+ * league's own ranked peer group — the Rider's Category (`CONTEXT.md`).
  *
  * `src/lib/db/category-query.ts` is the only thing that reads a database. It
  * resolves which Category and Event a Rider's own result at a Round belongs
@@ -29,7 +29,7 @@
 export type CategoryFieldScope = 'conference' | 'league';
 
 /**
- * One starter in the Category, as the source published her.
+ * One starter in the Category, as the source published it.
  *
  * Most rows resolve to no Rider at all — the Category's field is the whole
  * league, and only a handful of its starters are on this club's roster.
@@ -49,7 +49,7 @@ export type CategoryFieldRow = {
   pctBack: number | null;
   /**
    * Null for a DNF or a row whose lap count could not be compared; 0 for a
-   * rider who rode the full distance. A positive count rides beside her
+   * rider who rode the full distance. A positive count rides beside the
    * place as an annotation — it never replaces it (issue #111).
    */
   lapsDown: number | null;

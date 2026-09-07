@@ -37,19 +37,20 @@ export function roundHref(seasonYear: number, roundOrdinal: number): string {
 
 /**
  * The fragment a crossing link's URL ends in, and the `id` the Category page
- * gives her own row so the browser lands on it natively — no client script
- * required for "visible on load" to hold at either end of the corpus (2
- * riders, 80 riders). `src/components/category-view.ts` reads this same
+ * gives the anchor row so the browser lands on it natively — no client
+ * script required for "visible on load" to hold at either end of the corpus
+ * (2 riders, 80 riders). `src/components/category-view.ts` reads this same
  * constant so the two sides of the crossing never drift apart.
  */
-export const CROSSING_ANCHOR = 'her';
+export const CROSSING_ANCHOR = 'rider';
 
 /**
- * `/<year>/round/<ordinal>/category/<riderId>#her` — the crossing (ADR-0002):
- * the single link out of the club tree, from a wall cell that started to her
- * own Category field at that Round. Only ever built for a `positioned` or
- * `started-not-positioned` cell; a `did-not-start` cell opens no Category
- * (`src/lib/db/category-query.ts` returns null for a non-start).
+ * `/<year>/round/<ordinal>/category/<riderId>#rider` — the crossing
+ * (ADR-0002): the single link out of the club tree, from a wall cell that
+ * started to the rider's own Category field at that Round. Only ever built
+ * for a `positioned` or `started-not-positioned` cell; a `did-not-start` cell
+ * opens no Category (`src/lib/db/category-query.ts` returns null for a
+ * non-start).
  */
 export function categoryHref(seasonYear: number, roundOrdinal: number, riderId: number): string {
   return `/${seasonYear}/round/${roundOrdinal}/category/${riderId}#${CROSSING_ANCHOR}`;
@@ -79,8 +80,8 @@ export function buildRosterWallColumns(
 }
 
 /** One cell's short, on-face mark — the text that sits in the grid square.
- *  A short-lap rider's mark is her published place, same as anyone else's
- *  (issue #111); her deficit is a separate annotation, from `cellDeficit`. */
+ *  A short-lap rider's mark is the published place, same as anyone else's
+ *  (issue #111); the deficit is a separate annotation, from `cellDeficit`. */
 export function cellMark(cell: RosterWallCell): string {
   switch (cell.state) {
     case 'positioned':

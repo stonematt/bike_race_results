@@ -18,9 +18,9 @@
  *     mid-season is already resolved within its bounds (issue #7, ADR-0002).
  *
  * A Squad member with no rider_plate mapped for the Season reads as
- * did-not-start here even if she raced under an unmapped plate — the same gap
- * the coach-flow session named and left for the M0 queue (`v_unmapped_rider`)
- * to close, not this wall.
+ * did-not-start here even if the rider raced under an unmapped plate — the
+ * same gap the coach-flow session named and left for the M0 queue
+ * (`v_unmapped_rider`) to close, not this wall.
  */
 
 import { sql } from 'drizzle-orm';
