@@ -75,6 +75,23 @@ export const defaultRiderNamesPath = path.join(
   'rider-names.json',
 );
 
+/**
+ * Where the coach key -> email address map lives. Same home, same reason as
+ * `defaultRiderNamesPath`: a coach's address is a real person's contact
+ * information, and `config/club-seed.json` is public. Squads name coaches by
+ * key (`squads[].coaches`); this is what resolves a key to the address seeding
+ * needs, and it stays out of the working tree for the same guard-by-physics
+ * reason the rider names map does.
+ */
+export const defaultCoachEmailsPath = path.join(
+  os.homedir(),
+  '.local',
+  'share',
+  'bike_race_results',
+  'config',
+  'coach-emails.json',
+);
+
 /** One plate a rider raced under, with inclusive league-round bounds. */
 export interface PlateBinding {
   plate: string;
@@ -112,6 +129,18 @@ export interface SquadConfig {
   name: string;
   /** Rider keys. Every one must be declared in `riders`. */
   members: string[];
+  /**
+   * Coach keys, same slug shape as a rider key (`coach-a`) and validated the
+   * same way. Unlike a rider key, a coach key is not declared anywhere else in
+   * this file — it is resolved to an email address, and from there to a
+   * `user` row, only at seed time, against the out-of-tree coach-emails map.
+   * A key with no entry there is skipped, not an error: see
+   * `defaultCoachEmailsPath`. Optional so a squad with no coach assigned yet
+   * — every squad in a hand-edited file that predates this field — need not
+   * be touched; `parseSquads` always returns a concrete (possibly empty)
+   * array, so nothing downstream has to repeat the `?? []`.
+   */
+  coaches?: string[];
 }
 
 export interface ClubConfig {
@@ -227,6 +256,40 @@ export function parseRiderNames(raw: unknown, source: string): Map<string, strin
 export function loadRiderNames(file: string = defaultRiderNamesPath): Map<string, string> {
   if (!fs.existsSync(file)) return new Map();
   return parseRiderNames(readJson(file), file);
+}
+
+/**
+ * The coach key -> email address map. Absent is the normal case on a public
+ * checkout, exactly like the rider names map, and for the same reason is not
+ * an error — seeding degrades to skipping the link rather than refusing.
+ *
+ * Addresses are normalised the same way sign-in normalises them
+ * (`trim().toLowerCase()`), so a map entered as `Coach@X` and a sign-in as
+ * `coach@x` resolve to the same `user` row rather than two.
+ */
+export function parseCoachEmails(raw: unknown, source: string): Map<string, string> {
+  if (!isRecord(raw)) {
+    throw new ClubConfigError(source, ['must be a JSON object of key -> email address']);
+  }
+
+  const problems: string[] = [];
+  const emails = new Map<string, string>();
+  for (const [key, value] of Object.entries(raw)) {
+    if (isCommentKey(key)) continue;
+    if (typeof value !== 'string' || value.trim() === '') {
+      problems.push(`"${key}" must map to a non-empty email address`);
+      continue;
+    }
+    emails.set(key, value.trim().toLowerCase());
+  }
+
+  if (problems.length > 0) throw new ClubConfigError(source, problems);
+  return emails;
+}
+
+export function loadCoachEmails(file: string = defaultCoachEmailsPath): Map<string, string> {
+  if (!fs.existsSync(file)) return new Map();
+  return parseCoachEmails(readJson(file), file);
 }
 
 export interface ParseClubConfigOptions {
@@ -462,7 +525,31 @@ function parseSquads(raw: unknown, riderKeys: Set<string>, problems: string[]): 
       }
       members.push(member);
     }
-    squads.push({ name, members });
+
+    const rawCoaches = entry.coaches;
+    const coaches: string[] = [];
+    if (rawCoaches !== undefined) {
+      if (!Array.isArray(rawCoaches)) {
+        problems.push(`${where}.coaches must be an array of coach keys`);
+      } else {
+        for (const coachKey of rawCoaches) {
+          if (typeof coachKey !== 'string' || !RIDER_KEY.test(coachKey)) {
+            problems.push(
+              `squad "${name}" lists coach "${String(coachKey)}", which must be a lower-case ` +
+                `slug, e.g. coach-a`,
+            );
+            continue;
+          }
+          if (coaches.includes(coachKey)) {
+            problems.push(`squad "${name}" lists coach "${coachKey}" twice`);
+            continue;
+          }
+          coaches.push(coachKey);
+        }
+      }
+    }
+
+    squads.push({ name, members, coaches });
   }
   return squads;
 }

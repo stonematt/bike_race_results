@@ -27,7 +27,18 @@
     "A bare string is the unbounded whole-season form and is shorthand for { \"plate\": \"202\" }.",
     "",
     "Squads are a coaching lens, not a scoring unit, and they carry no history. One squad holding the",
-    "roster is the starting point; split it into real practice groups by editing here."
+    "roster is the starting point; split it into real practice groups by editing here.",
+    "",
+    "COACH IDENTITY IS ALSO NOT IN THIS FILE. A squad's `coaches` lists coach keys (same slug shape",
+    "as a rider key, e.g. coach-a) — never a real address. A coach email is exactly as identifying as",
+    "a rider's name, so it lives in its own key -> email map, kept OUTSIDE the working tree next to",
+    "the rider names map. A coach key with no entry there, or with the map file absent entirely, is",
+    "skipped at seed time with a log line — never an error.",
+    "",
+    "    ~/.local/share/bike_race_results/config/coach-emails.json",
+    "    { \"coach-a\": \"coach@example.org\", ... }",
+    "",
+    "    { \"name\": \"Descenders\", \"members\": [ ... ], \"coaches\": [ \"coach-a\" ] }"
   ],
   "club": "Descenders",
   "season": 2025,
@@ -202,7 +213,8 @@
         "rider-ad",
         "rider-ae",
         "rider-af"
-      ]
+      ],
+      "coaches": []
     }
   ]
 }

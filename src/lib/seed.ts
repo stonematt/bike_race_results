@@ -37,6 +37,7 @@ import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { isAllowed, type AllowlistEnv } from './allowlist.ts';
 import {
   ClubConfigError,
+  loadCoachEmails,
   loadPublishedScoringTeams,
   plateWindowsOverlap,
   type ClubConfig,
@@ -61,6 +62,18 @@ export interface SeedAdminOptions {
   /** The organisation this coach runs. Created if it does not exist. */
   clubName: string;
   env?: AllowlistEnv;
+  /**
+   * When given, this coach is also linked (`squad_coach`) to every squad of
+   * their club in this season, in addition to whatever config-driven
+   * assignment `seedClubConfig` has already made. Only adds — never removes
+   * an assignment `seedClubConfig`'s own reconciliation is responsible for —
+   * so it is safe to pass on every run, including a no-op one.
+   *
+   * This is what makes a fresh single-squad database put its one coach on its
+   * one squad on the very first `pnpm seed`, with nothing to hand-edit in
+   * config/club-seed.json or the coach-emails map first (#108).
+   */
+  seasonYear?: number;
 }
 
 /** What the database holds for this coach once seeding has finished with it. */
@@ -181,12 +194,19 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
         created: false,
       };
       if (club!.name !== clubName) result.requestedClubName = clubName;
+      // Squad linking is maintenance, not creation — it runs on the calm no-op
+      // path too, so a `squad_coach` row `seedClubConfig`'s own reconciliation
+      // just removed (because config named a different coach, or none) comes
+      // back on the very next `pnpm seed`, rather than staying gone until
+      // someone notices and re-runs by hand.
+      await linkCoachToClubSquads(db, userId, coach.clubId, options.seasonYear);
       return result;
     }
     // A user with no coach profile: half-seeded, or created by a magic-link
     // sign-in before this ever ran. Finish the job rather than refusing.
     const clubId = await upsertClub(db, clubName);
     await db.insert(schema.coach).values({ userId, clubId, displayName });
+    await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
     return { userId, clubId, email, displayName, clubName, created: true };
   }
 
@@ -196,14 +216,89 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
   // resolveAdminClub above is for.
   const clubId = await upsertClub(db, clubName);
 
-  const [user] = await db
+  const userId = await findOrCreateUser(db, email, displayName);
+
+  await db.insert(schema.coach).values({ userId, clubId, displayName });
+  await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
+
+  return { userId, clubId, email, displayName, clubName, created: true };
+}
+
+/**
+ * Find the `user` row for a normalised email, creating one if none exists.
+ *
+ * Shared by three callers with the same "resolve an address to a real user
+ * row" problem: `seedAdmin`, for its own `--email`; squad-coach reconciliation
+ * below, for whatever the coach-emails map names; and the dev credentials
+ * provider (src/auth.ts), for whatever address was typed at sign-in — which is
+ * why this is exported rather than kept private to seeding. All three need the
+ * adapter's `user` table to hold a row keyed on that address before anything
+ * can reference it by id.
+ *
+ * `user` is adapter-owned and carries no unique index on email (see
+ * src/lib/db/schema.ts), so this resolves by query rather than an ON CONFLICT
+ * target — the same reason `seedAdmin` already read before this was factored
+ * out of it. A direct insert here is not a new liberty: `seedAdmin` has always
+ * inserted into this table when an address has no row yet, and the shape
+ * written — `email`, `name`, `id` left to its default — is exactly the shape
+ * the adapter's own `createUser` would write. What would actually fight an
+ * adapter upgrade is inventing a *different* shape (an extra required column,
+ * a second identity index) out from under it; matching the one it already
+ * expects does not.
+ */
+export async function findOrCreateUser(
+  executor: Executor,
+  email: string,
+  displayName?: string,
+): Promise<string> {
+  const existing = await executor.select().from(schema.users).where(eq(schema.users.email, email));
+  if (existing[0]) return existing[0].id;
+  const [user] = await executor
     .insert(schema.users)
     .values({ email, name: displayName })
     .returning({ id: schema.users.id });
+  return user!.id;
+}
 
-  await db.insert(schema.coach).values({ userId: user!.id, clubId, displayName });
+/**
+ * Make sure a coach holds a `squad_coach` row for every squad of their club in
+ * a season, without touching any assignment already there.
+ *
+ * Add-only, on purpose: this is the bootstrap admin's own guaranteed
+ * visibility, not the config-driven assignment `seedClubConfig` reconciles,
+ * and the two must not fight each other. A squad `seedClubConfig` assigned to
+ * someone else stays assigned to them too — this never removes a row it did
+ * not add.
+ *
+ * A `seasonYear` with no matching `season` row (nothing seeded for it yet) or
+ * a club with no squads yet is a quiet no-op, not an error — the ordinary
+ * state of a database that has not run `--club-config` this time.
+ */
+async function linkCoachToClubSquads(
+  executor: Executor,
+  userId: string,
+  clubId: number,
+  seasonYear: number | undefined,
+): Promise<void> {
+  if (seasonYear === undefined) return;
 
-  return { userId: user!.id, clubId, email, displayName, clubName, created: true };
+  const [season] = await executor.select().from(schema.season).where(eq(schema.season.year, seasonYear));
+  if (!season) return;
+
+  const squads = await executor
+    .select()
+    .from(schema.squad)
+    .where(and(eq(schema.squad.clubId, clubId), eq(schema.squad.seasonId, season.id)));
+
+  for (const squad of squads) {
+    const existing = await executor
+      .select()
+      .from(schema.squadCoach)
+      .where(and(eq(schema.squadCoach.squadId, squad.id), eq(schema.squadCoach.userId, userId)));
+    if (existing.length === 0) {
+      await executor.insert(schema.squadCoach).values({ squadId: squad.id, userId });
+    }
+  }
 }
 
 /* ============================================================================
@@ -220,6 +315,8 @@ export interface SeedClubResult {
   plates: number;
   squads: number;
   squadMembers: number;
+  /** `squad_coach` links this run resolved — a key with no email skipped. */
+  squadCoaches: number;
 }
 
 export interface SeedClubOptions {
@@ -228,6 +325,12 @@ export interface SeedClubOptions {
    * checked-in registry.
    */
   publishedScoringTeams?: Map<number, Set<string>>;
+  /**
+   * Coach key -> email address. Defaults to the out-of-tree map
+   * `defaultCoachEmailsPath` names; a key absent from it (or the map absent
+   * entirely) is skipped with a log line rather than failing the run.
+   */
+  coachEmails?: Map<string, string>;
 }
 
 /**
@@ -291,7 +394,15 @@ export async function seedClubConfig(
 
     await replaceScoringTeams(tx, clubId, seasonId, config);
     const { riderIds, ridersCreated, plates } = await replaceRiders(tx, seasonId, config);
-    const squadMembers = await replaceSquads(tx, clubId, seasonId, config, riderIds);
+    const coachEmails = options.coachEmails ?? loadCoachEmails();
+    const { squadMembers, squadCoaches } = await replaceSquads(
+      tx,
+      clubId,
+      seasonId,
+      config,
+      riderIds,
+      coachEmails,
+    );
 
     const dropped = [...priorRiderIds].filter((id) => ![...riderIds.values()].includes(id));
     if (dropped.length > 0) {
@@ -314,6 +425,7 @@ export async function seedClubConfig(
       plates,
       squads: config.squads.length,
       squadMembers,
+      squadCoaches,
     };
   });
 }
@@ -410,6 +522,15 @@ async function replaceRiders(
  * Reconciles this club's squads *for one season*. A config file carries exactly
  * one season, so the delete has to be season-scoped too: without it, seeding
  * 2026 would reap 2025's squads as though the coach had dropped them.
+ *
+ * `squad_coach` is reconciled the same way as `squad_member`, right alongside
+ * it: every coach key the config names for a squad is resolved and inserted,
+ * and everything else on that squad is deleted first, so a coach the config
+ * stopped naming actually loses the link rather than keeping a stale one
+ * (#108). A key with no entry in `coachEmails` — or the map itself absent — is
+ * skipped with a log line; that coach's row for this squad is left absent,
+ * not left over from a prior run, because the delete-then-insert applies to
+ * every coach on the squad, resolved or not.
  */
 async function replaceSquads(
   tx: Tx,
@@ -417,7 +538,8 @@ async function replaceSquads(
   seasonId: number,
   config: ClubConfig,
   riderIds: Map<string, number>,
-): Promise<number> {
+  coachEmails: Map<string, string>,
+): Promise<{ squadMembers: number; squadCoaches: number }> {
   const inSeason = and(eq(schema.squad.clubId, clubId), eq(schema.squad.seasonId, seasonId));
   const names = config.squads.map((squad) => squad.name);
   await tx
@@ -425,17 +547,39 @@ async function replaceSquads(
     .where(names.length === 0 ? inSeason : and(inSeason, notInArray(schema.squad.name, names)));
 
   let squadMembers = 0;
-  for (const squad of config.squads) {
-    const squadId = await upsertSquad(tx, clubId, seasonId, squad.name);
+  let squadCoaches = 0;
+  for (const squadConfig of config.squads) {
+    const squadId = await upsertSquad(tx, clubId, seasonId, squadConfig.name);
     await tx.delete(schema.squadMember).where(eq(schema.squadMember.squadId, squadId));
-    if (squad.members.length > 0) {
+    if (squadConfig.members.length > 0) {
       await tx
         .insert(schema.squadMember)
-        .values(squad.members.map((key) => ({ squadId, riderId: riderIds.get(key)! })));
+        .values(squadConfig.members.map((key) => ({ squadId, riderId: riderIds.get(key)! })));
     }
-    squadMembers += squad.members.length;
+    squadMembers += squadConfig.members.length;
+
+    await tx.delete(schema.squadCoach).where(eq(schema.squadCoach.squadId, squadId));
+    const coachUserIds = new Set<string>();
+    for (const coachKey of squadConfig.coaches ?? []) {
+      const email = coachEmails.get(coachKey);
+      if (email === undefined) {
+        console.warn(
+          `squad "${squadConfig.name}" names coach "${coachKey}", which has no entry in the ` +
+            `coach-emails map; skipping this link. See config/club-seed.json's own comment for ` +
+            `where that map lives.`,
+        );
+        continue;
+      }
+      coachUserIds.add(await findOrCreateUser(tx, email));
+    }
+    if (coachUserIds.size > 0) {
+      await tx
+        .insert(schema.squadCoach)
+        .values([...coachUserIds].map((userId) => ({ squadId, userId })));
+    }
+    squadCoaches += coachUserIds.size;
   }
-  return squadMembers;
+  return { squadMembers, squadCoaches };
 }
 
 /**

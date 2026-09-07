@@ -12,9 +12,11 @@ import {
   ClubConfigError,
   clubConfigPath,
   loadClubConfig,
+  loadCoachEmails,
   loadPublishedScoringTeams,
   loadRiderNames,
   parseClubConfig,
+  parseCoachEmails,
   parsePublishedScoringTeams,
   parseRiderNames,
   pseudonymFor,
@@ -259,6 +261,51 @@ describe('squad validation', () => {
       }),
     ).toThrow(/declared twice/);
   });
+
+  it('defaults to no coaches when the field is absent, so old config files still parse', () => {
+    const config = parse({ squads: [{ name: 'Descenders', members: ['rider-a'] }] });
+    expect(config.squads[0]!.coaches).toEqual([]);
+  });
+
+  it('accepts coach keys in the same slug shape as a rider key', () => {
+    const config = parse({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a', 'coach-b'] }],
+    });
+    expect(config.squads[0]!.coaches).toEqual(['coach-a', 'coach-b']);
+  });
+
+  it('refuses a coach key that is not a slug', () => {
+    const problems = problemsOf(() =>
+      parse({ squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['Coach A'] }] }),
+    );
+    expect(problems[0]).toContain('Coach A');
+  });
+
+  it('refuses a coach listed twice on the same squad', () => {
+    expect(() =>
+      parse({
+        squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a', 'coach-a'] }],
+      }),
+    ).toThrow(/coach "coach-a" twice/);
+  });
+
+  it('refuses a coaches field that is not an array', () => {
+    const problems = problemsOf(() =>
+      parse({ squads: [{ name: 'Descenders', members: ['rider-a'], coaches: 'coach-a' }] }),
+    );
+    expect(problems[0]).toContain('coaches');
+  });
+
+  // A coach key is never cross-checked against a declared list, unlike a
+  // member key against `riders` — there is nowhere in this file to declare
+  // one. Resolution to an email, and the "no entry" skip, happens at seed
+  // time against the out-of-tree coach-emails map instead.
+  it('accepts a coach key with no corresponding declaration anywhere in the file', () => {
+    const config = parse({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-nobody-declared'] }],
+    });
+    expect(config.squads[0]!.coaches).toEqual(['coach-nobody-declared']);
+  });
 });
 
 describe('structural validation', () => {
@@ -310,6 +357,37 @@ describe('rider names, kept outside the working tree', () => {
 
   it('refuses a names file that maps a key to something that is not a name', () => {
     expect(() => parseRiderNames({ 'rider-a': 42 }, 'names.json')).toThrow(ClubConfigError);
+  });
+});
+
+describe('coach emails, kept outside the working tree', () => {
+  it('reads the map file it is pointed at, normalising the address', () => {
+    const file = tempFile('coach-emails.json', '{"coach-a": "  Coach@Example.ORG "}');
+    expect(loadCoachEmails(file).get('coach-a')).toBe('coach@example.org');
+  });
+
+  it('treats an absent map file as the normal case, not an error', () => {
+    expect(loadCoachEmails(path.join(os.tmpdir(), 'definitely-not-here.json')).size).toBe(0);
+  });
+
+  it('skips comment keys', () => {
+    const emails = parseCoachEmails(
+      { _comment: ['why'], 'coach-a': 'coach@example.org' },
+      'coach-emails.json',
+    );
+    expect([...emails.keys()]).toEqual(['coach-a']);
+  });
+
+  it('refuses a map entry that is not a non-empty string', () => {
+    expect(() => parseCoachEmails({ 'coach-a': 42 }, 'coach-emails.json')).toThrow(ClubConfigError);
+  });
+
+  // Unlike the rider names map, a key with no squad naming it yet is not
+  // flagged as stale: a coach can be kept in the map ahead of being assigned.
+  it('does not require every key to be claimed by a squad', () => {
+    expect(() =>
+      parseCoachEmails({ 'coach-unclaimed': 'coach@example.org' }, 'coach-emails.json'),
+    ).not.toThrow();
   });
 });
 
