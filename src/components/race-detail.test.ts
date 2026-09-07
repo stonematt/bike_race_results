@@ -91,9 +91,11 @@ describe('guard 1 — a short-lap rider renders her published place, never a per
     const h = headline(lapped);
     expect(h.kind).toBe('place-deficit');
     expect(h.value).toBe('65');
-    expect(h.caption).toBe('−1 lap');
+    // Field size first, exactly as an ordinary `place` headline captions it;
+    // the deficit follows as the one fact that distinguishes the two.
+    expect(h.caption).toBe('of 24 · −1 lap');
     // U+2212, not a hyphen-minus. A lap deficit is a number, not a dash.
-    expect(h.caption?.charCodeAt(0)).toBe(0x2212);
+    expect(h.caption?.charCodeAt(h.caption.indexOf('1') - 1)).toBe(0x2212);
   });
 
   it('pluralises a deficit of more than one lap', () => {
@@ -119,7 +121,7 @@ describe('guard 1 — a short-lap rider renders her published place, never a per
     expect(card.mark.place).toBe('65');
     expect(outsideFor(lapped, '«RIDER-B»')).toEqual({
       text: '«RIDER-B» — 65 of 24 · −1 lap',
-      kind: 'lapped',
+      kind: 'lap-deficit',
     });
   });
 });

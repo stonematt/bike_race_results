@@ -32,7 +32,7 @@
  * ascending, then the riders the source could not place. See `compareRiders`.
  *
  * The one thing this module never does is arithmetic on a result. Percent back,
- * the percentile, the lap deficit and the lapped flag all arrive computed from
+ * the percentile and the lap deficit all arrive computed from
  * `v_race_result`; place, time and points are the source's own strings. **NICA
  * is the scoring authority** (issue #1) — this file decides what is shown, not
  * what is true.
@@ -86,7 +86,7 @@ export type LapDisplay =
   | { kind: 'value'; label: string; value: string }
   | { kind: 'bars'; bars: { label: string; seconds: number; height: number; best: boolean }[] };
 
-export type Chip = { text: string; tone: 'lapped' | 'dnf' | 'good' };
+export type Chip = { text: string; tone: 'lap-deficit' | 'dnf' | 'good' };
 
 export type RiderCard = {
   plate: string;
@@ -155,7 +155,10 @@ export function headline(row: RaceResultRow): Headline {
     return {
       kind: 'place-deficit',
       value: row.place,
-      caption: lapsDownText(row.lapsDown),
+      // Field size first, exactly as the `place` kind below captions it — she
+      // is read against the same field as everyone else, and dropping it here
+      // would make her card the one that does not say how big her race was.
+      caption: `of ${row.fieldSize} · ${lapsDownText(row.lapsDown)}`,
     };
   }
   if (row.pctBack === null) {
@@ -226,7 +229,7 @@ export function chips(row: RaceResultRow): Chip[] {
   const out: Chip[] = [];
   if (row.status === 'dnf') out.push({ text: 'DNF', tone: 'dnf' });
   else if (row.isLapped && row.lapsDown !== null) {
-    out.push({ text: lapsDownText(row.lapsDown), tone: 'lapped' });
+    out.push({ text: lapsDownText(row.lapsDown), tone: 'lap-deficit' });
   }
   if (row.scored) out.push({ text: 'scored', tone: 'good' });
   if (row.ptsLeader) out.push({ text: 'pts leader', tone: 'good' });
@@ -246,7 +249,7 @@ export function outsideFor(row: RaceResultRow, name: string): OutsideMark | null
   if (row.isLapped && row.lapsDown !== null) {
     return {
       text: `${name} — ${row.place} of ${row.fieldSize} · ${lapsDownText(row.lapsDown)}`,
-      kind: 'lapped',
+      kind: 'lap-deficit',
     };
   }
   return null;

@@ -239,7 +239,7 @@ describe('the five guards, on rows that came out of the database', () => {
     expect(rider.card.headline).toEqual({
       kind: 'place-deficit',
       value: '11',
-      caption: '−1 lap',
+      caption: 'of 12 · −1 lap',
     });
     expect(rider.card.mark.pct).toBeNull();
   });

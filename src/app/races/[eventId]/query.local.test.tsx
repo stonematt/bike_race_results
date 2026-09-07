@@ -118,9 +118,9 @@ describe('guard 1 — the short-lap riders at Race 4 North', () => {
 
     for (const rider of lapped) {
       expect(rider.card.headline.value).toBe(rider.card.mark.place);
-      expect(rider.card.headline.caption).toMatch(/^−\d+ laps?$/);
+      expect(rider.card.headline.caption).toMatch(/^of \d+ · −\d+ laps?$/);
       expect(rider.card.mark.pct).toBeNull();
-      expect(rider.card.outside?.kind).toBe('lapped');
+      expect(rider.card.outside?.kind).toBe('lap-deficit');
     }
   });
 

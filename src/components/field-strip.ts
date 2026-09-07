@@ -87,7 +87,7 @@ export type FieldMark = {
 /** A rider the axis cannot hold, rendered beside the strip instead. */
 export type OutsideMark = {
   text: string;
-  kind: 'lapped' | 'dnf';
+  kind: 'lap-deficit' | 'dnf';
 };
 
 /** A dot, placed. `x` is a fraction of the axis span, already clamped to 0..1. */
