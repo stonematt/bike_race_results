@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { groupRosterWallRows } from '../lib/roster-wall.ts';
 import type { RosterWallCell, RosterWallRound, RosterWallRow } from '@/lib/roster-wall.ts';
 import {
   buildRosterWallColumns,
@@ -38,6 +39,17 @@ import {
  * non-start. This is the one kind of link on the page that leaves the club
  * tree, so `Crossing` gives it its own mark rather than the plain underline
  * a round header gets.
+ *
+ * **Grouped by category, Varsity down to MS1** (issue #113): rows are
+ * grouped by the category each rider raced most recently this season
+ * (`RosterWallRow.category`), via `groupRosterWallRows`
+ * (`src/lib/roster-wall.ts`), so a coach reads the squad the way race day is
+ * actually run rather than as one flat set. A category with no riders never
+ * shows up, and a rider is never dropped: an unrecognized category or a
+ * rider with no result row at all still gets its own named heading, trailing
+ * every recognized one. One `<tbody>` per group keeps its heading row and its
+ * riders together as one section, rather than one long `<tbody>` with
+ * interleaved heading rows.
  */
 export type RosterWallProps = {
   /** The season the wall is scoped to — used to build a column's link and a crossing's. */
@@ -153,6 +165,33 @@ function Cell({ cell, href }: { cell: RosterWallCell; href: string | null }) {
   );
 }
 
+/** One rider's row: the rider's name and mark at every column, in `columns` order. */
+function RiderRow({
+  seasonYear,
+  row,
+  columns,
+}: {
+  seasonYear: number;
+  row: RosterWallRow;
+  columns: ReturnType<typeof buildRosterWallColumns>;
+}) {
+  return (
+    <tr>
+      <th scope="row" className="border-border bg-surface border-b p-2 text-left font-semibold">
+        {row.rider.riderName}
+      </th>
+      {row.cells.map((cell, i) => {
+        const roundOrdinal = columns[i]?.roundOrdinal;
+        const href =
+          cell.state === 'did-not-start' || roundOrdinal === undefined
+            ? null
+            : categoryHref(seasonYear, roundOrdinal, row.rider.riderId);
+        return <Cell key={roundOrdinal ?? i} cell={cell} href={href} />;
+      })}
+    </tr>
+  );
+}
+
 export function RosterWall({ seasonYear, rounds, rows }: RosterWallProps) {
   const columns = buildRosterWallColumns(seasonYear, rounds);
 
@@ -172,12 +211,15 @@ export function RosterWall({ seasonYear, rounds, rows }: RosterWallProps) {
     );
   }
 
+  const groups = groupRosterWallRows(rows);
+
   return (
     <div className="mt-8 overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">
-          Roster wall: one row per rider, one column per round. Each cell states whether the rider
-          was positioned, started without a position — a DNF — or did not start.
+          Roster wall: one row per rider, grouped by the category raced most recently this season,
+          Varsity down to the middle-school categories. One column per round. Each cell states
+          whether the rider was positioned, started without a position — a DNF — or did not start.
         </caption>
         <thead>
           <tr>
@@ -200,26 +242,27 @@ export function RosterWall({ seasonYear, rounds, rows }: RosterWallProps) {
             ))}
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.rider.riderId}>
+        {groups.map((group) => (
+          <tbody key={group.heading}>
+            <tr>
               <th
-                scope="row"
-                className="border-border bg-surface border-b p-2 text-left font-semibold"
+                scope="rowgroup"
+                colSpan={columns.length + 1}
+                className="border-border bg-surface text-muted border-b p-2 text-left text-xs font-bold tracking-wider uppercase"
               >
-                {row.rider.riderName}
+                {group.heading}
               </th>
-              {row.cells.map((cell, i) => {
-                const roundOrdinal = columns[i]?.roundOrdinal;
-                const href =
-                  cell.state === 'did-not-start' || roundOrdinal === undefined
-                    ? null
-                    : categoryHref(seasonYear, roundOrdinal, row.rider.riderId);
-                return <Cell key={roundOrdinal ?? i} cell={cell} href={href} />;
-              })}
             </tr>
-          ))}
-        </tbody>
+            {group.rows.map((row) => (
+              <RiderRow
+                key={row.rider.riderId}
+                seasonYear={seasonYear}
+                row={row}
+                columns={columns}
+              />
+            ))}
+          </tbody>
+        ))}
       </table>
     </div>
   );

@@ -31,6 +31,8 @@
  * scoring authority.
  */
 
+import { categoryRank } from './category-order.ts';
+
 export type RosterWallCellState = 'positioned' | 'started-not-positioned' | 'did-not-start';
 
 /** A rider on the Squad, as the wall renders it — one row. */
@@ -106,6 +108,16 @@ export type RosterWallCell =
 /** One row of the wall: a rider, and the rider's mark at every column in `rounds` order. */
 export type RosterWallRow = {
   rider: RosterWallRider;
+  /**
+   * The category the rider raced most recently this season — the key
+   * `groupRosterWallRows` groups on (issue #113). Category is a per-event
+   * attribute, not a rider attribute: a rider's published string can change
+   * between rounds when the rider moves up, so this is the latest one, by
+   * round ordinal, among every result found for the rider — a DNF's category
+   * counts the same as a positioned result's. Null only for a rider with no
+   * result row at any Round this season.
+   */
+  category: string | null;
   /** Parallel to the `rounds` array `buildRosterWall` was given, in that order. */
   cells: RosterWallCell[];
 };
@@ -182,7 +194,86 @@ export function buildRosterWall(
     const byRound = byRiderAndRound.get(rider.riderId);
     return {
       rider,
+      category: mostRecentCategory(byRound),
       cells: orderedRounds.map((round) => resolveCell(byRound?.get(round.roundOrdinal) ?? [])),
     };
   });
+}
+
+/**
+ * The category a rider raced most recently, by round ordinal. Every result
+ * row carries a category, a DNF's included, so a Round the rider started but
+ * did not finish still counts toward "most recent" the same as a Round the
+ * rider placed in. Null when the rider has no result row at any Round this
+ * season.
+ *
+ * Ties within one round ordinal (the same data anomaly `resolveCell` guards
+ * against) keep whichever result the query layer listed first — the same
+ * "input order is the tiebreak" rule `resolveCell` states above.
+ */
+function mostRecentCategory(byRound: Map<number, RosterWallResult[]> | undefined): string | null {
+  if (!byRound || byRound.size === 0) return null;
+  let latestOrdinal = -Infinity;
+  let latestResults: RosterWallResult[] = [];
+  for (const [ordinal, results] of byRound) {
+    if (ordinal > latestOrdinal) {
+      latestOrdinal = ordinal;
+      latestResults = results;
+    }
+  }
+  return latestResults[0]?.category ?? null;
+}
+
+/** One category's group of rows: a heading and the riders under it. */
+export type RosterWallGroup = {
+  /** The category name, or `NO_RESULTS_HEADING` for a rider with no result
+   *  row at all this season. Always a real heading — never blank, never a
+   *  silently-dropped rider (issue #113). */
+  heading: string;
+  rows: RosterWallRow[];
+};
+
+/**
+ * The heading for a rider with no result row at any Round this season —
+ * `RosterWallRow.category` is null. Named rather than blank, and grouped
+ * trailing alongside any unrecognized category string, so a rider who never
+ * raced still gets a predictable, visible home rather than vanishing from
+ * the wall (issue #113).
+ */
+export const NO_RESULTS_HEADING = 'No results yet';
+
+/**
+ * Group the wall's rows by the category each rider raced most recently,
+ * ordered Varsity down to MS1 — the reverse of `race-detail.ts`'s own order,
+ * and the order a coach reads a squad on race day (issue #113).
+ *
+ * A category with no riders never appears: this groups the riders actually
+ * on the wall, not every category the league publishes. Grouping never drops
+ * a rider — `category-order.ts`'s `categoryRank` sends an unrecognized
+ * category, and `NO_RESULTS_HEADING`, trailing every recognized one in
+ * `'descending'` direction too (rule 4), and ties among those trailing
+ * groups break alphabetically so the order is deterministic rather than
+ * depending on which heading this function happened to see first.
+ *
+ * Pure, and independent of `buildRosterWall`'s own row order: a caller who
+ * wants the flat wall untouched (column-parity tests, for one) keeps calling
+ * `buildRosterWall` directly: this is a second view over the same rows.
+ */
+export function groupRosterWallRows(rows: readonly RosterWallRow[]): RosterWallGroup[] {
+  const byHeading = new Map<string, RosterWallRow[]>();
+  for (const row of rows) {
+    const heading = row.category ?? NO_RESULTS_HEADING;
+    const group = byHeading.get(heading);
+    if (group) group.push(row);
+    else byHeading.set(heading, [row]);
+  }
+
+  return [...byHeading.entries()]
+    .map(([heading, groupRows]) => ({ heading, rows: groupRows }))
+    .sort((a, b) => {
+      const rankA = categoryRank(a.heading, 'descending');
+      const rankB = categoryRank(b.heading, 'descending');
+      if (rankA !== rankB) return rankA - rankB;
+      return a.heading < b.heading ? -1 : a.heading > b.heading ? 1 : 0;
+    });
 }

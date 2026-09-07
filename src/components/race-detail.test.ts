@@ -9,10 +9,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { GENDERS, GRADE_BANDS } from '../lib/ingest/category.ts';
+import { categoryRank } from '../lib/category-order.ts';
 import {
   buildSquadCard,
   categoryMarks,
-  categoryRank,
   chips,
   fieldPosition,
   fieldsByCategory,
@@ -347,11 +347,12 @@ describe('the sort keys, on their own', () => {
   });
 
   it('ranks exactly the fourteen the league publishes, in the league order', () => {
-    // The pin. `CATEGORY_SEQUENCE` is a second copy of a vocabulary that lives
-    // in `ingest/category.ts`, and this is what keeps the two from drifting: a
-    // band added to the league that never reached the page fails here.
+    // The pin. `categoryRank` (`src/lib/category-order.ts`) is a second copy
+    // of a vocabulary that lives in `ingest/category.ts`, and this is what
+    // keeps the two from drifting: a band added to the league that never
+    // reached `category-order.ts` fails here.
     const league = GRADE_BANDS.flatMap((band) => GENDERS.map((gender) => `${band} ${gender}`));
-    expect(league.map(categoryRank)).toEqual(league.map((_, rank) => rank));
+    expect(league.map((category) => categoryRank(category))).toEqual(league.map((_, rank) => rank));
   });
 
   it('sorts a category the league does not publish behind all fourteen', () => {

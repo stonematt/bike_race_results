@@ -42,10 +42,12 @@ const absentCell: RosterWallCell = { state: 'did-not-start' };
 const ROWS: RosterWallRow[] = [
   {
     rider: { riderId: 1, riderName: '«RIDER-A»' },
+    category: 'HS1 Boys',
     cells: [positionedCell, dnfCell, absentCell],
   },
   {
     rider: { riderId: 2, riderName: '«RIDER-B»' },
+    category: 'HS1 Boys',
     cells: [shortLapCell, positionedNoGapCell, absentCell],
   },
 ];
@@ -78,7 +80,10 @@ describe('the wall', () => {
   });
 
   it('says so when the season has no rounds yet, and draws no table', () => {
-    const markup = render([{ rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [] }], []);
+    const markup = render(
+      [{ rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'HS1 Boys', cells: [] }],
+      [],
+    );
     expect(markup).toContain('No rounds are published yet');
     expect(markup).not.toContain('<table');
   });
@@ -110,7 +115,7 @@ describe('the three cell states', () => {
   it('preserves a place carrying `*` verbatim, without parsing it', () => {
     const starred: RosterWallCell = { ...positionedCell, place: '*' };
     const markup = render(
-      [{ rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [starred] }],
+      [{ rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'HS1 Boys', cells: [starred] }],
       [ROUNDS[0]!],
     );
     expect(markup).toContain('>*<');
@@ -136,7 +141,7 @@ describe('the three cell states', () => {
 
   it('draws a did-not-start cell empty of any visible mark or chip', () => {
     const single: RosterWallRow[] = [
-      { rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [absentCell] },
+      { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'HS1 Boys', cells: [absentCell] },
     ];
     const markup = render(single, [ROUNDS[0]!]);
     // No DNF chip, no place, no percent — but the fact still reaches a screen
@@ -169,7 +174,7 @@ describe('the three cell states', () => {
 
   it('opens no Category for a Round the rider did not start', () => {
     const single: RosterWallRow[] = [
-      { rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [absentCell] },
+      { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'HS1 Boys', cells: [absentCell] },
     ];
     const markup = render(single, [ROUNDS[0]!]);
     // The column header still links to the Round page; nothing links to a
@@ -179,12 +184,78 @@ describe('the three cell states', () => {
 
   it('reads a did-not-start cell as absence, never as a bad result — no danger/warn tone', () => {
     const single: RosterWallRow[] = [
-      { rider: { riderId: 1, riderName: '«RIDER-A»' }, cells: [absentCell] },
+      { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'HS1 Boys', cells: [absentCell] },
     ];
     const markup = render(single, [ROUNDS[0]!]);
     expect(markup).not.toContain('bg-danger');
     expect(markup).not.toContain('text-danger');
     expect(markup).not.toContain('bg-fg');
     expect(markup).not.toContain('bg-navy');
+  });
+});
+
+describe('grouped by category, Varsity down to MS1 (issue #113)', () => {
+  const grouped: RosterWallRow[] = [
+    { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'MS1 Boys', cells: [absentCell] },
+    {
+      rider: { riderId: 2, riderName: '«RIDER-B»' },
+      category: 'Varsity Girls',
+      cells: [absentCell],
+    },
+    { rider: { riderId: 3, riderName: '«RIDER-C»' }, category: 'HS2 Girls', cells: [absentCell] },
+  ];
+
+  it('renders a heading per category, ordered from the top of the league down', () => {
+    const markup = render(grouped, [ROUNDS[0]!]);
+    const varsityAt = markup.indexOf('Varsity Girls');
+    const hs2At = markup.indexOf('HS2 Girls');
+    const ms1At = markup.indexOf('MS1 Boys');
+    expect(varsityAt).toBeGreaterThan(-1);
+    expect(varsityAt).toBeLessThan(hs2At);
+    expect(hs2At).toBeLessThan(ms1At);
+  });
+
+  it('keeps a rider in exactly one group, never repeated under an earlier category', () => {
+    const markup = render(grouped, [ROUNDS[0]!]);
+    expect(markup.match(/«RIDER-B»/g)).toHaveLength(1);
+  });
+
+  it('gives an unrecognized category its own heading, trailing every recognized one', () => {
+    const rows: RosterWallRow[] = [
+      { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'MS1 Boys', cells: [absentCell] },
+      {
+        rider: { riderId: 2, riderName: '«RIDER-B»' },
+        category: 'Tandem Unicycle',
+        cells: [absentCell],
+      },
+    ];
+    const markup = render(rows, [ROUNDS[0]!]);
+    expect(markup).toContain('Tandem Unicycle');
+    expect(markup.indexOf('MS1 Boys')).toBeLessThan(markup.indexOf('Tandem Unicycle'));
+  });
+
+  it('gives a rider with no results at all a named, trailing home rather than dropping the rider', () => {
+    const rows: RosterWallRow[] = [
+      { rider: { riderId: 1, riderName: '«RIDER-A»' }, category: 'MS1 Boys', cells: [absentCell] },
+      { rider: { riderId: 2, riderName: '«RIDER-B»' }, category: null, cells: [absentCell] },
+    ];
+    const markup = render(rows, [ROUNDS[0]!]);
+    expect(markup).toContain('«RIDER-B»');
+    expect(markup).toContain('No results yet');
+  });
+
+  it('renders no category with an empty group — only categories a rider actually raced', () => {
+    const markup = render(ROWS);
+    // The shared ROWS fixture is all one category, HS1 Boys: exactly one
+    // heading, not sixteen with thirteen empty ones.
+    expect(markup.match(/HS1 Boys/g)).toHaveLength(1);
+  });
+
+  it('still draws no bar, sparkline, or length-encoded mark once rows are grouped', () => {
+    // The grouping headings must not smuggle a magnitude back in — the same
+    // marks-not-magnitudes guard as the ungrouped wall.
+    const markup = render(grouped, [ROUNDS[0]!]);
+    expect(markup).not.toContain('<svg');
+    expect(markup).not.toMatch(/style="[^"]*(width|height):/);
   });
 });

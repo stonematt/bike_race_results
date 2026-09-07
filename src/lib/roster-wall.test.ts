@@ -7,7 +7,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildRosterWall, type RosterWallResult, type RosterWallRound } from './roster-wall.ts';
+import {
+  buildRosterWall,
+  groupRosterWallRows,
+  NO_RESULTS_HEADING,
+  type RosterWallResult,
+  type RosterWallRound,
+  type RosterWallRow,
+} from './roster-wall.ts';
 
 const ROUNDS: RosterWallRound[] = [
   { roundId: 1, roundOrdinal: 1, roundName: 'Prologue' },
@@ -136,5 +143,93 @@ describe('a data anomaly this club should never produce', () => {
       result({ riderId: 1, roundOrdinal: 1, status: 'finished', place: '7' }),
     ]);
     expect(wall[0]!.cells[0]!.state).toBe('positioned');
+  });
+});
+
+describe('most-recent category (issue #113)', () => {
+  // Category is a per-event attribute, not a rider attribute: a rider's
+  // published string can change between rounds when the rider moves up. The
+  // wall groups a rider under the category raced most recently in the season.
+
+  it('takes the category from the latest round raced, not the first', () => {
+    const wall = buildRosterWall(RIDERS, ROUNDS, [
+      result({ riderId: 1, roundOrdinal: 1, category: 'HS2 Girls' }),
+      result({ riderId: 1, roundOrdinal: 3, category: 'Varsity Girls' }),
+    ]);
+    expect(wall[0]!.category).toBe('Varsity Girls');
+  });
+
+  it('takes the category from a DNF just the same as a positioned result', () => {
+    // A rider who only ever DNF'd still carries a category on every result
+    // row (issue #113) — the wall must not lose the rider because none of
+    // that rider's rows ever resolved to a position.
+    const wall = buildRosterWall(RIDERS, ROUNDS, [
+      result({ riderId: 1, roundOrdinal: 1, status: 'dnf', place: '*', category: 'MS1 Boys' }),
+      result({ riderId: 1, roundOrdinal: 2, status: 'dnf', place: '*', category: 'MS1 Boys' }),
+    ]);
+    expect(wall[0]!.category).toBe('MS1 Boys');
+  });
+
+  it('is null for a rider with no result row at all this season', () => {
+    const wall = buildRosterWall(RIDERS, ROUNDS, []);
+    expect(wall[0]!.category).toBeNull();
+    expect(wall[1]!.category).toBeNull();
+  });
+});
+
+describe('groupRosterWallRows (issue #113)', () => {
+  function row(riderId: number, riderName: string, category: string | null): RosterWallRow {
+    return { rider: { riderId, riderName }, category, cells: [] };
+  }
+
+  it('orders groups Varsity down to MS1, the reverse of the league order', () => {
+    const rows = [
+      row(1, '«RIDER-A»', 'MS1 Boys'),
+      row(2, '«RIDER-B»', 'Varsity Girls'),
+      row(3, '«RIDER-C»', 'HS2 Girls'),
+    ];
+    const groups = groupRosterWallRows(rows);
+    expect(groups.map((g) => g.heading)).toEqual(['Varsity Girls', 'HS2 Girls', 'MS1 Boys']);
+  });
+
+  it('puts a rider who moved up mid-season in exactly one group, the latest', () => {
+    const wall = buildRosterWall([{ riderId: 1, riderName: '«RIDER-A»' }], ROUNDS, [
+      result({ riderId: 1, roundOrdinal: 1, category: 'HS2 Girls' }),
+      result({ riderId: 1, roundOrdinal: 2, category: 'Varsity Girls' }),
+    ]);
+    const groups = groupRosterWallRows(wall);
+    const withHer = groups.filter((g) => g.rows.some((r) => r.rider.riderId === 1));
+    expect(withHer).toHaveLength(1);
+    expect(withHer[0]!.heading).toBe('Varsity Girls');
+  });
+
+  it('gives a category with a single rider its own group', () => {
+    const rows = [row(1, '«RIDER-A»', 'Varsity Boys'), row(2, '«RIDER-B»', 'MS1 Boys')];
+    const groups = groupRosterWallRows(rows);
+    expect(groups.find((g) => g.heading === 'Varsity Boys')?.rows).toHaveLength(1);
+  });
+
+  it('groups an unrecognized category under its own heading, trailing every known one', () => {
+    const rows = [row(1, '«RIDER-A»', 'MS1 Boys'), row(2, '«RIDER-B»', 'Tandem Unicycle')];
+    const groups = groupRosterWallRows(rows);
+    expect(groups.map((g) => g.heading)).toEqual(['MS1 Boys', 'Tandem Unicycle']);
+    expect(groups[1]!.rows[0]!.rider.riderId).toBe(2);
+  });
+
+  it('gives a rider with no results at all a predictable, named, trailing home', () => {
+    const rows = [row(1, '«RIDER-A»', 'Varsity Girls'), row(2, '«RIDER-B»', null)];
+    const groups = groupRosterWallRows(rows);
+    expect(groups.map((g) => g.heading)).toEqual(['Varsity Girls', NO_RESULTS_HEADING]);
+  });
+
+  it('never drops a rider, whatever the category', () => {
+    const rows = [
+      row(1, '«RIDER-A»', 'Varsity Girls'),
+      row(2, '«RIDER-B»', null),
+      row(3, '«RIDER-C»', 'Tandem Unicycle'),
+    ];
+    const groups = groupRosterWallRows(rows);
+    const seen = groups.flatMap((g) => g.rows.map((r) => r.rider.riderId));
+    expect(seen.sort()).toEqual([1, 2, 3]);
   });
 });

@@ -40,6 +40,7 @@
 
 import type { FieldMark, OutsideMark } from './field-strip.ts';
 import { lapsDownText } from './lap-deficit.ts';
+import { categoryRank } from '../lib/category-order.ts';
 
 /**
  * One row of `v_race_result`, narrowed to what the page reads.
@@ -307,47 +308,14 @@ export function categoryMarks(
 export type RiderEntry = { row: RaceResultRow; name: string };
 
 /**
- * The fourteen published categories, in the order the league ranks them.
- *
- * Written out rather than derived from `GRADE_BANDS` and `GENDERS`, which are
- * the same fourteen in the same order. Nothing under `src/components/` reaches
- * into the ingest layer — that is the boundary `lapSeconds` keeps, and one
- * constant is not worth crossing it for. The cost of a second copy is drift,
- * and `race-detail.test.ts` pins this list against the ingest vocabulary so a
- * band the league adds cannot quietly fail to appear here.
+ * `categoryRank`, imported above from `src/lib/category-order.ts`, ranks the
+ * fourteen published categories in the order this file's cards want them:
+ * MS1 up to Varsity, `categoryRank`'s default `'ascending'` direction. It
+ * moved out from under `src/components/` (issue #113) once the season roster
+ * wall needed the same fourteen the other way round; see that module's own
+ * header for why the list is written out rather than derived from
+ * `GRADE_BANDS`/`GENDERS`.
  */
-const CATEGORY_SEQUENCE: readonly string[] = [
-  'MS1 Boys',
-  'MS1 Girls',
-  'MS2 Boys',
-  'MS2 Girls',
-  'MS3 Boys',
-  'MS3 Girls',
-  'HS1 Boys',
-  'HS1 Girls',
-  'HS2 Boys',
-  'HS2 Girls',
-  'HS3 Boys',
-  'HS3 Girls',
-  'Varsity Boys',
-  'Varsity Girls',
-];
-
-const CATEGORY_ORDER: ReadonlyMap<string, number> = new Map(
-  CATEGORY_SEQUENCE.map((category, rank) => [category, rank]),
-);
-
-/**
- * Where a category sorts. Anything unrecognized goes to the end.
- *
- * `normalizeCategory` refuses an unknown category at ingest, so a row that
- * reaches here with one is already an anomaly. It is still shown, and shown
- * last, rather than dropped or thrown over: the page's job is to render what
- * was published.
- */
-export function categoryRank(category: string): number {
-  return CATEGORY_ORDER.get(category) ?? CATEGORY_ORDER.size;
-}
 
 /** The only shape a published string is allowed to be read as a number in. */
 const WHOLE_NUMBER = /^\d+$/;
