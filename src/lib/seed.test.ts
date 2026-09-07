@@ -506,6 +506,78 @@ describe('seedClubConfig', () => {
 });
 
 /**
+ * Slugs on club and squad (issue #114): an explicit config value wins, and
+ * absence falls back to one derived from the name.
+ */
+describe('club and squad slugs', () => {
+  it('derives the club slug from its name when the config gives none', async () => {
+    await seedClubConfig(db, clubConfig({ club: 'Salem Composite Descenders' }));
+    const [club] = await db.select().from(schema.club);
+    expect(club!.slug).toBe('salem-composite-descenders');
+  });
+
+  it('takes the club slug from config when one is given', async () => {
+    await seedClubConfig(db, clubConfig({ club: 'Salem Composite Descenders', clubSlug: 'sc-d' }));
+    const [club] = await db.select().from(schema.club);
+    expect(club!.slug).toBe('sc-d');
+  });
+
+  it('derives a squad slug from its name when the config gives none', async () => {
+    await seedClubConfig(db, clubConfig({ squads: [{ name: 'JV Squad', members: [] }] }));
+    const squads = await db.select().from(schema.squad);
+    expect(squads[0]!.slug).toBe('jv-squad');
+  });
+
+  it('takes a squad slug from config when one is given', async () => {
+    await seedClubConfig(
+      db,
+      clubConfig({ squads: [{ name: 'JV Squad', slug: 'varsity', members: [] }] }),
+    );
+    const squads = await db.select().from(schema.squad);
+    expect(squads[0]!.slug).toBe('varsity');
+  });
+
+  it('keeps an explicit slug stable across a rename, so a bookmark survives it', async () => {
+    // The stated reason for slugs over ids: a squad's name can change year to
+    // year while its slug — pinned in config — stays put.
+    const published = new Map([
+      [2025, new Set([SALEM])],
+      [2026, new Set([SALEM])],
+    ]);
+    await seedClubConfig(
+      db,
+      clubConfig({
+        season: 2025,
+        squads: [{ name: 'Descenders', slug: 'descenders', members: [] }],
+      }),
+      { publishedScoringTeams: published },
+    );
+    await seedClubConfig(
+      db,
+      clubConfig({
+        season: 2026,
+        squads: [{ name: 'The Descenders', slug: 'descenders', members: [] }],
+      }),
+      { publishedScoringTeams: published },
+    );
+
+    const squads = await db.select().from(schema.squad);
+    expect(squads.map((s) => s.slug)).toEqual(['descenders', 'descenders']);
+    expect(squads.map((s) => s.name).sort()).toEqual(['Descenders', 'The Descenders']);
+  });
+
+  it('does not overwrite an existing squad’s slug on a no-op re-seed', async () => {
+    const config = clubConfig({ squads: [{ name: 'Descenders', members: [] }] });
+    await seedClubConfig(db, config);
+    await seedClubConfig(db, config);
+
+    const squads = await db.select().from(schema.squad);
+    expect(squads).toHaveLength(1);
+    expect(squads[0]!.slug).toBe('descenders');
+  });
+});
+
+/**
  * The sequence the README documents, against a fresh database — the thing that
  * used to end with the coach on one club and the roster on another (#62).
  *
@@ -866,7 +938,11 @@ describe('a seeded admin resolves their squad through squad_coach, not the fallb
     // Deterministic tie-break, lowest name first — this is squad_coach doing
     // the resolving, not the "exactly one squad" fallback, which two squads
     // would have refused to answer for at all.
-    expect(squad).toEqual({ id: expect.any(Number), name: 'Descenders' });
+    expect(squad).toEqual({
+      id: expect.any(Number),
+      name: 'Descenders',
+      slug: expect.any(String),
+    });
   });
 });
 

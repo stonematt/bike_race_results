@@ -25,7 +25,7 @@ import type { Database } from '../../lib/db/index.ts';
 export type AnyDatabase = Pick<Database, 'execute'>;
 
 export type SeasonRef = { id: number; year: number };
-export type SquadRef = { id: number; name: string };
+export type SquadRef = { id: number; name: string; slug: string };
 
 type Row = Record<string, unknown>;
 const rowsOf = (result: { rows: unknown[] }): Row[] => result.rows as Row[];
@@ -77,19 +77,18 @@ export async function resolveCurrentSeason(db: AnyDatabase): Promise<SeasonRef |
  * squad in the season, the pick is deterministic — lowest `squad.name`
  * collating — and deliberately arbitrary: there is no coach preference to
  * break the tie honestly yet, so "first alphabetically" is a placeholder,
- * not a judgement about which squad matters more.
+ * not a judgement about which squad matters more. A coach with more than one
+ * squad also gets an in-UI switcher (`listCoachSquads`, `SquadSwitcher`) so
+ * this pick is never the only way to reach the others.
  *
- * When the `squad_coach` lookup finds nothing and the season holds exactly one
- * Squad, that Squad is the answer. This mirrors `resolveClub` in
- * `races/[eventId]/query.ts`, which falls back to the only Club for the same
- * reason: the dev sign-in issues a session whose `user.id` is the typed email
- * rather than the `user` row's id, so nothing keyed on `coach.user_id` can
- * match under it. Without the fallback the home surface is dead in local
- * development even though the Squad and its 32 members are seeded — see the
- * identity mismatch tracked separately.
- *
- * Two or more Squads and no coach link is genuinely ambiguous, so it stays
- * null rather than guessing which squad is "the" one.
+ * No coach link is null, full stop — there used to be a fallback here that
+ * guessed the season's only Squad when the coach link came up empty, standing
+ * in for a coach link that could not work yet (dev sign-in issued a session
+ * `user.id` that never matched `coach.user_id`, #107; `squad_coach` had no
+ * seeder, #108). Both landed in #116, so the fallback was a shim around a
+ * broken link, not a decision anybody made, and removing it is the point of
+ * #114: a multi-squad database no longer behaves differently from a
+ * single-squad one depending on whether the guess happened to be right.
  */
 export async function resolveDefaultSquad(
   db: AnyDatabase,
@@ -99,19 +98,63 @@ export async function resolveDefaultSquad(
   if (userId === null) return null;
 
   const result = await db.execute(sql`
-    select s.id, s.name from squad s
+    select s.id, s.name, s.slug from squad s
       join squad_coach sc on sc.squad_id = s.id
      where sc.user_id = ${userId} and s.season_id = ${seasonId}
      order by s.name
      limit 1`);
   const row = rowsOf(result)[0];
-  if (row) return { id: num(row.id), name: str(row.name) };
+  return row ? { id: num(row.id), name: str(row.name), slug: str(row.slug) } : null;
+}
 
-  // No coach link. `limit 2` so "exactly one" is a fact rather than an
-  // assumption — the same shape `resolveClub` uses to test single-club-ness.
-  const only = await db.execute(sql`
-    select id, name from squad where season_id = ${seasonId} order by name limit 2`);
-  const candidates = rowsOf(only);
-  if (candidates.length !== 1) return null;
-  return { id: num(candidates[0].id), name: str(candidates[0].name) };
+/**
+ * The Squad a `/[season]/squad/[slug]` URL segment names.
+ *
+ * Keyed on `(season_id, slug)`, not on slug alone: `squad.slug` is unique per
+ * `(club_id, season_id)` (issue #114), not globally, so two clubs in one
+ * Season are free to each hold a `descenders`. With no club segment in this
+ * route to disambiguate, that collision is genuinely ambiguous — this
+ * returns null rather than guessing which club's squad was meant, the same
+ * refusal-to-guess `resolveDefaultSquad`'s removed fallback used to violate.
+ * A future `/[season]/[club]/squad/[slug]` segment is how a second club's
+ * collision gets resolved; today's single-club deployment never reaches it.
+ *
+ * `limit 2` so "exactly one" is a fact this checks rather than assumes — the
+ * same shape `resolveRound` and `resolveClub` use elsewhere.
+ */
+export async function resolveSquadBySlug(
+  db: AnyDatabase,
+  seasonId: number,
+  slug: string,
+): Promise<SquadRef | null> {
+  const result = await db.execute(sql`
+    select id, name, slug from squad
+     where season_id = ${seasonId} and slug = ${slug}
+     limit 2`);
+  const rows = rowsOf(result);
+  if (rows.length !== 1) return null;
+  return { id: num(rows[0]!.id), name: str(rows[0]!.name), slug: str(rows[0]!.slug) };
+}
+
+/**
+ * Every Squad a coach holds in a Season, ordered the same way
+ * `resolveDefaultSquad` breaks its tie — the switcher's own read. Empty for a
+ * coach who holds none or holds exactly one; the caller (`SquadSwitcher`)
+ * only renders when there is a real choice to make.
+ */
+export async function listCoachSquads(
+  db: AnyDatabase,
+  userId: string,
+  seasonId: number,
+): Promise<SquadRef[]> {
+  const result = await db.execute(sql`
+    select s.id, s.name, s.slug from squad s
+      join squad_coach sc on sc.squad_id = s.id
+     where sc.user_id = ${userId} and s.season_id = ${seasonId}
+     order by s.name`);
+  return rowsOf(result).map((row) => ({
+    id: num(row.id),
+    name: str(row.name),
+    slug: str(row.slug),
+  }));
 }

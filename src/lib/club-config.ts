@@ -49,6 +49,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { isRecord } from './is-record.ts';
+import { SLUG_PATTERN, slugify } from './slug.ts';
 
 /** Repo root, resolved from this file so it does not depend on the cwd. */
 const repoRoot = path.join(import.meta.dirname, '..', '..');
@@ -127,6 +128,14 @@ export interface RiderConfig {
 
 export interface SquadConfig {
   name: string;
+  /**
+   * The squad's explicit slug, when the coach has pinned one. Falls back to
+   * one derived from `name` (`upsertSquad`, `src/lib/seed.ts`) when absent —
+   * set this explicitly to keep a bookmark alive across a season rollover, or
+   * across a rename within one season, since a name change with no `slug`
+   * given re-derives a different address (issue #114).
+   */
+  slug?: string;
   /** Rider keys. Every one must be declared in `riders`. */
   members: string[];
   /**
@@ -145,6 +154,13 @@ export interface SquadConfig {
 
 export interface ClubConfig {
   club: string;
+  /**
+   * The club's explicit slug, when pinned. Falls back to one derived from
+   * `club` (`upsertClub`, `src/lib/seed.ts`) when absent. Unlike a squad's,
+   * this identifies the club across every season (ADR-0002) — there is only
+   * ever one club row to keep a bookmark stable for (issue #114).
+   */
+  clubSlug?: string;
   season: number;
   scoringTeams: string[];
   riders: RiderConfig[];
@@ -170,9 +186,15 @@ export function pseudonymFor(riderKey: string): string {
   return `«${riderKey.toUpperCase()}»`;
 }
 
-const RIDER_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+/**
+ * The shape of a rider or coach key. The same shape as a slug
+ * (`src/lib/slug.ts`) — reused here rather than duplicated, so a rider key, a
+ * coach key, a club slug and a squad slug all agree about what "a lower-case
+ * slug" means (issue #114).
+ */
+const RIDER_KEY = SLUG_PATTERN;
 
-const KNOWN_KEYS = new Set(['club', 'season', 'scoringTeams', 'riders', 'squads']);
+const KNOWN_KEYS = new Set(['club', 'clubSlug', 'season', 'scoringTeams', 'riders', 'squads']);
 
 /** A `_`-prefixed key is documentation the maintainer left in the file. */
 function isCommentKey(key: string): boolean {
@@ -317,6 +339,9 @@ export function parseClubConfig(raw: unknown, options: ParseClubConfigOptions): 
   const club = typeof raw.club === 'string' ? raw.club.trim() : '';
   if (club === '') problems.push('"club" must be a non-empty club name');
 
+  const clubSlug = parseOptionalSlug(raw.clubSlug, '"clubSlug"', problems);
+  requireDerivableSlug(club, clubSlug, '"club"', problems);
+
   const season = raw.season;
   if (typeof season !== 'number' || !Number.isInteger(season)) {
     problems.push('"season" must be an integer year');
@@ -328,7 +353,45 @@ export function parseClubConfig(raw: unknown, options: ParseClubConfigOptions): 
 
   if (problems.length > 0) throw new ClubConfigError(source, problems);
 
-  return { club, season: season as number, scoringTeams, riders, squads };
+  return { club, clubSlug, season: season as number, scoringTeams, riders, squads };
+}
+
+/**
+ * An optional slug field — `clubSlug`, or a squad's `slug`. Absent is fine
+ * (the caller derives one from a name instead); present and not a slug is a
+ * problem, in the same "refuses a key that is not a slug" shape a rider or
+ * coach key already gets.
+ */
+function parseOptionalSlug(raw: unknown, where: string, problems: string[]): string | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string' || !SLUG_PATTERN.test(raw)) {
+    problems.push(`${where} must be a lower-case slug, e.g. "descenders"`);
+    return undefined;
+  }
+  return raw;
+}
+
+/**
+ * Refuse a name that cannot produce a slug when none was pinned.
+ *
+ * `slugify` returns the empty string for a name with nothing sluggable in it
+ * — punctuation only, or a script it does not transliterate. An empty slug
+ * satisfies the column's NOT NULL and then addresses nothing: the route would
+ * be `/2025/squad/` and the row would be unreachable. Nothing downstream
+ * catches it, so it is caught here, where there is an operator to tell — and
+ * the remedy is one they already have, since both fields accept an explicit
+ * slug precisely so a name never has to be the only source of one.
+ */
+function requireDerivableSlug(
+  name: string,
+  slug: string | undefined,
+  where: string,
+  problems: string[],
+): void {
+  if (name === '' || slug !== undefined || slugify(name) !== '') return;
+  problems.push(
+    `${where} "${name}" has no characters a slug can be derived from — set an explicit slug`,
+  );
 }
 
 function parseScoringTeams(
@@ -508,6 +571,9 @@ function parseSquads(raw: unknown, riderKeys: Set<string>, problems: string[]): 
     }
     seenNames.add(name);
 
+    const slug = parseOptionalSlug(entry.slug, `${where}.slug`, problems);
+    requireDerivableSlug(name, slug, `${where}.name`, problems);
+
     const rawMembers = entry.members;
     if (!Array.isArray(rawMembers)) {
       problems.push(`${where}.members must be an array of rider keys`);
@@ -549,7 +615,7 @@ function parseSquads(raw: unknown, riderKeys: Set<string>, problems: string[]): 
       }
     }
 
-    squads.push({ name, members, coaches });
+    squads.push({ name, slug, members, coaches });
   }
   return squads;
 }

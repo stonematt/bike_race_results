@@ -38,9 +38,21 @@
     "    ~/.local/share/bike_race_results/config/coach-emails.json",
     "    { \"coach-a\": \"coach@example.org\", ... }",
     "",
-    "    { \"name\": \"Descenders\", \"members\": [ ... ], \"coaches\": [ \"coach-a\" ] }"
+    "    { \"name\": \"Descenders\", \"members\": [ ... ], \"coaches\": [ \"coach-a\" ] }",
+    "",
+    "SLUGS (issue #114). `clubSlug` and a squad's `slug` are both optional and both fall back to one",
+    "derived from the name (lower-cased, punctuation collapsed to hyphens) when omitted. Set one",
+    "explicitly to keep a URL and a bookmark working across a rename — a club's slug has to survive",
+    "the club being renamed, and a squad's has to survive both a rename and a season rollover, since",
+    "a squad is re-created fresh every season (it carries no history across one). The club slug is",
+    "globally unique; a squad's is unique only within its own club and season, so two clubs — or the",
+    "same club in two different seasons — may each hold a squad slugged \"descenders\".",
+    "",
+    "    { \"club\": \"Descenders\", \"clubSlug\": \"descenders\", ... }",
+    "    { \"name\": \"Descenders\", \"slug\": \"descenders\", \"members\": [ ... ] }"
   ],
   "club": "Descenders",
+  "clubSlug": "descenders",
   "season": 2025,
   "scoringTeams": [
     "Salem Composite",
@@ -180,6 +192,7 @@
   "squads": [
     {
       "name": "Descenders",
+      "slug": "descenders",
       "members": [
         "rider-a",
         "rider-b",
