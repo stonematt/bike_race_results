@@ -7,25 +7,35 @@
  * while the shim admits nobody. Same for the credentials provider quietly
  * regaining an allowlist check. Both are one-token edits to a security gate.
  *
- * The database is mocked because importing this module constructs one at load:
- * `createDb()` boots a WASM Postgres, and the adapter it feeds is never touched
- * by a callback test.
+ * The adapter itself is still mocked — it validates its constructor argument
+ * and neither it nor which driver backs `createDb()` participates in a
+ * callback decision. `createDb()` is not: the dev provider's `authorize` now
+ * resolves (or creates) a real `user` row (#107), so this needs a database
+ * that can actually hold one. `createTestDb()` gives it a real in-memory
+ * Postgres, migrated once and reused for the whole file — the tests that
+ * touch it never depend on running against a shared row from an earlier test,
+ * since each address they use is its own.
  */
 
+import { eq } from 'drizzle-orm';
 import type { Provider } from 'next-auth/providers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTestDb } from './lib/db/testing.ts';
 
 // The adapter validates its db argument on construction, and neither it nor
 // the database participates in a callback decision.
 vi.mock('@auth/drizzle-adapter', () => ({ DrizzleAdapter: () => ({}) }));
 
+const testDb = await createTestDb();
+
 vi.mock('./lib/db/index.ts', () => ({
-  createDb: () => ({}),
+  createDb: () => testDb,
   schema: { users: {}, accounts: {}, sessions: {}, verificationTokens: {} },
 }));
 
 const { authOptions, providers } = await import('./auth.ts');
 const { DEV_PROVIDER_ID } = await import('./lib/admission.ts');
+const schema = await import('./lib/db/schema.ts');
 
 const LISTED = 'coach@example.org';
 const STRANGER = 'anyone@example.test';
@@ -60,7 +70,7 @@ function devEnv() {
  */
 interface DevShim {
   id?: string;
-  authorize: (credentials: Record<string, unknown>) => unknown;
+  authorize: (credentials: Record<string, unknown>) => Promise<unknown>;
 }
 
 function findDevShim(): DevShim | undefined {
@@ -114,25 +124,50 @@ describe('the jwt callback', () => {
 });
 
 describe('the dev credentials provider', () => {
-  it('admits an address that is not on the allowlist', () => {
+  it('admits an address that is not on the allowlist, with a real user row id', async () => {
     devEnv();
-    expect(devProvider().authorize({ email: STRANGER })).toMatchObject({ email: STRANGER });
+    const result = (await devProvider().authorize({ email: STRANGER })) as {
+      id?: string;
+      email?: string;
+    };
+    expect(result).toMatchObject({ email: STRANGER });
+    // The whole point of #107: `id` is the `user` row's id, not the address —
+    // a Credentials provider does not persist through the adapter, so this is
+    // the one chance to make it identity-shaped like a real sign-in.
+    expect(result.id).not.toBe(STRANGER);
+
+    const rows = await testDb.select().from(schema.users).where(eq(schema.users.email, STRANGER));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(result.id);
   });
 
-  it('normalises the address it hands back', () => {
+  it('normalises the address, so two casings resolve to one user row', async () => {
     devEnv();
-    // Two casings would otherwise leave two user rows behind the adapter.
-    expect(devProvider().authorize({ email: '  Coach@Example.ORG ' })).toMatchObject({
-      email: LISTED,
-      id: LISTED,
-    });
+    const first = (await devProvider().authorize({ email: '  Coach2@Example.ORG ' })) as {
+      id?: string;
+      email?: string;
+    };
+    const second = (await devProvider().authorize({ email: 'coach2@example.org' })) as {
+      id?: string;
+      email?: string;
+    };
+
+    expect(first.email).toBe('coach2@example.org');
+    // Two casings, one id — otherwise sign-in leaves two user rows behind.
+    expect(second.id).toBe(first.id);
+
+    const rows = await testDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'coach2@example.org'));
+    expect(rows).toHaveLength(1);
   });
 
-  it('refuses an empty or non-string address', () => {
+  it('refuses an empty or non-string address', async () => {
     devEnv();
-    expect(devProvider().authorize({ email: '   ' })).toBeNull();
-    expect(devProvider().authorize({ email: undefined })).toBeNull();
-    expect(devProvider().authorize({})).toBeNull();
+    expect(await devProvider().authorize({ email: '   ' })).toBeNull();
+    expect(await devProvider().authorize({ email: undefined })).toBeNull();
+    expect(await devProvider().authorize({})).toBeNull();
   });
 
   it('is not registered at all unless both gates are set', () => {

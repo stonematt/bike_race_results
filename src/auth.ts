@@ -23,6 +23,9 @@ import { authConfig } from './auth.config.ts';
 import { createDb, schema } from './lib/db/index.ts';
 import { admits, DEV_PROVIDER_ID } from './lib/admission.ts';
 import { availableProviders } from './lib/signin-providers.ts';
+import { findOrCreateUser } from './lib/db/users.ts';
+
+const db = createDb();
 
 export function providers(): Provider[] {
   const list: Provider[] = [];
@@ -45,7 +48,7 @@ export function providers(): Provider[] {
         id: DEV_PROVIDER_ID,
         name: 'Development sign-in',
         credentials: { email: { label: 'Email', type: 'email' } },
-        authorize(credentials) {
+        async authorize(credentials) {
           // Any address, no allowlist and no proof of controlling it. What
           // stands in front of the rider names here is the loopback bind, not
           // this function — see src/lib/admission.ts. Registration is still
@@ -55,7 +58,17 @@ export function providers(): Provider[] {
           const claimed =
             typeof credentials?.email === 'string' ? credentials.email.trim().toLowerCase() : '';
           if (!claimed) return null;
-          return { id: claimed, email: claimed, name: claimed };
+          // A Credentials provider does not persist through the adapter, so
+          // returning the claimed address as `id` here is what used to make
+          // `session.user.id` an email rather than the `user` row's id — every
+          // query keyed on `coach.user_id` missed under this provider, and
+          // only under it (#107). Resolving (or, on a first sign-in, creating)
+          // the real row makes a dev session identity-shaped like a real one.
+          // `findOrCreateUser` (`src/lib/db/users.ts`) is the same
+          // lookup-or-create `seedAdmin` uses for its own `--email`, keyed on
+          // this same normalised address.
+          const id = await findOrCreateUser(db, claimed);
+          return { id, email: claimed, name: claimed };
         },
       }),
     );
@@ -63,8 +76,6 @@ export function providers(): Provider[] {
 
   return list;
 }
-
-const db = createDb();
 
 /**
  * Exported so the callbacks can be tested against the real object rather than a

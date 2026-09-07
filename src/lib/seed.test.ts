@@ -16,10 +16,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadEnvLocal } from '../../bin/env.ts';
+import { resolveDefaultSquad } from '../app/[season]/query.ts';
 import { ClubConfigError, loadClubConfig, pseudonymFor, type ClubConfig } from './club-config.ts';
 import { createTestDb, type TestDatabase } from './db/testing.ts';
 import { resolveDatabaseUrl } from './db/url.ts';
 import * as schema from './db/schema.ts';
+import { findOrCreateUser } from './db/users.ts';
 import {
   ClubMismatchError,
   NotAllowlistedError,
@@ -606,6 +608,265 @@ describe('seedClubConfig cleans up what the config dropped', () => {
     const squads = await db.select().from(schema.squad);
     expect(squads.map((s) => s.name)).toEqual(['Racers']);
     expect(await db.select().from(schema.squadMember)).toHaveLength(1);
+  });
+});
+
+describe('findOrCreateUser', () => {
+  it('creates a user row for an address with none yet', async () => {
+    const id = await findOrCreateUser(db, 'new@example.org');
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'new@example.org'));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(id);
+  });
+
+  it('resolves to the existing row rather than creating a second one for the same address', async () => {
+    const first = await findOrCreateUser(db, 'again@example.org');
+    const second = await findOrCreateUser(db, 'again@example.org');
+
+    expect(second).toBe(first);
+    expect(await db.select().from(schema.users)).toHaveLength(1);
+  });
+});
+
+/**
+ * `squad_coach` (#108). Nothing populated this table before; these prove it is
+ * filled from `squads[].coaches`, resolved through the out-of-tree
+ * coach-emails map, and reconciled the same way `squad_member` is — a removed
+ * assignment actually disappears rather than lingering.
+ */
+describe('squad_coach', () => {
+  const coachEmails = new Map([['coach-a', 'coach-a@example.org']]);
+
+  it('links a squad coach by resolving the key through the coach-emails map', async () => {
+    const config = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    const result = await seedClubConfig(db, config, { coachEmails });
+
+    expect(result.squadCoaches).toBe(1);
+
+    const users = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'coach-a@example.org'));
+    expect(users).toHaveLength(1);
+
+    const squads = await db.select().from(schema.squad);
+    const links = await db
+      .select()
+      .from(schema.squadCoach)
+      .where(eq(schema.squadCoach.squadId, squads[0]!.id));
+    expect(links.map((l) => l.userId)).toEqual([users[0]!.id]);
+  });
+
+  it('reuses an existing user row rather than creating a second one', async () => {
+    const [existing] = await db
+      .insert(schema.users)
+      .values({ email: 'coach-a@example.org', name: 'A Coach' })
+      .returning();
+
+    const config = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    await seedClubConfig(db, config, { coachEmails });
+
+    expect(await db.select().from(schema.users)).toHaveLength(1);
+    const squads = await db.select().from(schema.squad);
+    const links = await db
+      .select()
+      .from(schema.squadCoach)
+      .where(eq(schema.squadCoach.squadId, squads[0]!.id));
+    expect(links.map((l) => l.userId)).toEqual([existing!.id]);
+  });
+
+  it('skips a coach key with no entry in the map, rather than failing the run', async () => {
+    const config = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-unmapped'] }],
+    });
+    const result = await seedClubConfig(db, config, { coachEmails });
+
+    expect(result.squadCoaches).toBe(0);
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+  });
+
+  it('skips every coach key when the map file itself is absent', async () => {
+    const config = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    const result = await seedClubConfig(db, config, { coachEmails: new Map() });
+
+    expect(result.squadCoaches).toBe(0);
+    expect(await db.select().from(schema.users)).toHaveLength(0);
+  });
+
+  it('removes a squad_coach row for an assignment the config no longer names', async () => {
+    const withCoach = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    await seedClubConfig(db, withCoach, { coachEmails });
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
+
+    const withoutCoach = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: [] }],
+    });
+    await seedClubConfig(db, withoutCoach, { coachEmails });
+
+    // The link actually disappears — reconciled like squad_member, not merely
+    // never re-added.
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+    // And the user row it resolved to is left standing, same as a rider row
+    // survives losing a plate mapping — this is not a "delete the coach" edit.
+    expect(await db.select().from(schema.users)).toHaveLength(1);
+  });
+
+  it('is idempotent — a second run with the same config does not duplicate the link', async () => {
+    const config = clubConfig({
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    await seedClubConfig(db, config, { coachEmails });
+    await seedClubConfig(db, config, { coachEmails });
+
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
+    expect(await db.select().from(schema.users)).toHaveLength(1);
+  });
+});
+
+/**
+ * `seedAdmin`'s own squad linkage (#108). Add-only and orthogonal to
+ * `squad_coach`'s config-driven reconciliation above: this is what lets a
+ * fresh single-squad database put its one coach on its one squad on the very
+ * first `pnpm seed`, with nothing to hand-edit first.
+ */
+describe('seedAdmin links its coach to the squads of their club', () => {
+  it('links the coach to every squad of their club in the given season', async () => {
+    const config = clubConfig({
+      season: 2025,
+      riders: [rider('rider-a', plate('202')), rider('rider-b', plate('204'))],
+      squads: [
+        { name: 'Descenders', members: ['rider-a'], coaches: [] },
+        { name: 'JV', members: ['rider-b'], coaches: [] },
+      ],
+    });
+    await seedClubConfig(db, config);
+
+    const admin = await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+
+    const links = await db.select().from(schema.squadCoach);
+    expect(links).toHaveLength(2);
+    expect(links.every((l) => l.userId === admin.userId)).toBe(true);
+  });
+
+  it('does nothing when no seasonYear is given, matching the existing no-op tests', async () => {
+    const config = clubConfig();
+    await seedClubConfig(db, config);
+
+    await seedAdmin(db, { email: 'coach@example.org', clubName: config.club, env });
+
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+  });
+
+  it('does nothing when the season has not been seeded yet', async () => {
+    // --email with no --club-config on a brand-new database: the club and
+    // season this run asks for do not exist as squads yet, so there is
+    // nothing to link — and this must not throw.
+    await expect(
+      seedAdmin(db, { email: 'coach@example.org', clubName: CLUB, env, seasonYear: 2025 }),
+    ).resolves.toMatchObject({ created: true });
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+  });
+
+  it('does not remove a link seedClubConfig made to a different coach', async () => {
+    const otherCoachEmails = new Map([['coach-a', 'coach-a@example.org']]);
+    const config = clubConfig({
+      season: 2025,
+      squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
+    });
+    await seedClubConfig(db, config, { coachEmails: otherCoachEmails });
+
+    await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+
+    // Both coaches hold a link to the one squad: the admin's own addition did
+    // not evict the config-driven one.
+    const links = await db.select().from(schema.squadCoach);
+    expect(links).toHaveLength(2);
+  });
+
+  it('re-adds its own link after seedClubConfig has reconciled squad_coach away', async () => {
+    // The order bin/seed.ts runs in: club config first, admin second. A
+    // squad_coach row seedClubConfig's reconcile just wiped (because config
+    // named someone else, or no one) must not stay gone through this half of
+    // the same run.
+    const config = clubConfig({ season: 2025 });
+    await seedClubConfig(db, config);
+    const admin = await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
+
+    // Re-seed the config (reconciles squad_coach back to "no one"), then run
+    // seedAdmin again in the same order bin/seed.ts uses.
+    await seedClubConfig(db, config);
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+
+    await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+
+    const links = await db.select().from(schema.squadCoach);
+    expect(links.map((l) => l.userId)).toEqual([admin.userId]);
+  });
+});
+
+/**
+ * The acceptance test: after seeding, a fresh sign-in as the admin's address
+ * lands on their squad through `squad_coach` — not through
+ * `resolveDefaultSquad`'s single-squad fallback. Proven with two squads, so
+ * the fallback (which only ever answers for exactly one) could not possibly
+ * be what produced the result.
+ */
+describe('a seeded admin resolves their squad through squad_coach, not the fallback', () => {
+  it('resolves the coach-linked squad even though the club has more than one', async () => {
+    const config = clubConfig({
+      season: 2025,
+      riders: [rider('rider-a', plate('202')), rider('rider-b', plate('204'))],
+      squads: [
+        { name: 'Descenders', members: ['rider-a'], coaches: [] },
+        { name: 'JV', members: ['rider-b'], coaches: [] },
+      ],
+    });
+    const seeded = await seedClubConfig(db, config);
+    const admin = await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+
+    const squad = await resolveDefaultSquad(db, admin.userId, seeded.seasonId);
+
+    // Deterministic tie-break, lowest name first — this is squad_coach doing
+    // the resolving, not the "exactly one squad" fallback, which two squads
+    // would have refused to answer for at all.
+    expect(squad).toEqual({ id: expect.any(Number), name: 'Descenders' });
   });
 });
 

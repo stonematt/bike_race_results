@@ -13,11 +13,14 @@
  * src/lib/seed.ts for why.
  *
  * `--club-config` seeds the club, its scoring teams, the roster, the plate
- * mappings and the squads from config/club-seed.json, or from the file named
- * after the flag. Rider display names come from the key -> name map named by
- * `--names`, else from the path outside the working tree that
- * src/lib/club-config.ts documents. With no such file every rider seeds as its
- * own pseudonym, because the committed config carries no identity.
+ * mappings, the squads and the coach↔squad assignments from
+ * config/club-seed.json, or from the file named after the flag. Rider display
+ * names come from the key -> name map named by `--names`, and squad coaches
+ * are resolved from the key -> email map named by `--coach-emails`; either
+ * defaults to the path outside the working tree that src/lib/club-config.ts
+ * documents. With no such file every rider seeds as its own pseudonym, and
+ * every squad coach key is skipped with a log line, because the committed
+ * config carries no identity for either.
  *
  * **There is no `--club` to type.** The club's name is whatever the config
  * declares, for the coach and the roster alike — nothing else can put them on
@@ -26,9 +29,18 @@
  *
  * Given both, the club config runs first so the admin lands on the club it
  * created. Safe to re-run — a second pass changes nothing and says so.
+ *
+ * **That order is load-bearing for `squad_coach` too, not only for club
+ * identity.** `seedClubConfig` reconciles squad coaches — it deletes the rows
+ * for a squad and re-inserts whatever the config names, so a dropped
+ * assignment actually disappears — while `seedAdmin` is add-only, guaranteeing
+ * the bootstrap admin can see their own squads. Run the other way round, the
+ * reconciliation's delete would wipe the link `seedAdmin` had just made, and a
+ * fresh database would come up with the admin coaching nothing. Do not swap
+ * these two blocks.
  */
 
-import { ClubConfigError, loadClubConfig } from '../src/lib/club-config.ts';
+import { ClubConfigError, loadClubConfig, loadCoachEmails } from '../src/lib/club-config.ts';
 import { createDb } from '../src/lib/db/index.ts';
 import { resolveDatabaseUrl } from '../src/lib/db/url.ts';
 import {
@@ -58,7 +70,7 @@ const seedClub = process.argv.includes('--club-config');
 
 if (!seedClub && !email) {
   console.error(
-    'usage: node bin/seed.ts [--club-config [file]] [--names <file>]\n' +
+    'usage: node bin/seed.ts [--club-config [file]] [--names <file>] [--coach-emails <file>]\n' +
       '       node bin/seed.ts --email <address> [--name <display name>] [--club <name>]',
   );
   process.exit(2);
@@ -76,18 +88,24 @@ try {
   });
 
   if (seedClub) {
-    const result = await seedClubConfig(db, config);
+    const result = await seedClubConfig(db, config, {
+      coachEmails: loadCoachEmails(flag('coach-emails')),
+    });
     console.log(
       `seeded ${config.club} for ${config.season} in ${url}: ` +
         `${result.scoringTeams} scoring teams, ${result.riders} riders ` +
         `(${result.ridersCreated} new), ${result.plates} plate mappings, ` +
-        `${result.squads} squads, ${result.squadMembers} squad members`,
+        `${result.squads} squads, ${result.squadMembers} squad members, ` +
+        `${result.squadCoaches} squad coaches`,
     );
   }
 
   if (email) {
     const clubName = resolveAdminClub(config, requestedClub);
-    const result = await seedAdmin(db, { email, clubName, displayName });
+    // seasonYear links this coach to every squad of their club in the config's
+    // season, so a fresh single-squad database has its one coach on its one
+    // squad after this run, with no separate coach-emails entry required (#108).
+    const result = await seedAdmin(db, { email, clubName, displayName, seasonYear: config.season });
 
     if (result.created) {
       console.log(
