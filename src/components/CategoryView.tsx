@@ -128,9 +128,11 @@ export function CategoryView({ field, riderId }: CategoryViewProps) {
 
       {anchor ? (
         <div className="border-border bg-surface mt-4 rounded-lg border p-4">
-          <p className="text-muted text-xs font-bold tracking-wider uppercase">
-            {anchor.displayName}
-          </p>
+          {/* The rider's name, not a label — so it does not take the
+              uppercase/tracked treatment the labels elsewhere on this page
+              carry. It replaced a literal "HER RESULT" (issue #112); a
+              pronoun could never be right here, and the name says more. */}
+          <p className="text-muted text-xs font-bold">{anchor.displayName}</p>
           <p className="font-display mt-1 text-3xl leading-none">
             {anchorHeadline(anchor, field.fieldSize)}
           </p>

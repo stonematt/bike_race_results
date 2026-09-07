@@ -88,8 +88,8 @@ function PositionedCell({ cell }: { cell: Extract<RosterWallCell, { state: 'posi
  * The crossing (ADR-0002): the one link out of the club tree, from a cell
  * that started to the rider's own Category field at that Round. Everywhere
  * else on this page is a link within the club tree (a round header to the
- * Round page); this is the single kind of link that leaves it, so it carries its
- * own small "↗ category" mark rather than the plain underline a round header
+ * Round page); this is the single kind of link that leaves it, so it carries
+ * its own small "↗ category" mark rather than the plain underline a round header
  * gets — a shape difference, not just a colour, and named in words for a
  * screen reader too.
  */
