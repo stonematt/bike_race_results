@@ -23,7 +23,7 @@ import { authConfig } from './auth.config.ts';
 import { createDb, schema } from './lib/db/index.ts';
 import { admits, DEV_PROVIDER_ID } from './lib/admission.ts';
 import { availableProviders } from './lib/signin-providers.ts';
-import { findOrCreateUser } from './lib/seed.ts';
+import { findOrCreateUser } from './lib/db/users.ts';
 
 const db = createDb();
 
@@ -64,8 +64,9 @@ export function providers(): Provider[] {
           // query keyed on `coach.user_id` missed under this provider, and
           // only under it (#107). Resolving (or, on a first sign-in, creating)
           // the real row makes a dev session identity-shaped like a real one.
-          // `findOrCreateUser` is the same lookup-or-create `seedAdmin` uses
-          // for its own `--email`, keyed on this same normalised address.
+          // `findOrCreateUser` (`src/lib/db/users.ts`) is the same
+          // lookup-or-create `seedAdmin` uses for its own `--email`, keyed on
+          // this same normalised address.
           const id = await findOrCreateUser(db, claimed);
           return { id, email: claimed, name: claimed };
         },

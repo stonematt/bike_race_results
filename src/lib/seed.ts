@@ -44,6 +44,7 @@ import {
   type PlateBinding,
 } from './club-config.ts';
 import * as schema from './db/schema.ts';
+import { findOrCreateUser } from './db/users.ts';
 
 type Db = PgliteDatabase<typeof schema>;
 /**
@@ -246,19 +247,6 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
  * a second identity index) out from under it; matching the one it already
  * expects does not.
  */
-export async function findOrCreateUser(
-  executor: Executor,
-  email: string,
-  displayName?: string,
-): Promise<string> {
-  const existing = await executor.select().from(schema.users).where(eq(schema.users.email, email));
-  if (existing[0]) return existing[0].id;
-  const [user] = await executor
-    .insert(schema.users)
-    .values({ email, name: displayName })
-    .returning({ id: schema.users.id });
-  return user!.id;
-}
 
 /**
  * Make sure a coach holds a `squad_coach` row for every squad of their club in
@@ -282,7 +270,10 @@ async function linkCoachToClubSquads(
 ): Promise<void> {
   if (seasonYear === undefined) return;
 
-  const [season] = await executor.select().from(schema.season).where(eq(schema.season.year, seasonYear));
+  const [season] = await executor
+    .select()
+    .from(schema.season)
+    .where(eq(schema.season.year, seasonYear));
   if (!season) return;
 
   const squads = await executor

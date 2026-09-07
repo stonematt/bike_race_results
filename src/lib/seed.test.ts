@@ -21,9 +21,9 @@ import { ClubConfigError, loadClubConfig, pseudonymFor, type ClubConfig } from '
 import { createTestDb, type TestDatabase } from './db/testing.ts';
 import { resolveDatabaseUrl } from './db/url.ts';
 import * as schema from './db/schema.ts';
+import { findOrCreateUser } from './db/users.ts';
 import {
   ClubMismatchError,
-  findOrCreateUser,
   NotAllowlistedError,
   resolveAdminClub,
   seedAdmin,
@@ -611,16 +611,13 @@ describe('seedClubConfig cleans up what the config dropped', () => {
   });
 });
 
-/**
- * `squad_coach` (#108). Nothing populated this table before; these prove it is
- * filled from `squads[].coaches`, resolved through the out-of-tree
- * coach-emails map, and reconciled the same way `squad_member` is — a removed
- * assignment actually disappears rather than lingering.
- */
 describe('findOrCreateUser', () => {
   it('creates a user row for an address with none yet', async () => {
     const id = await findOrCreateUser(db, 'new@example.org');
-    const rows = await db.select().from(schema.users).where(eq(schema.users.email, 'new@example.org'));
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'new@example.org'));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.id).toBe(id);
   });
@@ -634,6 +631,12 @@ describe('findOrCreateUser', () => {
   });
 });
 
+/**
+ * `squad_coach` (#108). Nothing populated this table before; these prove it is
+ * filled from `squads[].coaches`, resolved through the out-of-tree
+ * coach-emails map, and reconciled the same way `squad_member` is — a removed
+ * assignment actually disappears rather than lingering.
+ */
 describe('squad_coach', () => {
   const coachEmails = new Map([['coach-a', 'coach-a@example.org']]);
 
