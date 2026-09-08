@@ -1,5 +1,7 @@
 # bike_race_results
 
+Current product direction: [PRODUCT.md](PRODUCT.md). Start with the [design record](docs/design/README.md) and [delivery status](docs/delivery/status.md); earlier exploration notes may describe superseded product boundaries.
+
 An analytics environment for interscholastic mountain bike race results, built for the **Salem Composite Descenders** in the Oregon Interscholastic Cycling League (NICA).
 
 It ingests what the league published, normalizes it across races and seasons, and lets a coach drill in two directions the official results pages don't support: **who** — conference, scoring team, club, squad, rider — and **when** — one round, a season, a career.
