@@ -4,14 +4,14 @@ Updated 2026-09-08 local date. **Goal active; D1, D2 and D3A merged and cleaned 
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
 
-| Increment  | Current state                                                                                                                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation | Merged through PR #122; cleanup verified below.                                                                                                                                                 |
-| D1         | Merged through PR #126; cleanup verified below.                                                                                                                                                 |
-| D2         | Merged through PR #127; cleanup verified below.                                                                                                                                                 |
-| D3         | D3A merged through PR #131 and cleanup verified. Invitation acceptance remains blocked; D3 is not complete.                                                                                     |
-| D4         | Review candidate on `feat/reviewed-stories`: draft/revise/review/publish, stale refresh and member reporting are implemented; local browser/review gates passed. PR CI and merge remain (#130). |
-| D5         | Dependency fixes merged through PR #132; #124 retains upgrade/parity criteria. Local production mailbox smoke passed after upgrades; Postgres runtime, CI and recovery remain (#129).           |
+| Increment  | Current state                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | Merged through PR #122; cleanup verified below.                                                                                                                                       |
+| D1         | Merged through PR #126; cleanup verified below.                                                                                                                                       |
+| D2         | Merged through PR #127; cleanup verified below.                                                                                                                                       |
+| D3         | D3A merged through PR #131 and cleanup verified. Invitation acceptance remains blocked; D3 is not complete.                                                                           |
+| D4         | Merged through PR #134; cleanup verified below. Reviewed stories are complete; invitations remain separately incomplete.                                                              |
+| D5         | Dependency fixes merged through PR #132; #124 retains upgrade/parity criteria. Local production mailbox smoke passed after upgrades; Postgres runtime, CI and recovery remain (#129). |
 
 ## Cost-aware continuation after quota exhaustion
 
@@ -28,7 +28,7 @@ D5 runtime tracer remains uncommitted in /private/tmp/descenders-d5-runtime. Age
 
 ## Current work and resume point
 
-Main checkout is clean dev at 7876756dcd79255ebe4fd8011feced93e4981af2. Active D4 worktree `/private/tmp/descenders-d4-stories`, branch `feat/reviewed-stories`, integrated current dev at `dd130e2`; candidate commits are `45b4829`, `ebcd0ea` and `21b1361`. PR [#134](https://github.com/stonematt/bike_race_results/pull/134) is open against `dev`; exact-head CI is required before merge. Separate D5 worktree `/private/tmp/descenders-d5-runtime`, branch `feat/postgres-runtime`, starts at current dev `7876756`; its typed runtime tracer remains uncommitted and provisional.
+Main checkout is clean dev at `aa5fdefc78d0f025220f6ceb426bd0dc46ce8b9f`. PR [#134](https://github.com/stonematt/bike_race_results/pull/134) merged after exact-head CI and its D4 worktree/branch cleanup is complete below. Separate D5 worktree `/private/tmp/descenders-d5-runtime`, branch `feat/postgres-runtime`, still starts at pre-D4 dev `7876756`; its typed runtime tracer remains uncommitted and provisional.
 
 D4 foundation, commands and member reporting passed independent Standards and Spec/data/static-art review. The management workspace now exposes only generated evidence, unavailable reasons, revision preview, stale-publication refresh and exact race-review placement; server actions re-check selected season and active club. High-risk review reported no Standards findings and one Spec P2 (the absent race fallback question), corrected at `21b1361` and passed on a delta re-review. Focused candidate lanes pass 10 files / 129 tests before that correction; its RaceReview and protected reporting lane passes 9 tests. Full CI remains pending.
 
@@ -38,7 +38,15 @@ Synthetic persistent PGlite browser acceptance used `/private/tmp/descenders-d4-
 
 Prior D3 production and SMTP processes are stopped; port2525 is free. D4 now owns port3100 as recorded above. The production smoke used synthetic persistent `/private/tmp/descenders-d3-browser-final` and a non-relaying, synthetic-recipient-only capture on 127.0.0.1:2525. Browser origin is matching `http://localhost:3100`, CDP 9224 in isolated profile `/private/tmp/descenders-d1-chrome`. The D3 browser fixture has two synthetic clubs with matching Cedar slugs; club 1's user-created Birch keeps slug `maple` and id 4 and is now archived. The earlier `/private/tmp/descenders-d3-browser` preserves the original demo-sequence failure. D2 `/private/tmp/descenders-d2-browser` and original D1 `/private/tmp/descenders-d1-accepted` remain separate. Stop the app before database writes or migrations; never open the same PGlite directory concurrently. No real mail or invitation delivery is configured.
 
-Next: open the D4 PR, verify exact-head CI, then merge to dev and clean up after checking the recorded review. PostgreSQL runtime #129 has a separate bounded factory tracer underway; full application integration follows D4. Issue #124 remains open for upgrade-migration and PGlite/PostgreSQL parity criteria. Invitation acceptance is still unimplemented after the actual rejection below; explicit local-synthetic-only implementation authorization is pending. Do not bypass it through other work.
+Next: resume the PostgreSQL runtime #129 tracer from updated `dev`, then complete parity, recovery, CI-browser and runbook criteria. Issue #124 remains open for upgrade-migration and PGlite/PostgreSQL parity criteria. Invitation acceptance is still unimplemented after the actual rejection below; explicit local-synthetic-only implementation authorization is pending. Do not bypass it through other work.
+
+## D4 delivery audit
+
+PR [#134](https://github.com/stonematt/bike_race_results/pull/134) merged into `dev` at `aa5fdefc78d0f025220f6ceb426bd0dc46ce8b9f`; reviewed head `c1db6ca6c21915aa5630547ad26dafd855d3f8c2`, base `7876756dcd79255ebe4fd8011feced93e4981af2`. Exact-head CI [34240935582](https://github.com/stonematt/bike_race_results/actions/runs/34240935582) passed typecheck, lint, formatting, 85 public test files / 1,126 passed plus one separate invitation TODO, migration drift and fresh PGlite migrations. The branch’s high-risk review found one Spec P2 in race fallback copy; `21b1361` corrected it with a red/green component and protected-route regression, and a correction-delta review passed. Standards review had no actionable findings.
+
+Focused D4 lanes, local synthetic persistent-PGlite browser acceptance, privacy, and production build passed as recorded above. `brand:check` was skipped in the feature worktree because the private sibling brand repository was unavailable; this is not a token-drift result. The local build retained existing Auth.js/Edge warnings. No hosted database, production release, real invitation or athlete-data transfer was performed.
+
+Cleanup complete: main `dev` fast-forwarded with `--ff-only`; clean D4 worktree `/private/tmp/descenders-d4-stories` and local branch were removed. The remote feature branch needed an explicit post-merge deletion because GitHub could not delete a branch checked out by that worktree; fetch/prune then verified absence. The D5 worktree was retained. Obsidian journal and GitHub delivery record were updated. #130 is complete for the reviewed-story increment; D3 invitation and D5 deployment-readiness work remain open.
 
 ## Source-correction prerequisite delivery audit
 
