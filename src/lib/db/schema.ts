@@ -25,6 +25,7 @@ import {
   integer,
   jsonb,
   numeric,
+  pgEnum,
   pgTable,
   primaryKey,
   serial,
@@ -587,6 +588,11 @@ export const squad = pgTable(
     slug: text('slug')
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
+    /** Null for pre-D3 squads whose creator was never recorded. */
+    createdByUserId: text('created_by_user_id').references(() => users.id),
+    /** Archive retains the stable squad id and reserved club/season slug. */
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+    archivedByUserId: text('archived_by_user_id').references(() => users.id),
   },
   (t) => [
     uniqueIndex('squad_club_season_name_key').on(t.clubId, t.seasonId, t.name),
@@ -654,6 +660,108 @@ export const users = pgTable('user', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
 });
+
+/** Request-time club authority. Roles are separate from legacy coach profiles. */
+export const clubRole = pgEnum('club_role', ['member', 'coach', 'admin']);
+
+export const clubMembership = pgTable(
+  'club_membership',
+  {
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: clubRole('role').notNull(),
+    /** Revocation takes effect at the next protected request. */
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clubId, t.userId] }),
+    index('club_membership_active_user_idx').on(t.userId, t.revokedAt),
+  ],
+);
+
+/** A single-use, club-scoped invitation. The link token itself is never stored. */
+export const clubInvitation = pgTable(
+  'club_invitation',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    /** Trimmed and case-folded, without provider-specific rewriting. */
+    emailNormalized: text('email_normalized').notNull(),
+    role: clubRole('role').notNull(),
+    squadId: integer('squad_id').references(() => squad.id),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    acceptedAt: timestamp('accepted_at', { mode: 'date' }),
+    acceptedByUserId: text('accepted_by_user_id').references(() => users.id),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('club_invitation_token_hash_key').on(t.tokenHash),
+    index('club_invitation_club_email_idx').on(t.clubId, t.emailNormalized),
+  ],
+);
+
+/** Saved active-club choice; it never grants access. */
+export const userClubPreference = pgTable('user_club_preference', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  clubId: integer('club_id')
+    .notNull()
+    .references(() => club.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+});
+
+/** Saved navigation choice within an active club and season; never a permission. */
+export const userSquadPreference = pgTable(
+  'user_squad_preference',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id, { onDelete: 'cascade' }),
+    squadId: integer('squad_id')
+      .notNull()
+      .references(() => squad.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.clubId, t.seasonId] })],
+);
+
+/** Minimal operational evidence; no free-text payload or athlete notes. */
+export const clubAuditEvent = pgTable(
+  'club_audit_event',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').references(() => users.id),
+    action: text('action').notNull(),
+    subjectUserId: text('subject_user_id').references(() => users.id),
+    squadId: integer('squad_id').references(() => squad.id),
+    invitationId: integer('invitation_id').references(() => clubInvitation.id),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [index('club_audit_event_club_created_idx').on(t.clubId, t.createdAt)],
+);
 
 export const accounts = pgTable(
   'account',

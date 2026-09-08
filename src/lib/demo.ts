@@ -11,6 +11,8 @@ import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import * as schema from './db/schema.ts';
 
 type Db = PgliteDatabase<typeof schema>;
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+type DemoExecutor = Db | Tx;
 
 export const DEMO_DATABASE_URL = './.pglite-demo';
 export const DEMO_COACH_EMAIL = 'demo.coach@example.test';
@@ -103,17 +105,21 @@ export async function assertSafeDemoMigrationPreflight(db: Db): Promise<void> {
     }
   }
   if (populatedTables.length === 0) return;
-  if (
-    populatedTables.length === DEMO_DATA_TABLES.length &&
-    DEMO_DATA_TABLES.every((table) =>
-      populatedTables.some(
-        ({ schemaname, tablename }) => schemaname === 'public' && tablename === table,
-      ),
-    ) &&
-    (await knownDemoUserId(db)) !== null
-  ) {
-    return;
-  }
+  const hasAllDemoDataTables = DEMO_DATA_TABLES.every((table) =>
+    populatedTables.some(
+      ({ schemaname, tablename }) => schemaname === 'public' && tablename === table,
+    ),
+  );
+  const hasOnlyKnownDemoTables = populatedTables.every(
+    ({ schemaname, tablename }) =>
+      schemaname === 'public' &&
+      (DEMO_DATA_TABLES.includes(tablename as (typeof DEMO_DATA_TABLES)[number]) ||
+        tablename === 'club_membership'),
+  );
+  if (!hasAllDemoDataTables || !hasOnlyKnownDemoTables) throw new UnsafeDemoDatabaseError();
+
+  const userId = await knownDemoUserId(db);
+  if (userId !== null && (await hasExpectedDemoMembership(db, userId))) return;
   throw new UnsafeDemoDatabaseError();
 }
 
@@ -124,12 +130,15 @@ export async function assertSafeDemoMigrationPreflight(db: Db): Promise<void> {
 export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
   const knownUserId = await knownDemoUserId(db);
   if (knownUserId !== null) {
+    if (!(await hasExpectedDemoMembership(db, knownUserId))) throw new UnsafeDemoDatabaseError();
+    await db.transaction((tx) => alignDemoSerialSequences(tx));
     return { status: 'already-seeded', coachEmail: DEMO_COACH_EMAIL, userId: knownUserId };
   }
   if (await hasApplicationData(db)) throw new UnsafeDemoDatabaseError();
 
   const userId = crypto.randomUUID();
   await db.transaction(async (tx) => {
+    const hasMembershipTable = await hasClubMembershipTable(tx);
     await tx.insert(schema.season).values([
       { id: 1, year: 2025 },
       { id: 2, year: 2026 },
@@ -165,6 +174,13 @@ export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
       .insert(schema.users)
       .values({ id: userId, email: DEMO_COACH_EMAIL, name: 'Demo Coach' });
     await tx.insert(schema.coach).values({ userId, clubId: 1, displayName: 'Demo Coach' });
+    // The local synthetic bootstrap is the explicit first-admin path. It does
+    // not infer authority from `coach` or `squad_coach` outside this fixture.
+    // The table is absent only while a test constructs a pre-0007 known demo
+    // for migration compatibility; bin/demo.ts always migrates before this call.
+    if (hasMembershipTable) {
+      await tx.insert(schema.clubMembership).values({ clubId: 1, userId, role: 'admin' });
+    }
     await tx.insert(schema.rider).values([
       { id: 1, displayName: '«RIDER-A»' },
       { id: 2, displayName: '«RIDER-B»' },
@@ -188,11 +204,22 @@ export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
         })),
       ),
     );
-    await tx.insert(schema.squad).values([
+    const squads = [
       { id: 1, clubId: 1, seasonId: 1, name: 'Cedar', slug: 'cedar' },
       { id: 2, clubId: 1, seasonId: 2, name: 'Cedar', slug: 'cedar' },
       { id: 3, clubId: 1, seasonId: 2, name: 'Summit', slug: 'summit' },
-    ]);
+    ];
+    if (hasMembershipTable) {
+      await tx.insert(schema.squad).values(squads);
+    } else {
+      // Only the migration fixture reaches this branch. Current application
+      // schema metadata names 0007 columns that a historical table lacks.
+      await tx.execute(sql`
+        insert into squad (id, club_id, season_id, name, slug) values
+          (1, 1, 1, 'Cedar', 'cedar'),
+          (2, 1, 2, 'Cedar', 'cedar'),
+          (3, 1, 2, 'Summit', 'summit')`);
+    }
     await tx.insert(schema.squadCoach).values([
       { squadId: 1, userId },
       { squadId: 2, userId },
@@ -234,9 +261,88 @@ export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
         })),
       ),
     );
+    await alignDemoSerialSequences(tx);
   });
 
   return { status: 'created', coachEmail: DEMO_COACH_EMAIL, userId };
+}
+
+/**
+ * The fixture assigns IDs only to these serial-backed tables. Bring each
+ * sequence forward in the same transaction, so later local operations never
+ * collide with synthetic rows and a rollback leaves no partially seeded state.
+ */
+async function alignDemoSerialSequences(tx: DemoExecutor): Promise<void> {
+  await tx.execute(sql`
+    select
+      setval(pg_get_serial_sequence('season', 'id'), (select max(id) from season), true),
+      setval(pg_get_serial_sequence('round', 'id'), (select max(id) from round), true),
+      setval(pg_get_serial_sequence('event', 'id'), (select max(id) from event), true),
+      setval(pg_get_serial_sequence('club', 'id'), (select max(id) from club), true),
+      setval(pg_get_serial_sequence('rider', 'id'), (select max(id) from rider), true),
+      setval(pg_get_serial_sequence('squad', 'id'), (select max(id) from squad), true)
+  `);
+}
+
+/**
+ * A pre-0007 demo has no membership table and may migrate safely. Once that
+ * table exists, its one active admin row is part of the exact synthetic
+ * signature; a changed role, revocation, or additional member is managed state
+ * and must be refused before the command can migrate or reset anything.
+ */
+async function hasClubMembershipTable(db: DemoExecutor): Promise<boolean> {
+  const table = rowsOf(
+    await db.execute(sql`select to_regclass('public.club_membership') as relation`),
+  )[0];
+  return table?.relation !== null;
+}
+
+type DemoMembershipState = 'legacy' | 'admin' | 'upgrade-coach' | 'custom';
+
+async function demoMembershipState(db: DemoExecutor, userId: string): Promise<DemoMembershipState> {
+  if (!(await hasClubMembershipTable(db))) return 'legacy';
+
+  const memberships = rowsOf(
+    await db.execute(sql`select user_id, role, revoked_at from club_membership order by user_id`),
+  );
+  const membership = memberships[0];
+  if (
+    memberships.length !== 1 ||
+    membership?.user_id !== userId ||
+    membership.revoked_at !== null
+  ) {
+    return 'custom';
+  }
+  if (membership.role === 'admin') return 'admin';
+  if (membership.role === 'coach') return 'upgrade-coach';
+  return 'custom';
+}
+
+async function hasExpectedDemoMembership(db: Db, userId: string): Promise<boolean> {
+  const state = await demoMembershipState(db, userId);
+  return state === 'legacy' || state === 'admin';
+}
+
+/**
+ * 0007 deliberately backfills legacy coaches as coaches. `bin/demo.ts` calls
+ * this only after its pre-migration exact-signature check and migration, so the
+ * sole transitional coach row can become the demo's explicit first admin.
+ * `bootstrapSafeDemo` itself never repairs current managed membership state.
+ */
+export async function finalizeKnownDemoMigration(db: Db): Promise<void> {
+  const userId = await knownDemoUserId(db);
+  if (userId === null) return;
+
+  await db.transaction(async (tx) => {
+    const state = await demoMembershipState(tx, userId);
+    if (state === 'legacy' || state === 'admin') return;
+    if (state !== 'upgrade-coach') throw new UnsafeDemoDatabaseError();
+
+    await tx
+      .update(schema.clubMembership)
+      .set({ role: 'admin', updatedAt: new Date() })
+      .where(sql`club_id = 1 and user_id = ${userId} and role = 'coach' and revoked_at is null`);
+  });
 }
 
 async function knownDemoUserId(db: Db): Promise<string | null> {

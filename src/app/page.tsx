@@ -4,6 +4,7 @@ import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
 import { Banner } from '@/components/Banner.tsx';
 import { SignOutButton } from '@/components/SignOutButton.tsx';
+import { requireClubContext } from './club-context.ts';
 import { listSeasonYears, resolveCurrentSeason } from './[season]/query.ts';
 
 /** The configured season is explicit; historical results remain a deliberate choice. */
@@ -11,11 +12,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const db = appDb();
+  const session = await auth();
+  await requireClubContext(db, session?.user?.id);
   const configuredYear = process.env.CURRENT_SEASON;
   const season = await resolveCurrentSeason(db, configuredYear);
   if (season !== null) redirect(`/${season.year}`);
 
-  const [session, years] = await Promise.all([auth(), listSeasonYears(db)]);
+  const years = await listSeasonYears(db);
   return (
     <>
       <Banner>

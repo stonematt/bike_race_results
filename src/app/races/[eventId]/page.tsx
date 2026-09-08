@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { resolveSeasonByYear } from '@/app/[season]/query.ts';
 import { resolveRound } from '@/app/[season]/round/[ordinal]/query.ts';
 import { loadRaceCategories } from '@/lib/db/editorial-query.ts';
 import { checkpointFromSearch, roundHref } from '@/lib/reporting-navigation.ts';
-import { resolveClub } from './query.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +24,9 @@ export default async function RacePage({
   const { eventId } = await params;
   const db = appDb();
   const session = await auth();
-  const club = await resolveClub(db, session?.user?.id ?? null);
-  if (club === null) notFound();
+  const club = await requireClubContext(db, session?.user?.id);
 
-  const review = await loadRaceCategories(db, { sourceEventId: eventId, clubId: club.id });
+  const review = await loadRaceCategories(db, { sourceEventId: eventId, clubId: club.clubId });
   if (review === null) notFound();
 
   const season = await resolveSeasonByYear(db, String(review.race.seasonYear));

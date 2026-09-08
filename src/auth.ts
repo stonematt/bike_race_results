@@ -1,5 +1,5 @@
 /**
- * next-auth v5. Per-coach accounts, email-allowlisted (issue #3).
+ * next-auth v5. Per-coach accounts with database-authoritative club access.
  *
  * Two providers — a Nodemailer magic link and a development credentials shim —
  * and only the first ever runs in production. Which of them is switched on is
@@ -7,7 +7,7 @@
  * page has to render exactly the providers this file registers. Do not restate
  * the conditions here; a second copy of them is the thing that goes stale.
  *
- * The shim skips both the mail server and the allowlist. That is only safe
+ * The shim skips both the mail server and membership eligibility. That is only safe
  * because `pnpm dev` binds loopback, so the instance it admits people to is
  * reachable from nowhere but this machine; the two land together (issue #33).
  * src/lib/admission.ts owns that branch — this file only registers providers.
@@ -22,7 +22,8 @@ import Nodemailer from 'next-auth/providers/nodemailer';
 import { authConfig } from './auth.config.ts';
 import { schema } from './lib/db/index.ts';
 import { appDb } from './app/db.ts';
-import { admits, DEV_PROVIDER_ID } from './lib/admission.ts';
+import { admits, DEV_PROVIDER_ID, EMAIL_PROVIDER_ID } from './lib/admission.ts';
+import { canStartEmailSignIn } from './lib/authz/access.ts';
 import { availableProviders } from './lib/signin-providers.ts';
 import { findOrCreateUser } from './lib/db/users.ts';
 
@@ -48,11 +49,11 @@ export function providers(): Provider[] {
         name: 'Development sign-in',
         credentials: { email: { label: 'Email', type: 'email' } },
         async authorize(credentials) {
-          // Any address, no allowlist and no proof of controlling it. What
+          // Any address, no membership check and no proof of controlling it. What
           // stands in front of the rider names here is the loopback bind, not
           // this function — see src/lib/admission.ts. Registration is still
           // double-gated on NODE_ENV and AUTH_DEV_LOGIN above.
-          // Normalised the same way the allowlist normalises, so signing in
+          // Normalised by trimming and case-folding, so signing in
           // as Coach@x and coach@x does not leave two user rows behind.
           const claimed =
             typeof credentials?.email === 'string' ? credentials.email.trim().toLowerCase() : '';
@@ -97,12 +98,15 @@ export function authOptions() {
     callbacks: {
       ...authConfig.callbacks,
       /**
-       * Last line of defence: a provider can prove an address, only this admits
-       * it — with exactly one branch, the development shim, which is admitted on
-       * the provider's identity instead. Every other provider runs the allowlist.
+       * Edge provenance remains the first boundary. Email identities then need
+       * an active membership or a live invitation before receiving a magic
+       * link; the local dev provider remains its explicitly registered local
+       * bypass. Club access itself is still re-read on every Node request.
        */
-      signIn({ user, account }) {
-        return admits(account?.provider, user);
+      async signIn({ user, account }) {
+        if (!admits(account?.provider, user)) return false;
+        if (account?.provider !== EMAIL_PROVIDER_ID || typeof user.email !== 'string') return true;
+        return canStartEmailSignIn(appDb(), user.email);
       },
     },
   } satisfies NextAuthConfig;

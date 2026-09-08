@@ -6,6 +6,7 @@
  * not accidentally sum overlapping Squads.
  */
 
+import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as schema from './schema.ts';
 import { createTestDb, type TestDatabase } from './testing.ts';
@@ -29,8 +30,8 @@ beforeAll(async () => {
   ]);
   await db.insert(schema.club).values({ id: 1, name: 'Test Club' });
   await db.insert(schema.squad).values([
-    { id: 1, clubId: 1, seasonId: 1, name: 'Cedar' },
-    { id: 2, clubId: 1, seasonId: 1, name: 'Summit' },
+    { id: 1, clubId: 1, seasonId: 1, name: 'Cedar', slug: 'cedar' },
+    { id: 2, clubId: 1, seasonId: 1, name: 'Summit', slug: 'summit' },
   ]);
   await db.insert(schema.rider).values([
     { id: 1, displayName: '«RIDER-A»' },
@@ -171,7 +172,11 @@ describe('loadSeasonDispatch', () => {
         ],
       },
       personalSquad: null,
-      availableSquads: [],
+      squadSelection: 'unassigned',
+      availableSquads: [
+        { id: 1, name: 'Cedar', slug: 'cedar' },
+        { id: 2, name: 'Summit', slug: 'summit' },
+      ],
     });
   });
 
@@ -211,6 +216,7 @@ describe('loadSeasonDispatch', () => {
         ],
       },
       personalSquad: null,
+      squadSelection: 'unassigned',
       availableSquads: [],
     });
   });
@@ -1603,6 +1609,136 @@ describe('loadRaceCategories', () => {
       clubRiders: [
         { riderId: 1, row: { place: '2', lapsDown: null, pctBack: null, status: 'finished' } },
       ],
+    });
+  });
+});
+
+describe('active personal squad navigation', () => {
+  async function navigationDb() {
+    const db = await createTestDb();
+    await db
+      .insert(schema.users)
+      .values({ id: 'navigation-user', email: 'navigation@example.test' });
+    await db.insert(schema.season).values([
+      { id: 1, year: 2050 },
+      { id: 2, year: 2051 },
+    ]);
+    await db.insert(schema.club).values([
+      { id: 1, name: 'Home Club' },
+      { id: 2, name: 'Other Club' },
+    ]);
+    await db
+      .insert(schema.clubMembership)
+      .values({ clubId: 1, userId: 'navigation-user', role: 'member' });
+    await db.insert(schema.squad).values([
+      { id: 1, clubId: 1, seasonId: 1, name: 'Cedar', slug: 'cedar' },
+      { id: 2, clubId: 1, seasonId: 1, name: 'Summit', slug: 'summit' },
+      { id: 3, clubId: 1, seasonId: 1, name: 'Valley', slug: 'valley' },
+      { id: 4, clubId: 2, seasonId: 1, name: 'Foreign', slug: 'foreign' },
+      { id: 5, clubId: 1, seasonId: 2, name: 'Later', slug: 'later' },
+      {
+        id: 6,
+        clubId: 1,
+        seasonId: 1,
+        name: 'Archived',
+        slug: 'archived',
+        archivedAt: new Date('2050-01-01'),
+      },
+    ]);
+    return db;
+  }
+
+  it('offers an explicit choice for multiple active assignments and all active club squads', async () => {
+    const db = await navigationDb();
+    await db.insert(schema.squadCoach).values([
+      { squadId: 1, userId: 'navigation-user' },
+      { squadId: 2, userId: 'navigation-user' },
+    ]);
+    const dispatch = await loadSeasonDispatch(db, {
+      seasonId: 1,
+      clubId: 1,
+      userId: 'navigation-user',
+    });
+    expect(dispatch).toMatchObject({
+      personalSquad: null,
+      squadSelection: 'choice-required',
+      availableSquads: [
+        { id: 1, name: 'Cedar' },
+        { id: 2, name: 'Summit' },
+        { id: 3, name: 'Valley' },
+      ],
+    });
+  });
+  it('uses a valid saved preference before automatic assignment without requiring assignment', async () => {
+    const db = await navigationDb();
+    await db.insert(schema.squadCoach).values({ squadId: 1, userId: 'navigation-user' });
+    await db
+      .insert(schema.userSquadPreference)
+      .values({ userId: 'navigation-user', clubId: 1, seasonId: 1, squadId: 3 });
+    expect(
+      await loadSeasonDispatch(db, { seasonId: 1, clubId: 1, userId: 'navigation-user' }),
+    ).toMatchObject({
+      personalSquad: { id: 3, name: 'Valley' },
+      squadSelection: 'preferred',
+    });
+  });
+
+  it.each([4, 5, 6])(
+    'ignores an invalid saved squad %s and automatically selects the sole active assignment',
+    async (squadId) => {
+      const db = await navigationDb();
+      await db.insert(schema.squadCoach).values([
+        { squadId: 1, userId: 'navigation-user' },
+        { squadId: 6, userId: 'navigation-user' },
+      ]);
+      await db
+        .insert(schema.userSquadPreference)
+        .values({ userId: 'navigation-user', clubId: 1, seasonId: 1, squadId });
+      expect(
+        await loadSeasonDispatch(db, { seasonId: 1, clubId: 1, userId: 'navigation-user' }),
+      ).toMatchObject({
+        personalSquad: { id: 1 },
+        squadSelection: 'sole-assignment',
+        availableSquads: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      });
+    },
+  );
+
+  it.each(['revoked', 'missing'] as const)(
+    'does not personalize a %s membership from saved preferences or assignments',
+    async (state) => {
+      const db = await navigationDb();
+      await db.insert(schema.squadCoach).values({ squadId: 1, userId: 'navigation-user' });
+      await db
+        .insert(schema.userSquadPreference)
+        .values({ userId: 'navigation-user', clubId: 1, seasonId: 1, squadId: 3 });
+      if (state === 'revoked') {
+        await db
+          .update(schema.clubMembership)
+          .set({ revokedAt: new Date('2050-02-01') })
+          .where(eq(schema.clubMembership.userId, 'navigation-user'));
+      } else {
+        await db
+          .delete(schema.clubMembership)
+          .where(eq(schema.clubMembership.userId, 'navigation-user'));
+      }
+      expect(
+        await loadSeasonDispatch(db, { seasonId: 1, clubId: 1, userId: 'navigation-user' }),
+      ).toMatchObject({
+        personalSquad: null,
+        squadSelection: 'unassigned',
+      });
+    },
+  );
+
+  it('keeps an unassigned member honest while offering all active club squads', async () => {
+    const db = await navigationDb();
+    expect(
+      await loadSeasonDispatch(db, { seasonId: 1, clubId: 1, userId: 'navigation-user' }),
+    ).toMatchObject({
+      personalSquad: null,
+      squadSelection: 'unassigned',
+      availableSquads: [{ id: 1 }, { id: 2 }, { id: 3 }],
     });
   });
 });

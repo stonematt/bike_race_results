@@ -2,10 +2,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { CategoryView } from '@/components/CategoryView.tsx';
 import { loadCategoryField } from '@/lib/db/category-query.ts';
 import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
-import { resolveDefaultSquad, resolveSeasonByYear } from '@/app/[season]/query.ts';
+import { loadSquadNavigation } from '@/lib/db/editorial-query.ts';
+import { resolveSeasonByYear } from '@/app/[season]/query.ts';
 import { resolveRound } from '@/app/[season]/round/[ordinal]/query.ts';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +43,9 @@ export default async function CategoryPage({
   if (checkpoint === null || checkpoint.ordinal < round.ordinal) notFound();
 
   const session = await auth();
-  const squad = await resolveDefaultSquad(db, session?.user?.id ?? null, season.id);
+  const userId = session?.user?.id ?? null;
+  const club = await requireClubContext(db, userId);
+  const { personalSquad: squad } = await loadSquadNavigation(db, club.clubId, season.id, userId);
   const field = await loadCategoryField(db, riderId, round.id, squad?.id ?? 0);
   if (field === null) notFound();
 

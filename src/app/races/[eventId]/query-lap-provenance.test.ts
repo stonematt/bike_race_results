@@ -296,7 +296,7 @@ beforeAll(async () => {
 
 describe('lap provenance', () => {
   it('uses the time-trial winner for a finisher when the event published no lap columns', async () => {
-    const detail = await loadRaceDetail(db, 'time-trial', null);
+    const detail = await loadRaceDetail(db, 'time-trial', 1);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'tt-2')!;
 
     expect(rider.card.headline).toEqual({ kind: 'pct-back', value: '10%', caption: 'back' });
@@ -304,7 +304,7 @@ describe('lap provenance', () => {
   });
 
   it('withholds percent back for an unknown lap count in a lap-publishing event', async () => {
-    const detail = await loadRaceDetail(db, 'mass-start', null);
+    const detail = await loadRaceDetail(db, 'mass-start', 1);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'mass-2')!;
 
     expect(rider.card.headline).toEqual({ kind: 'place', value: '2', caption: 'of 2' });
@@ -312,7 +312,7 @@ describe('lap provenance', () => {
   });
 
   it('keeps an explicit short-lap clock out of the winner calculation without split strings', async () => {
-    const detail = await loadRaceDetail(db, 'count-only', null);
+    const detail = await loadRaceDetail(db, 'count-only', 1);
     const winner = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'count-1')!;
     const short = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'count-2')!;
 
@@ -326,7 +326,7 @@ describe('lap provenance', () => {
   });
 
   it('withholds percent back when no archived source layout establishes a time trial', async () => {
-    const detail = await loadRaceDetail(db, 'unknown-layout', null);
+    const detail = await loadRaceDetail(db, 'unknown-layout', 1);
     const rider = detail!.squads[0]!.riders.find(
       (entry) => entry.card.plate === 'unknown-layout-2',
     )!;
@@ -336,7 +336,7 @@ describe('lap provenance', () => {
   });
 
   it('uses the selected source rather than a hidden archived time-trial copy', async () => {
-    const detail = await loadRaceDetail(db, 'hidden-copy', null);
+    const detail = await loadRaceDetail(db, 'hidden-copy', 1);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'hidden-copy-2')!;
 
     expect(rider.card.headline).toEqual({ kind: 'place', value: '2', caption: 'of 2' });
@@ -355,7 +355,7 @@ describe('lap provenance', () => {
       contentHash: 'synthetic-later-archive-only',
     });
 
-    const detail = await loadRaceDetail(db, 'time-trial', null);
+    const detail = await loadRaceDetail(db, 'time-trial', 1);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'tt-2')!;
     expect(rider.card.headline).toEqual({ kind: 'pct-back', value: '10%', caption: 'back' });
   });
@@ -422,7 +422,7 @@ describe('lap provenance', () => {
       .values({ riderId: 1, seasonId: season!.id, plate: 'sole-hidden-2' });
     await normalized.insert(schema.squadMember).values({ squadId: 1, riderId: 1 });
 
-    const detail = await loadRaceDetail(normalized, 'sole-hidden-tt', null);
+    const detail = await loadRaceDetail(normalized, 'sole-hidden-tt', 1);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'sole-hidden-2')!;
     expect(rider.card.headline).toEqual({ kind: 'pct-back', value: '10%', caption: 'back' });
     expect(rider.field.map((mark) => mark.pct)).toEqual([0, 10]);

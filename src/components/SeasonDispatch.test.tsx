@@ -31,6 +31,7 @@ const dispatch = {
       },
     ],
   },
+  squadSelection: 'sole-assignment' as const,
   personalSquad: { id: 2, name: 'Cedar', slug: 'cedar' },
   availableSquads: [
     { id: 2, name: 'Cedar', slug: 'cedar' },
@@ -191,4 +192,30 @@ describe('SeasonDispatch', () => {
     expect(markup).toContain('Some results are not available yet');
     expect(markup).not.toContain('Race 4, 0 starts');
   });
+});
+
+it('offers every active squad when multiple assignments require a choice', () => {
+  const markup = renderToStaticMarkup(
+    <SeasonDispatch
+      dispatch={{ ...dispatch, personalSquad: null, squadSelection: 'choice-required' }}
+    />,
+  );
+  expect(markup).toContain('Choose a squad');
+  expect(markup).toContain('You are assigned to more than one squad.');
+  expect(markup).toContain('href="/2026/squad/cedar?through=2"');
+  expect(markup).toContain('href="/2026/squad/summit?through=2"');
+  expect(markup).not.toContain('No squad linked');
+});
+
+it('keeps an unassigned member connected to active club squads without inventing an assignment', () => {
+  const markup = renderToStaticMarkup(
+    <SeasonDispatch
+      dispatch={{ ...dispatch, personalSquad: null, squadSelection: 'unassigned' }}
+    />,
+  );
+  expect(markup).toContain('No squad assigned');
+  expect(markup).toContain('No squad is assigned to you for this season.');
+  expect(markup).toContain('href="/2026/squad/summit?through=2"');
+  expect(markup).toContain('href="/2026/roster?through=2"');
+  expect(markup).not.toContain('You are assigned to more than one squad.');
 });

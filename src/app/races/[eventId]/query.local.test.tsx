@@ -47,8 +47,8 @@ beforeAll(async () => {
   await normalize(db);
   await seedClubConfig(db, loadClubConfig());
 
-  raceFour = (await loadRaceDetail(db, RACE_4_NORTH, null))!;
-  prologue = (await loadRaceDetail(db, PROLOGUE, null))!;
+  raceFour = (await loadRaceDetail(db, RACE_4_NORTH, 1))!;
+  prologue = (await loadRaceDetail(db, PROLOGUE, 1))!;
 }, 180_000);
 
 const cards = (detail: RaceDetail): PlacedRider[] => detail.squads.flatMap((squad) => squad.riders);
@@ -105,7 +105,7 @@ describe('the page opens a real archived race', () => {
     // `rider_plate` is season-scoped by decision (issue #1): the same plate is a
     // different person a season later. A 2025 roster must produce no cards at a
     // 2026 event rather than guessing.
-    const opener = (await loadRaceDetail(db, OPENER_2026, null))!;
+    const opener = (await loadRaceDetail(db, OPENER_2026, 1))!;
     expect(opener.starters).toBe(604);
     expect(cards(opener)).toHaveLength(0);
   });
@@ -286,7 +286,7 @@ describe('card order at a real event (issue #61)', () => {
   });
 
   it('renders the same order on a second read of the same event', async () => {
-    const again = (await loadRaceDetail(db, RACE_4_NORTH, null))!;
+    const again = (await loadRaceDetail(db, RACE_4_NORTH, 1))!;
     expect(cards(again).map((rider) => rider.card.plate)).toEqual(
       cards(raceFour).map((rider) => rider.card.plate),
     );

@@ -17,10 +17,11 @@
  */
 
 import { defineConfig } from 'vitest/config';
-import { sharedPlugins, sharedTestConfig } from './vitest.shared.ts';
+import { sharedPlugins, sharedResolve, sharedTestConfig } from './vitest.shared.ts';
 
 export default defineConfig({
   plugins: sharedPlugins,
+  resolve: sharedResolve,
   test: {
     ...sharedTestConfig,
     include: ['src/**/*.local.test.{ts,tsx}', 'scripts/**/*.local.test.ts'],

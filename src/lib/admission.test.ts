@@ -23,6 +23,7 @@ const MAIL = 'nodemailer';
 const devOn = {
   NODE_ENV: 'development',
   AUTH_DEV_LOGIN: '1',
+  AUTH_EMAIL_SERVER: 'smtp://localhost:1025',
   AUTH_ALLOWED_EMAILS: LISTED,
 };
 
@@ -50,7 +51,12 @@ describe('admits, through the dev shim', () => {
     // The .env-copied-to-a-server case, and the reason the bypass re-reads the
     // environment instead of trusting the token: a leaked or reused AUTH_SECRET
     // still cannot replay a 'dev' claim into a hosted deployment.
-    const prod = { NODE_ENV: 'production', AUTH_DEV_LOGIN: '1', AUTH_ALLOWED_EMAILS: LISTED };
+    const prod = {
+      NODE_ENV: 'production',
+      AUTH_DEV_LOGIN: '1',
+      AUTH_EMAIL_SERVER: 'smtp://localhost:1025',
+      AUTH_ALLOWED_EMAILS: LISTED,
+    };
     expect(admits(DEV_PROVIDER_ID, { email: STRANGER }, prod)).toBe(false);
     // A dev token never becomes a production identity merely because the
     // typed address also appears on the production allowlist.
@@ -62,24 +68,41 @@ describe('admits, through the dev shim', () => {
 });
 
 describe('admits, every other provider', () => {
-  it('runs the allowlist even while the shim is switched on', () => {
-    // The bug both review axes caught: this used to branch on the shim being
-    // AVAILABLE rather than on the session having come through it, so with
-    // AUTH_DEV_LOGIN=1 a magic-link session skipped the allowlist too.
-    expect(admits(MAIL, { email: STRANGER }, devOn)).toBe(false);
+  it('permits a configured email provider without treating an allowlist as club authority', () => {
+    const emailOn = {
+      NODE_ENV: 'production',
+      AUTH_EMAIL_SERVER: 'smtp://localhost:1025',
+      AUTH_ALLOWED_EMAILS: '',
+    };
+
+    expect(admits(MAIL, { email: STRANGER }, emailOn)).toBe(true);
+  });
+
+  it('refuses an unsupported provider even when its claimed address is allowlisted', () => {
+    const emailOn = {
+      NODE_ENV: 'production',
+      AUTH_EMAIL_SERVER: 'smtp://localhost:1025',
+      AUTH_ALLOWED_EMAILS: LISTED,
+    };
+
+    expect(admits(MAIL, { email: LISTED }, emailOn)).toBe(true);
+    expect(admits('unsupported-provider', { email: LISTED }, emailOn)).toBe(false);
+  });
+
+  it('keeps the configured email provider distinct from the local shim', () => {
+    // The shim's availability cannot establish email-provider provenance.
+    expect(admits(MAIL, { email: STRANGER }, devOn)).toBe(true);
     expect(admits(MAIL, { email: LISTED }, devOn)).toBe(true);
   });
 
-  it('keeps issue #20 revocation for a magic-link session while the shim is on', () => {
-    // Striking an address has to evict its holder on the next request. Under
-    // strategy: 'jwt' there is no session row to delete, so if this returned
-    // true on configuration alone the eviction silently would not happen.
+  it('does not treat an allowlist edit as a membership decision', () => {
+    // Revocation now belongs to the active membership read on each Node request.
     const struck = { ...devOn, AUTH_ALLOWED_EMAILS: 'someone-else@example.org' };
     expect(admits(MAIL, { email: LISTED }, devOn)).toBe(true);
-    expect(admits(MAIL, { email: LISTED }, struck)).toBe(false);
+    expect(admits(MAIL, { email: LISTED }, struck)).toBe(true);
   });
 
-  it('fails closed when the allowlist is empty', () => {
+  it('fails closed when the email provider is not configured', () => {
     const empty = { NODE_ENV: 'development', AUTH_DEV_LOGIN: '1', AUTH_ALLOWED_EMAILS: '' };
     expect(admits(MAIL, { email: LISTED }, empty)).toBe(false);
     expect(admits(MAIL, { email: STRANGER }, empty)).toBe(false);

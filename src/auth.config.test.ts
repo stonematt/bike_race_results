@@ -40,23 +40,26 @@ describe('authorized', () => {
     expect(authorized({ auth: { user: {} } })).toBe(false);
   });
 
-  it('re-checks the allowlist on every request, not just at sign-in', () => {
-    // The revocation case. Under `strategy: 'jwt'` there is no session row to
-    // delete, so if this callback trusted the token alone, striking an address
-    // from AUTH_ALLOWED_EMAILS would leave its holder reading rider names until
-    // the token expired — up to 30 days.
-    const signedIn = { auth: { user: { email: 'coach@example.org' } } };
+  it('re-checks configured provider provenance on every request', () => {
+    const signedIn = { auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } };
 
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'coach@example.org');
     expect(authorized(signedIn)).toBe(true);
 
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'someone-else@example.org');
+    expect(authorized(signedIn)).toBe(true);
+
+    vi.stubEnv('AUTH_EMAIL_SERVER', '');
     expect(authorized(signedIn)).toBe(false);
   });
 
-  it('fails closed when the allowlist is empty', () => {
+  it('does not use an allowlist as Edge authority', () => {
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', '');
-    expect(authorized({ auth: { user: { email: 'coach@example.org' } } })).toBe(false);
+    expect(
+      authorized({ auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } }),
+    ).toBe(true);
   });
 });
 
@@ -70,6 +73,7 @@ describe('authorized, with the development shim switched on', () => {
   const shimOn = () => {
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('AUTH_DEV_LOGIN', '1');
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'coach@example.org');
   };
 
@@ -80,14 +84,11 @@ describe('authorized, with the development shim switched on', () => {
     );
   });
 
-  it('still allowlists a magic-link session in the same process', () => {
-    // The bug this locks down: branching on the shim being AVAILABLE rather
-    // than on the session having come through it dropped the allowlist for
-    // every session at once, revocation included.
+  it('keeps a configured magic-link session distinct from the local shim', () => {
     shimOn();
     expect(
       authorized({ auth: { user: { email: 'anyone@example.test' }, provider: 'nodemailer' } }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       authorized({ auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } }),
     ).toBe(true);

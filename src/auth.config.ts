@@ -67,19 +67,11 @@ export const authConfig = {
      * original privacy review, and decided in issue #7. There is no public half
      * of this app to carve out.
      *
-     * This re-checks admission on every request rather than trusting the token.
-     * Under the jwt strategy there is no session row to delete, so a
-     * sign-in-time-only check means removing an address from
-     * AUTH_ALLOWED_EMAILS does not evict its holder — they keep reading minors'
-     * names until the token expires, up to 30 days later. Revoking access has
-     * to take effect on the next request, so the check belongs here.
-     *
-     * The development shim is the one session this admits without the allowlist,
-     * and it has to be honoured here too: the shim signs in an address that is
-     * not on the list, so re-checking the list would bounce that user straight
-     * back to /signin and the shim would sign nobody in. That is why the
-     * provider is stamped above — so this exempts the shim's own sessions and
-     * nothing else. See src/lib/admission.ts.
+     * This re-checks provider provenance on every request rather than trusting
+     * the token. The development claim remains inert in production because the
+     * registered-provider check re-reads the environment. Edge cannot load
+     * PGlite, so active club membership and next-request revocation are checked
+     * by the Node request/action boundary in `src/app/club-context.ts`.
      */
     authorized({ auth }) {
       return admits(auth?.provider, auth?.user);

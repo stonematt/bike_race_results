@@ -32,7 +32,7 @@ export type EditorialRosterRider = {
 export type EditorialRoster = {
   season: SeasonRef;
   checkpoint: Checkpoint;
-  squad: SquadRef | null;
+  squad: (SquadRef & { archived: boolean }) | null;
   rounds: DispatchRound[];
   riders: EditorialRosterRider[];
 };
@@ -49,17 +49,22 @@ export async function loadEditorialRoster(
   });
   if (dispatch === null) return null;
 
-  let squad: SquadRef | null = null;
+  let squad: EditorialRoster['squad'] = null;
   if (input.squadId !== undefined) {
     const squadResult = await db.execute(sql`
-      select id, name, slug from squad
+      select id, name, slug, archived_at from squad
        where id = ${input.squadId}
          and club_id = ${input.clubId}
          and season_id = ${input.seasonId}
        limit 1`);
     const row = squadResult.rows[0] as Record<string, unknown> | undefined;
     if (!row) return null;
-    squad = { id: Number(row.id), name: String(row.name), slug: String(row.slug) };
+    squad = {
+      id: Number(row.id),
+      name: String(row.name),
+      slug: String(row.slug),
+      archived: row.archived_at !== null,
+    };
   }
 
   const checkpointFilter =

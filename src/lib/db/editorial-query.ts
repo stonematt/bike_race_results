@@ -37,6 +37,7 @@ export type SeasonDispatch = {
   checkpoint: Checkpoint;
   schedule: { kind: 'unavailable' } | { kind: 'available'; rounds: DispatchRound[] };
   personalSquad: SquadRef | null;
+  squadSelection: 'preferred' | 'sole-assignment' | 'choice-required' | 'unassigned';
   availableSquads: SquadRef[];
 };
 
@@ -201,24 +202,56 @@ export function riderEventResultFromViewRow(row: Record<string, unknown>): Rider
   };
 }
 
-async function loadPersonalSquads(
+/** Active exact-club/season choices; preferences and assignments never grant access. */
+export async function loadSquadNavigation(
   db: AnyDatabase,
   clubId: number,
   seasonId: number,
   userId: string | null,
-): Promise<SquadRef[]> {
-  if (userId === null) return [];
-
+): Promise<Pick<SeasonDispatch, 'personalSquad' | 'squadSelection' | 'availableSquads'>> {
   const result = await db.execute(sql`
-    select s.id, s.name, s.slug from squad s
-      join squad_coach sc on sc.squad_id = s.id
-     where s.club_id = ${clubId} and s.season_id = ${seasonId} and sc.user_id = ${userId}
-     order by s.name`);
-  return rowsOf(result).map((row) => ({
+    select s.id, s.name, s.slug,
+           exists (
+             select 1 from squad_coach sc
+             join club_membership m on m.user_id = sc.user_id
+               and m.club_id = s.club_id and m.revoked_at is null
+             where sc.squad_id = s.id and sc.user_id = ${userId}
+           ) as assigned,
+           exists (
+             select 1 from user_squad_preference p
+             join club_membership m on m.user_id = p.user_id
+               and m.club_id = p.club_id and m.revoked_at is null
+             where p.user_id = ${userId} and p.club_id = s.club_id
+               and p.season_id = s.season_id and p.squad_id = s.id
+           ) as preferred
+      from squad s
+     where s.club_id = ${clubId} and s.season_id = ${seasonId}
+       and s.archived_at is null
+     order by s.name, s.id`);
+  const rows = rowsOf(result);
+  const squadRef = (row: Row): SquadRef => ({
     id: num(row.id),
     name: str(row.name),
     slug: str(row.slug),
-  }));
+  });
+  const preferred = rows.find((row) => row.preferred === true);
+  const assigned = rows.filter((row) => row.assigned === true);
+  const [firstAssigned] = assigned;
+  return {
+    availableSquads: rows.map(squadRef),
+    personalSquad: preferred
+      ? squadRef(preferred)
+      : assigned.length === 1 && firstAssigned !== undefined
+        ? squadRef(firstAssigned)
+        : null,
+    squadSelection: preferred
+      ? 'preferred'
+      : assigned.length === 1
+        ? 'sole-assignment'
+        : assigned.length > 1
+          ? 'choice-required'
+          : 'unassigned',
+  };
 }
 
 /**
@@ -259,7 +292,7 @@ export async function loadSeasonDispatch(
   ) {
     return null;
   }
-  const personalSquads = await loadPersonalSquads(db, input.clubId, input.seasonId, input.userId);
+  const squadNavigation = await loadSquadNavigation(db, input.clubId, input.seasonId, input.userId);
 
   const [eventsResult, publishedResult] = await Promise.all([
     db.execute(sql`
@@ -292,8 +325,7 @@ export async function loadSeasonDispatch(
       season,
       checkpoint,
       schedule: { kind: 'unavailable' },
-      personalSquad: personalSquads[0] ?? null,
-      availableSquads: personalSquads,
+      ...squadNavigation,
     };
   }
 
@@ -387,8 +419,7 @@ export async function loadSeasonDispatch(
     season,
     checkpoint,
     schedule: { kind: 'available', rounds: dispatchRounds },
-    personalSquad: personalSquads[0] ?? null,
-    availableSquads: personalSquads,
+    ...squadNavigation,
   };
 }
 

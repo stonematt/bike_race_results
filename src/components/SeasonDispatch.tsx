@@ -173,7 +173,7 @@ function RaceRibbon({
 }
 
 export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
-  const { checkpoint, personalSquad, schedule, season } = dispatch;
+  const { checkpoint, personalSquad, squadSelection, availableSquads, schedule, season } = dispatch;
   const through = checkpointSearch(checkpoint);
   const featuredRound =
     checkpoint.kind === 'through' && schedule.kind === 'available'
@@ -287,7 +287,11 @@ export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
 
       <section className="border-border mt-8 border-t pt-5" aria-labelledby="squad-entry-heading">
         <h2 id="squad-entry-heading" className="font-display text-2xl tracking-wide uppercase">
-          {personalSquad ? personalSquad.name : 'No squad linked'}
+          {personalSquad
+            ? personalSquad.name
+            : squadSelection === 'choice-required'
+              ? 'Choose a squad'
+              : 'No squad assigned'}
         </h2>
         {personalSquad ? (
           <Link
@@ -297,8 +301,28 @@ export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
             Open full {personalSquad.name} roster
           </Link>
         ) : (
-          <p className="text-muted mt-3 text-sm">No personal squad is linked for this season.</p>
+          <p className="text-muted mt-3 text-sm">
+            {squadSelection === 'choice-required'
+              ? 'You are assigned to more than one squad. Open a roster below.'
+              : 'No squad is assigned to you for this season. You can still explore the club squads.'}
+          </p>
         )}
+        {availableSquads.length > 0 ? (
+          <nav aria-label="Active club squads" className="mt-4">
+            <ul className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold">
+              {availableSquads.map((squad) => (
+                <li key={squad.id} className="min-w-0 break-words">
+                  <Link
+                    className="underline underline-offset-4 hover:text-accent"
+                    href={`/${season.year}/squad/${squad.slug}${through}`}
+                  >
+                    {squad.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
         <Link
           className="mt-3 flex w-fit text-sm font-bold underline underline-offset-4"
           href={`/${season.year}/roster${through}`}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { Banner } from '@/components/Banner.tsx';
 import { SignOutButton } from '@/components/SignOutButton.tsx';
 import { listRaces } from './[eventId]/query.ts';
@@ -16,7 +17,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function RacesPage() {
   const session = await auth();
-  const races = await listRaces(appDb());
+  const db = appDb();
+  await requireClubContext(db, session?.user?.id);
+  const races = await listRaces(db);
 
   return (
     <>

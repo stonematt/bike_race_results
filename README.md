@@ -70,11 +70,11 @@ cp .env.example .env.local
 
 Fill in `.env.local`. At minimum you need three things:
 
-| Variable              | What to put there                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| `AUTH_SECRET`         | Generate one: `npx auth secret`                                                              |
-| `AUTH_ALLOWED_EMAILS` | Your own address. Comma-separated; this is the gate for magic-link sign-in, and for seeding. |
-| `AUTH_DEV_LOGIN`      | `1`, to sign in locally without a mail server. Development only — see Auth.                  |
+| Variable              | What to put there                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`         | Generate one: `npx auth secret`                                                                      |
+| `AUTH_ALLOWED_EMAILS` | Your first-admin bootstrap address. Comma-separated; it authorizes `seedAdmin`, not runtime sign-in. |
+| `AUTH_DEV_LOGIN`      | `1`, to sign in locally without a mail server. Development only — see Auth.                          |
 
 Then bring up the database, seed the club and yourself, and load the archived race payloads:
 
@@ -92,7 +92,9 @@ The two `normalize` runs are two different jobs and both are needed. `--load-fix
 
 The `bin/` scripts read `.env.local` themselves, whether you run them as `pnpm seed` or as `node bin/seed.ts` — the file is resolved from the repo root, not from the directory you happen to be in. A variable already set in your shell beats the file, so `DATABASE_URL=... pnpm db:migrate` still points somewhere else for one run. Having no `.env.local` at all is fine: `DATABASE_URL` falls back to `./.pglite`, and nothing else is needed to migrate.
 
-`seed.ts` is idempotent, and it refuses any address that isn't on `AUTH_ALLOWED_EMAILS` — the allowlist gates seeding too, not just sign-in.
+`seed.ts` is idempotent and refuses a first-admin bootstrap address outside
+`AUTH_ALLOWED_EMAILS`. It appoints an active admin only when the club has none;
+later runs preserve managed roles and leave revoked memberships revoked.
 
 ## Safe synthetic demo
 
@@ -113,15 +115,32 @@ To use another disposable location, set `DATABASE_URL` to an empty local PGlite 
 
 ## Auth
 
-`AUTH_ALLOWED_EMAILS` is a comma-separated, case-insensitive list, and on any deployment it is the single gate. An empty list admits nobody; the failure mode is closed.
+`AUTH_ALLOWED_EMAILS` is a comma-separated, case-insensitive bootstrap
+allowlist. `seedAdmin` refuses an address outside it, then appoints the first
+active admin for a club only when that club has no active admin. It is not a
+runtime permission list: re-seeding does not rewrite managed roles or restore a
+revoked membership.
 
-The list is checked in three places: the `signIn` callback, the `authorized` callback on every request (so striking an address evicts that session immediately, even under JWT), and `seedAdmin`. The first two ask one function — `admits()` in `src/lib/admission.ts` — which is where the single exception below lives. `seedAdmin` calls `isAllowed()` straight, and has no exception at all: there is no way to seed an unlisted address.
+Two providers establish an authenticated identity. Nodemailer magic links load
+only when `AUTH_EMAIL_SERVER` is set and are the only production provider. The
+development credentials shim loads only when `NODE_ENV=development` **and**
+`AUTH_DEV_LOGIN=1`; it can establish a local identity for any typed address,
+with no mail server and nothing proving control of that address.
 
-Two providers exist. A Nodemailer magic link, which loads only when `AUTH_EMAIL_SERVER` is set, is the only production path, and it runs the allowlist. A development credentials shim, which loads only when `NODE_ENV=development` **and** `AUTH_DEV_LOGIN=1`, is the one bypass: it signs in **any** address you type, with no mail server, no allowlist, and nothing proving you control it.
+Neither provider grants club access. Protected Node pages and actions re-read
+the user's active database membership on every request, so a revoked membership
+is denied on the next protected request. An authenticated account without an
+active membership cannot read club-private reporting or administration data.
 
-So in that mode the thing standing in front of the rider names is not the shim — it is the loopback bind. `pnpm dev` binds `127.0.0.1`, so the instance the shim admits people to is reachable from nowhere but the machine running it. The bind and the bypass are one decision and land together.
+Invitation acceptance is not implemented or released yet. A pending or live
+invitation is not a documented route to club data, and this repository does not
+offer an invitation-acceptance UI.
 
-The bypass is unreachable from a deployment, and not on a token's word: `admits()` re-reads the environment before honouring the shim's provider claim, so `NODE_ENV=production` turns the branch off whatever a cookie carries. A leaked or reused `AUTH_SECRET` cannot be replayed into an allowlist bypass on a hosted instance.
+In development, the loopback bind remains load-bearing: `pnpm dev` binds
+`127.0.0.1`, so the local shim is reachable only from the machine running it.
+The shim is unavailable in production because `admits()` re-reads the provider
+configuration rather than trusting a token claim. A retained development-provider session is rejected in production, even when
+the same local `AUTH_SECRET` is used for that check.
 
 The middleware must stay at `src/middleware.ts`. Move it to the repo root and Next silently stops loading it, which fails open.
 

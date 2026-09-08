@@ -1,9 +1,12 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
 import { Banner } from '@/components/Banner.tsx';
 import { SignOutButton } from '@/components/SignOutButton.tsx';
 import { SeasonSelector } from '@/components/SeasonSelector.tsx';
+import { readActiveMemberships } from '@/lib/authz/access.ts';
+import { requireClubContext } from '../club-context.ts';
 import { listSeasonYears, resolveSeasonByYear } from './query.ts';
 
 /**
@@ -28,17 +31,35 @@ export default async function SeasonLayout({
 }) {
   const { season: seasonSegment } = await params;
   const db = appDb();
+  const session = await auth();
+  const club = await requireClubContext(db, session?.user?.id);
 
   const season = await resolveSeasonByYear(db, seasonSegment);
   if (season === null) notFound();
 
-  const [session, seasonYears] = await Promise.all([auth(), listSeasonYears(db)]);
+  const [seasonYears, memberships] = await Promise.all([
+    listSeasonYears(db),
+    readActiveMemberships(db, club.userId),
+  ]);
 
   return (
     <>
       <Banner>
         <SeasonSelector currentYear={season.year} seasonYears={seasonYears} />
-        {session?.user?.email ? <span>{session.user.email}</span> : null}
+        {memberships.length > 1 ? (
+          <Link className="text-sm font-bold text-white underline underline-offset-4" href="/clubs">
+            Switch club
+          </Link>
+        ) : null}
+        <Link
+          className="text-sm font-bold text-white underline underline-offset-4"
+          href={`/${season.year}/operations`}
+        >
+          Club operations
+        </Link>
+        {session?.user?.email ? (
+          <span className="min-w-0 break-all">{session.user.email}</span>
+        ) : null}
         <SignOutButton />
       </Banner>
       {children}
