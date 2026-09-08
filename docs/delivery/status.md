@@ -1,8 +1,8 @@
 # Delivery status
 
-Updated 2026-09-07. **Decision foundation prepared; application implementation has not started in this session.** No production deployment or active long-running goal has been created.
+Updated 2026-09-07. **Goal active; foundation merged into dev; D1 starting.** No production deployment. The goal has no token budget. The owner approved product defaults and public TDD seams, subject to later recorded decisions; see [accepted contract](accepted-contract.md).
 
-Branch: `docs/editorial-delivery-foundation`, based on `dev` at `db1298e`. Worktree was clean before these documentation changes. Owner: orchestrating agent. No running servers started.
+Branch: `feat/local-delivery-foundation`, from current `dev` at `36ab935`. Owner: Astra orchestrator; bounded worker ownership recorded below. No running servers started.
 
 GitHub: [delivery epic #121](https://github.com/stonematt/bike_race_results/issues/121), linked as a child of map #1; [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). Existing implementation issues remain open.
 
@@ -43,6 +43,19 @@ Hosted database URLs throw. Auth uses an environment allowlist rather than invit
 
 - 2026-09-07: Owner confirmed the dev → task branch → reviewed PR → dev → separate release to main lifecycle, Conventional Commits, no-fast-forward PR merges and verified branch cleanup. Persisted in global Codex instructions and repository AGENTS.md/development-lifecycle.md. Shared skills were inspected but not modified. No PR merge or production release was requested by this workflow-setup instruction.
 
-**Next handoff**
+**Foundation delivery audit**
 
-Review the documented role/invitation lifecycle and confirm the proposed public TDD seams, then activate the delivery objective and begin D1. This is the outstanding recipe approval boundary, not a blocker on persisting the decisions already accepted. Actual production release remains a distinct action after implementation and verification. Reconcile GitHub state before claiming work.
+- PR [#122](https://github.com/stonematt/bike_race_results/pull/122), base `dev` at `db1298edd7f6365e55e7ee48282251fc0adc58db`, reviewed head `d3a907230c24052fad9b3517aab8a9225f8bca3a` (the two original commits preserved).
+- Independent Standards reviewer `foundation_standards`: zero findings. Independent Spec reviewer `foundation_spec`: zero blockers; activation follow-ups are addressed by the accepted contract and current ledger. Review recorded in the PR body.
+- Local Prettier, whitespace and privacy guard passed (264 tracked files). CI run `34188391091` passed privacy, types, lint, formatting, public tests, migration drift and fresh PGlite migrations. Documentation validation does not establish runtime product acceptance.
+- Merged into dev with merge commit `36ab935e7c5a8f79e88fa75dd2581499fa65060b` on 2026-09-07 local date. Local dev fast-forwarded; task tip ancestry verified; task branch removed locally and at origin; fetch/prune and both local/remote ref checks confirmed absence. No task worktrees existed to remove.
+- Epic #121 and map #1 reconciled in place; milestone 7 remains open. Existing backlog/milestones preserved, no implementation issues closed. Obsidian `tyee/2a/scd/Descenders race reporting.md` updated through CLI.
+
+**D1 owners and next action**
+
+- Database correctness worker: #98 and #106 together, new migration and reporting query tests. One owner for migrations.
+- Synthetic setup worker: safe demo command and restart/idempotency behavior. No identifying corpus reads in demo.
+- Orchestrator: accepted contract, runtime auth/database integration, ledger, GitHub, browser validation and integration.
+- First tests observe approved public reporting queries and management/database boundaries. No new test seam approval is outstanding.
+- Reproduce #100 only if baseline tests fail. Start on a disposable synthetic database; never overwrite the existing local database.
+- Next: execute D1 red/green slices, verify production build/start and persistent restart, review current diff and merge through the lifecycle. D2-D5 remain unimplemented. Production release, paid resources, real invitations and external athlete-data transfer remain separately authorized actions.

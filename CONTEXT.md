@@ -4,7 +4,9 @@ An analytics environment for interscholastic mountain bike race results. It inge
 the league published, normalizes it across races and seasons, and renders it for the
 people who coach one club. It serves two populations at once — riders chasing places, and
 riders whose season is measured in starts and finishes — and a view that speaks to only one
-of them is incomplete. It is not a team-management tool and it is not a scoring engine.
+of them is incomplete. It is not a general team-management tool or a scoring engine. Persistent club administration and reviewed editorial publishing are narrowly in scope under ADR-0005.
+
+Current product and delivery authority: [PRODUCT.md](PRODUCT.md), [editorial direction](docs/design/editorial-direction.md), [accepted delivery contract](docs/delivery/accepted-contract.md) and [delivery status](docs/delivery/status.md).
 
 ## Language
 
