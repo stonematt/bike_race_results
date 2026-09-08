@@ -84,6 +84,7 @@ describe('RaceReview', () => {
     expect(markup).toContain('place 2 · 4.5% back');
     expect(markup).toContain('Orange marks are club riders. Navy marks are other field riders.');
     expect(markup).toContain('2 club riders recorded in this 4-rider field.');
+    expect(markup).toContain('What would you like to try at the next race?');
   });
 
   it('offers a keyboard-reachable field choice and published result evidence on demand', () => {

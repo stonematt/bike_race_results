@@ -101,3 +101,25 @@ it('a member gets factual reporting after the approved roster evidence changes',
   expect(markup).toContain('More from this weekend');
   expect(markup).toContain('4 club riders recorded a start at Race 1.');
 });
+
+it('a member keeps the race review question when stale evidence withholds its publication', async () => {
+  await publish('race-review');
+  await db
+    .delete(schema.clubMember)
+    .where(
+      and(
+        eq(schema.clubMember.clubId, 1),
+        eq(schema.clubMember.seasonId, 2),
+        eq(schema.clubMember.riderId, 1),
+      ),
+    );
+  const markup = renderToStaticMarkup(
+    await RoundPage({
+      params: Promise.resolve({ season: '2026', ordinal: '1' }),
+      searchParams: Promise.resolve({ through: '1' }),
+    }),
+  );
+  expect(markup).not.toContain('5 club riders recorded a start at Demo Race 1 — Old Oak (North).');
+  expect(markup).toContain('4 club riders recorded in this 5-rider field.');
+  expect(markup.match(/What would you like to try at the next race\?/g)).toHaveLength(1);
+});

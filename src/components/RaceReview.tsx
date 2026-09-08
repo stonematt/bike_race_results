@@ -70,6 +70,7 @@ export function RaceReview({ review, through, showEventHeading = false, story }:
       ) : null}
 
       {story ? <ReviewedObservation story={story} /> : null}
+      {!story ? <p className="mt-3 text-sm">What would you like to try at the next race?</p> : null}
 
       <nav aria-label="Choose a field" className={showEventHeading ? 'mt-4' : 'mt-2'}>
         <ul className="flex list-none flex-wrap gap-x-4 gap-y-2 p-0 text-sm font-bold">
