@@ -26,6 +26,7 @@
     "db:migrate": "node bin/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "demo": "node bin/demo.ts",
+    "serverctl": "node bin/serverctl.ts",
     "seed": "node bin/seed.ts",
     "fetch": "node bin/fetch.ts",
     "normalize": "node bin/normalize.ts",
