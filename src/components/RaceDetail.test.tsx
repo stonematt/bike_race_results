@@ -260,8 +260,25 @@ describe('the field strip', () => {
       <FieldStrip marks={[{ pct: 0, ours: true, place: '1', label: '«ONLY RIDER»' }]} />,
     );
 
-    expect(markup).toContain('One published rider; no field spread to compare.');
+    expect(markup).toContain('One comparable finisher; no field spread to compare.');
     expect(markup).not.toContain('<svg');
+  });
+
+  it('keeps an outside DNF visible when one comparable finisher cannot establish a field spread', () => {
+    const markup = renderToStaticMarkup(
+      <FieldStrip
+        marks={[
+          { pct: 0, ours: true, place: '1', label: '«WINNER»' },
+          { pct: null, ours: true, place: '*', label: '«DNF»' },
+        ]}
+        outside={[{ text: '«DNF» — DNF', kind: 'dnf' }]}
+      />,
+    );
+
+    expect(markup).toContain('One comparable finisher; no field spread to compare.');
+    expect(markup).toContain('«DNF» — DNF');
+    expect(markup).not.toContain('<svg');
+    expect(markup).not.toContain('+10%');
   });
 });
 

@@ -26,7 +26,8 @@ export async function renderRoster({
   const userId = session?.user?.id ?? null;
   const club = await resolveClub(db, userId);
   if (club === null) notFound();
-  const squad = squadSlug === undefined ? null : await resolveSquadBySlug(db, season.id, squadSlug);
+  const squad =
+    squadSlug === undefined ? null : await resolveSquadBySlug(db, season.id, squadSlug, club.id);
   if (squadSlug !== undefined && squad === null) notFound();
   const roster = await loadEditorialRoster(db, {
     seasonId: season.id,
@@ -35,6 +36,6 @@ export async function renderRoster({
     checkpoint: ordinal === undefined ? undefined : { kind: 'through', ordinal },
   });
   if (roster === null) notFound();
-  const squads = userId === null ? [] : await listCoachSquads(db, userId, season.id);
+  const squads = userId === null ? [] : await listCoachSquads(db, userId, season.id, club.id);
   return <EditorialRoster roster={roster} squads={squads} />;
 }

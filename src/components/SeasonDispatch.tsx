@@ -155,7 +155,7 @@ function RaceRibbon({
             key={round.round.id}
             className="border-border min-w-0 basis-1/2 border-b border-r px-3 py-2 even:border-r-0 last:border-b-0"
           >
-            {round.availability === 'published' ? (
+            {round.availability === 'published' || round.availability === 'partial' ? (
               <Link
                 className="hover:text-accent block"
                 href={`/${seasonYear}/round/${round.round.ordinal}${checkpointSearch(checkpoint)}`}

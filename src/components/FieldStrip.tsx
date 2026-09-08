@@ -64,7 +64,7 @@ function NoAxis() {
 function SingletonField() {
   return (
     <p className="border-border bg-surface text-muted rounded-md border px-3 py-2 text-sm">
-      One published rider; no field spread to compare.
+      One comparable finisher; no field spread to compare.
     </p>
   );
 }
@@ -81,7 +81,7 @@ export function FieldStrip({ marks, outside = [], size = 'md', caption, max }: F
         </figcaption>
       ) : null}
 
-      {marks.length === 1 ? (
+      {model.placed === 1 ? (
         <SingletonField />
       ) : model.max === null ? (
         <NoAxis />

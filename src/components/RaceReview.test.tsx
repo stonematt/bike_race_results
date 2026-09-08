@@ -117,7 +117,7 @@ describe('RaceReview', () => {
 
     const markup = renderToStaticMarkup(<RaceReview review={singleton} through={2} />);
 
-    expect(markup).toContain('One published rider; no field spread to compare.');
+    expect(markup).toContain('One comparable finisher; no field spread to compare.');
     expect(markup).toContain('place 1 · no field spread to compare');
     expect(markup).toContain('1 rider · percent back from winner');
     expect(markup).not.toContain('<svg');

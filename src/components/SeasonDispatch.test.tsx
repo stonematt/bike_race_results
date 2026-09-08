@@ -124,6 +124,7 @@ describe('SeasonDispatch', () => {
     const markup = renderToStaticMarkup(<SeasonDispatch dispatch={withPartialRound} />);
 
     expect(markup).toContain('Some results are not available yet');
+    expect(markup).toContain('href="/2026/round/2?through=2"');
     expect(markup).not.toContain('null starts');
     expect(markup).not.toContain('Race 2, 0 starts');
   });

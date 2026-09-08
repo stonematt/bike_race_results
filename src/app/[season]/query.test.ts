@@ -192,6 +192,16 @@ describe('resolving a URL segment to a squad (issue #114)', () => {
     ]);
 
     expect(await resolveSquadBySlug(ambiguous, 1, 'descenders')).toBeNull();
+    expect(await resolveSquadBySlug(ambiguous, 1, 'descenders', 1)).toEqual({
+      id: 1,
+      name: 'Descenders',
+      slug: 'descenders',
+    });
+    expect(await resolveSquadBySlug(ambiguous, 1, 'descenders', 2)).toEqual({
+      id: 2,
+      name: 'Descenders Too',
+      slug: 'descenders',
+    });
   });
 });
 
@@ -213,6 +223,27 @@ describe('listCoachSquads', () => {
     ]);
     expect(await listCoachSquads(db, SOLO_COACH, 2)).toEqual([
       { id: 4, name: 'Descenders', slug: 'descenders' },
+    ]);
+  });
+
+  it('does not list a coach assignment from another Club when scope is resolved', async () => {
+    const scoped = await createTestDb();
+    await scoped.insert(schema.season).values({ id: 1, year: 2025 });
+    await scoped.insert(schema.club).values([
+      { id: 1, name: 'Club One', slug: 'club-one' },
+      { id: 2, name: 'Club Two', slug: 'club-two' },
+    ]);
+    await scoped.insert(schema.squad).values([
+      { id: 1, clubId: 1, seasonId: 1, name: 'Home Squad', slug: 'home' },
+      { id: 2, clubId: 2, seasonId: 1, name: 'Foreign Squad', slug: 'foreign' },
+    ]);
+    await scoped.insert(schema.squadCoach).values([
+      { squadId: 1, userId: MULTI_COACH },
+      { squadId: 2, userId: MULTI_COACH },
+    ]);
+
+    expect(await listCoachSquads(scoped, MULTI_COACH, 1, 1)).toEqual([
+      { id: 1, name: 'Home Squad', slug: 'home' },
     ]);
   });
 });
