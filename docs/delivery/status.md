@@ -30,7 +30,7 @@ D5 public reporting and authorization parity is delivered through PR [#138](http
 
 ## Current work and resume point
 
-Main checkout is clean `dev` at `080851048f660212ad6f915f177e01e8c9a388e0` after the D5 parity merge. The runtime and parity task worktrees and feature refs are gone. Local runtime, recovery, browser and public-domain parity criteria are recorded; provider/hosted deployment readiness remains unverified and must not be inferred from this local work.
+Main checkout is clean `dev` at `2d19e08a18aaee23f46453492c1e2ab84351104f` after the D5 parity audit merge. The runtime, parity and audit task worktrees and feature refs are gone. Local runtime, recovery, browser and public-domain parity criteria are recorded; provider/hosted deployment readiness remains unverified and must not be inferred from this local work.
 
 D4 foundation, commands and member reporting passed independent Standards and Spec/data/static-art review. The management workspace now exposes only generated evidence, unavailable reasons, revision preview, stale-publication refresh and exact race-review placement; server actions re-check selected season and active club. High-risk review reported no Standards findings and one Spec P2 (the absent race fallback question), corrected at `21b1361` and passed on a delta re-review. Focused candidate lanes pass 10 files / 129 tests before that correction; its RaceReview and protected reporting lane passes 9 tests. Full CI remains pending.
 
