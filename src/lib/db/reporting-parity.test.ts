@@ -58,6 +58,7 @@ type RaceProjection = {
   state: { fieldSize: number; headline: unknown };
   deficit: { headline: unknown; field: (number | null)[] };
   dnf: { headline: unknown; points: string | undefined };
+  selectedTimeTrial: { headline: unknown; field: (number | null)[] };
 };
 
 /**
@@ -79,9 +80,11 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   const events = await db.execute(sql`
     insert into event (round_id, source_event_id, name)
     values (${combinedRoundId}, ${'parity-combined-' + suffix}, 'Combined'),
-           (${stateRoundId}, ${'parity-state-' + suffix}, 'State') returning id`);
+           (${stateRoundId}, ${'parity-state-' + suffix}, 'State'),
+           (${combinedRoundId}, ${'parity-time-trial-' + suffix}, 'Time trial') returning id`);
   const combinedEventId = Number(events.rows[0]?.id);
   const stateEventId = Number(events.rows[1]?.id);
+  const timeTrialEventId = Number(events.rows[2]?.id);
   const club = await db.execute(
     sql`insert into club (name, slug) values (${`Parity Club ${suffix}`}, ${'parity-' + suffix}) returning id`,
   );
@@ -91,9 +94,11 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
     values (${clubId}, ${seasonId}, 'Parity', ${'parity-squad-' + suffix}) returning id`);
   const squadId = Number(squad.rows[0]?.id);
   const riders = await db.execute(sql`
-    insert into rider (display_name) values ('NORTH'), ('SOUTH'), ('SHORT'), ('DNF'), ('STATE') returning id`);
+    insert into rider (display_name) values ('NORTH'), ('SOUTH'), ('SHORT'), ('DNF'), ('STATE'), ('TT') returning id`);
   const riderIds = riders.rows.map((row) => Number((row as { id: unknown }).id));
-  const plates = ['north', 'south', 'short', 'dnf', 'state'].map((plate) => `${plate}-${suffix}`);
+  const plates = ['north', 'south', 'short', 'dnf', 'state', 'tt'].map(
+    (plate) => `${plate}-${suffix}`,
+  );
   for (let index = 0; index < riderIds.length; index++) {
     await db.execute(sql`insert into rider_plate (rider_id, season_id, plate)
       values (${riderIds[index]}, ${seasonId}, ${plates[index]})`);
@@ -125,12 +130,27 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   await result(combinedEventId, plates[3]!, 'HS2 Girls - North', 'DNF', null, 1, 'dnf', 100);
   await result(stateEventId, `state-winner-${suffix}`, 'HS2 Girls', '1', '1200', 3);
   await result(stateEventId, plates[4]!, 'HS2 Girls', '2', '1320', 3);
+  await result(timeTrialEventId, `tt-winner-${suffix}`, 'HS2 Girls - North', '1', '1000', null);
+  await result(timeTrialEventId, plates[5]!, 'HS2 Girls - North', '2', '1100', null);
+  const selectedSource = await db.execute(sql`
+    insert into raw_fetch (season, event_id, list_id, list_name, url, http_status, payload, content_hash)
+    values (${3000 + Number(suffix.slice(0, 3))}, ${'parity-time-trial-' + suffix}, 'selected-tt', 'Selected TT',
+      'synthetic://selected-tt', 200, ${JSON.stringify({ DataFields: ['RankOrStatusTT', 'Start.TOD', 'End.TOD'] })}::jsonb,
+      ${'selected-tt-' + suffix}) returning id`);
+  await db.execute(sql`
+    insert into raw_fetch (season, event_id, list_id, list_name, url, http_status, payload, content_hash)
+    values (${3000 + Number(suffix.slice(0, 3))}, ${'parity-time-trial-' + suffix}, 'later-laps', 'Later lap list',
+      'synthetic://later-laps', 200, ${JSON.stringify({ DataFields: ['NumberOfLaps', 'Lap1'] })}::jsonb,
+      ${'later-laps-' + suffix})`);
+  await db.execute(sql`insert into event_result_source (event_id, raw_fetch_id, list_id, hidden)
+    values (${timeTrialEventId}, ${Number(selectedSource.rows[0]?.id)}, 'selected-tt', false)`);
 
-  const [northField, northDetail, southField, stateDetail] = await Promise.all([
+  const [northField, northDetail, southField, stateDetail, timeTrialDetail] = await Promise.all([
     loadCategoryField(db, riderIds[0]!, combinedRoundId, squadId),
     loadRaceDetail(db, `parity-combined-${suffix}`, clubId),
     loadCategoryField(db, riderIds[1]!, combinedRoundId, squadId),
     loadRaceDetail(db, `parity-state-${suffix}`, clubId),
+    loadRaceDetail(db, `parity-time-trial-${suffix}`, clubId),
   ]);
   const find = (detail: NonNullable<typeof northDetail>, plate: string) =>
     detail.squads[0]!.riders.find((rider) => rider.card.plate === plate)!;
@@ -139,6 +159,7 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   const short = find(northDetail!, plates[2]!);
   const dnf = find(northDetail!, plates[3]!);
   const state = find(stateDetail!, plates[4]!);
+  const timeTrial = find(timeTrialDetail!, plates[5]!);
   return {
     north: {
       fieldSize: northField!.fieldSize,
@@ -157,6 +178,10 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
       headline: dnf.card.headline,
       points: dnf.card.stats.find((stat) => stat.label === 'Points')?.value,
     },
+    selectedTimeTrial: {
+      headline: timeTrial.card.headline,
+      field: timeTrial.field.map((mark) => mark.pct),
+    },
   };
 }
 
@@ -170,6 +195,10 @@ describe('public race reporting transport parity', () => {
       state: { fieldSize: 2, headline: { kind: 'pct-back', value: '10%', caption: 'back' } },
       deficit: { headline: { kind: 'place-deficit', value: '4', caption: 'of 5 · −1 lap' } },
       dnf: { headline: { kind: 'dnf' }, points: '100' },
+      selectedTimeTrial: {
+        headline: { kind: 'pct-back', value: '10%', caption: 'back' },
+        field: [0, 10],
+      },
     });
     if (postgresLocation) {
       await expect(
@@ -181,6 +210,7 @@ describe('public race reporting transport parity', () => {
           state: pglite.state,
           deficit: pglite.deficit,
           dnf: pglite.dnf,
+          selectedTimeTrial: pglite.selectedTimeTrial,
         }),
       );
     }
