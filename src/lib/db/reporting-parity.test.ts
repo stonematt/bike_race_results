@@ -8,6 +8,14 @@ import { describe, expect, it } from 'vitest';
 import { loadCategoryField } from './category-query.ts';
 import { createDatabaseRuntime, type DatabaseRuntime } from './runtime.ts';
 import { loadRaceDetail } from '../../app/races/[eventId]/query.ts';
+import { resolveSquadBySlug } from '../../app/[season]/query.ts';
+import { archiveSquad, createSquad, setPreferredSquad } from '../club-operations.ts';
+import {
+  createClubInvitation,
+  revokeClubInvitation,
+  revokeClubMembership,
+} from '../club-membership-operations.ts';
+import { canStartEmailSignIn, requireClubRole } from '../authz/access.ts';
 import { migrationsFolder } from './testing.ts';
 
 const postgresLocation = process.env.D5_TEST_DATABASE_URL;
@@ -175,6 +183,98 @@ describe('public race reporting transport parity', () => {
           dnf: pglite.dnf,
         }),
       );
+    }
+  }, 30000);
+});
+
+type AuthorizationProjection = {
+  address: { name: string; slug: string } | null;
+  preferenceRows: number;
+  malformedInvitationRows: number;
+  invitationAdmission: boolean;
+  revokedInvitationAdmission: boolean;
+  revokedMemberDenied: boolean;
+};
+
+async function authorizationProjection(
+  runtime: DatabaseRuntime,
+  suffix: string,
+): Promise<AuthorizationProjection> {
+  const db = runtime.db;
+  const club = await db.execute(sql`
+    insert into club (name, slug) values (${`Parity Authority ${suffix}`}, ${'authority-' + suffix}) returning id`);
+  const clubId = Number(club.rows[0]?.id);
+  const season = await db.execute(
+    sql`insert into season (year) values (${3100 + Number(suffix.slice(0, 3))}) returning id`,
+  );
+  const seasonId = Number(season.rows[0]?.id);
+  const adminId = `admin-${suffix}`;
+  const memberId = `member-${suffix}`;
+  const invitee = `invitee-${suffix}@example.test`;
+  await db.execute(sql`
+    insert into "user" (id, email) values
+      (${adminId}, ${adminId + '@example.test'}), (${memberId}, ${memberId + '@example.test'})`);
+  await db.execute(sql`
+    insert into club_membership (club_id, user_id, role) values
+      (${clubId}, ${adminId}, 'admin'), (${clubId}, ${memberId}, 'member')`);
+  const squad = await createSquad(db, { actorId: adminId, clubId, seasonId, name: 'Cedar' });
+  await setPreferredSquad(db, { actorId: memberId, clubId, seasonId, squadId: squad.id });
+  await expect(
+    createClubInvitation(db, { actorId: adminId, clubId, email: 'not-an-address', role: 'member' }),
+  ).rejects.toThrow('Invitation email is invalid.');
+  const malformedInvitationRows = Number(
+    (await db.execute(sql`select count(*)::int as count from club_invitation`)).rows[0]?.count,
+  );
+  const issued = await createClubInvitation(db, {
+    actorId: adminId,
+    clubId,
+    email: invitee,
+    role: 'member',
+  });
+  const invitationAdmission = await canStartEmailSignIn(db, invitee);
+  await revokeClubInvitation(db, { actorId: adminId, clubId, invitationId: issued.id });
+  const revokedInvitationAdmission = await canStartEmailSignIn(db, invitee);
+  await archiveSquad(db, { actorId: adminId, clubId, seasonId, squadId: squad.id });
+  await revokeClubMembership(db, { actorId: adminId, clubId, userId: memberId });
+  let revokedMemberDenied = false;
+  try {
+    await requireClubRole(db, memberId, clubId, ['member']);
+  } catch {
+    revokedMemberDenied = true;
+  }
+  const preferenceRows = Number(
+    (await db.execute(sql`select count(*)::int as count from user_squad_preference`)).rows[0]
+      ?.count,
+  );
+  const address = await resolveSquadBySlug(db, seasonId, squad.slug, clubId);
+  return {
+    address: address ? { name: address.name, slug: address.slug } : null,
+    preferenceRows,
+    malformedInvitationRows,
+    invitationAdmission,
+    revokedInvitationAdmission,
+    revokedMemberDenied,
+  };
+}
+
+describe('public authorization-state transport parity', () => {
+  it('preserves archived addresses and denies revoked invitation or membership on the next read', async () => {
+    const suffix = String(Date.now()).slice(-6);
+    const pglite = await withRuntime('pglite', (runtime) =>
+      authorizationProjection(runtime, suffix),
+    );
+    expect(pglite).toEqual({
+      address: { name: 'Cedar', slug: 'cedar' },
+      preferenceRows: 0,
+      malformedInvitationRows: 0,
+      invitationAdmission: true,
+      revokedInvitationAdmission: false,
+      revokedMemberDenied: true,
+    });
+    if (postgresLocation) {
+      await expect(
+        withRuntime('postgres', (runtime) => authorizationProjection(runtime, suffix + 'p')),
+      ).resolves.toEqual(pglite);
     }
   }, 30000);
 });
