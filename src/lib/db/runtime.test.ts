@@ -170,19 +170,20 @@ for (const [kind, location] of [
           kind === 'pglite' ? await mkdtemp(join(tmpdir(), 'descenders-runtime-')) : null;
         const databaseLocation = directory ?? location;
         const actorId = randomUUID();
+        const clubName = `Persistent Synthetic Club ${actorId}`;
         let clubId = 0;
         try {
           const first = createDatabaseRuntime(databaseLocation);
           try {
             await migrateRuntime(first);
-            clubId = await addSyntheticMembership(first, actorId, 'coach');
+            clubId = await addSyntheticMembership(first, actorId, 'coach', clubName);
           } finally {
             await first.close();
           }
           const reopened = createDatabaseRuntime(databaseLocation);
           try {
             expect(await readActiveMemberships(reopened.db, actorId)).toEqual([
-              { userId: actorId, clubId, clubName: 'Persistent Synthetic Club', role: 'coach' },
+              { userId: actorId, clubId, clubName, role: 'coach' },
             ]);
           } finally {
             await reopened.close();
@@ -201,15 +202,16 @@ for (const [kind, location] of [
           expect(runtime.kind).toBe(kind);
           await migrateRuntime(runtime);
           const actorId = randomUUID();
+          const clubName = `Synthetic Transport Club ${actorId}`;
           const clubId = await addSyntheticMembership(
             runtime,
             actorId,
             'admin',
-            'Synthetic Transport Club',
+            clubName,
           );
           await migrateRuntime(runtime);
           expect(await readActiveMemberships(runtime.db, actorId)).toEqual([
-            { userId: actorId, clubId, clubName: 'Synthetic Transport Club', role: 'admin' },
+            { userId: actorId, clubId, clubName, role: 'admin' },
           ]);
         } finally {
           await runtime.close();
