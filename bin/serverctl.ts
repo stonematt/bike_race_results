@@ -12,11 +12,13 @@
 import { spawn, spawnSync } from 'node:child_process';
 import {
   existsSync,
+  closeSync,
   mkdirSync,
   openSync,
   readFileSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
@@ -28,6 +30,7 @@ import { loadEnvLocal, repoRoot } from './env.ts';
 const DATABASE_URL = './.pglite-real-uat';
 const STATE_DIR = join(repoRoot, '.serverctl');
 const PID_FILE = join(STATE_DIR, 'real-uat.json');
+const LOCK_FILE = join(STATE_DIR, 'real-uat.lock');
 const LOG_FILE = join(STATE_DIR, 'real-uat.log');
 const ARCHIVED_CORPUS = join(homedir(), '.local', 'share', 'bike_race_results', 'fixtures');
 
@@ -107,11 +110,44 @@ function assertRecordedNextServer(state: ServerState): void {
     encoding: 'utf8',
   });
   const commandLine = inspected.status === 0 ? inspected.stdout : '';
-  if (!commandLine.includes('next') || !commandLine.includes('dev')) {
+  const expected = [
+    join(repoRoot, 'node_modules', 'next', 'dist', 'bin', 'next'),
+    'dev',
+    '--hostname',
+    '127.0.0.1',
+    '--port',
+    String(state.port),
+  ];
+  if (!expected.every((part) => commandLine.includes(part))) {
     console.error(
       `refused: pid ${state.pid} is not a Next development server; leaving it and ${PID_FILE} untouched.`,
     );
     process.exit(1);
+  }
+}
+
+function withControllerLock(action: () => void): void {
+  mkdirSync(STATE_DIR, { recursive: true });
+  let descriptor: number;
+  try {
+    descriptor = openSync(LOCK_FILE, 'wx');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      console.error('refused: another serverctl setup or start is already in progress.');
+      process.exit(1);
+    }
+    throw error;
+  }
+  const release = () => {
+    closeSync(descriptor);
+    unlinkSync(LOCK_FILE);
+  };
+  process.once('exit', release);
+  try {
+    action();
+  } finally {
+    process.removeListener('exit', release);
+    release();
   }
 }
 
@@ -249,6 +285,6 @@ if (selected === 'status') {
     console.error('refused: --email is required so the named UAT account is explicit.');
     process.exit(2);
   }
-  if (selected === 'prepare') prepare(email);
-  else start(email, port());
+  if (selected === 'prepare') withControllerLock(() => prepare(email));
+  else withControllerLock(() => start(email, port()));
 }
