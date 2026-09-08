@@ -203,12 +203,7 @@ for (const [kind, location] of [
           await migrateRuntime(runtime);
           const actorId = randomUUID();
           const clubName = `Synthetic Transport Club ${actorId}`;
-          const clubId = await addSyntheticMembership(
-            runtime,
-            actorId,
-            'admin',
-            clubName,
-          );
+          const clubId = await addSyntheticMembership(runtime, actorId, 'admin', clubName);
           await migrateRuntime(runtime);
           expect(await readActiveMemberships(runtime.db, actorId)).toEqual([
             { userId: actorId, clubId, clubName, role: 'admin' },

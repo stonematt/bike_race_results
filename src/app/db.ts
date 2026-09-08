@@ -1,21 +1,27 @@
 /**
  * The app's database handle.
  *
- * `createDb()` opens a PGlite instance, which is a real resource — one per
- * request would be both slow and, against a directory on disk, contended. Next
- * keeps a module's state for the lifetime of the server process, so one handle
- * is created lazily and reused.
+ * A database runtime owns a real resource — PGlite locally or a bounded
+ * node-postgres pool — so one per request would be both slow and contended.
+ * Next keeps module state for the lifetime of the server process, so the
+ * runtime is created lazily and reused by both auth and reporting.
  *
  * Lazily rather than at import: a module-level `createDb()` runs during page
  * data collection at build time, when `DATABASE_URL` may not be set and there
  * is nothing to query.
  */
 
-import { createDb, type Database } from '../lib/db/index.ts';
+import type { Database } from '../lib/db/index.ts';
+import { createDatabaseRuntime, type DatabaseRuntime } from '../lib/db/runtime.ts';
 
-let handle: Database | undefined;
+let runtime: DatabaseRuntime | undefined;
 
 export function appDb(): Database {
-  handle ??= createDb();
-  return handle;
+  return appRuntime().db;
+}
+
+/** The app-level resource owner. Callers should query through `appDb()`. */
+export function appRuntime(): DatabaseRuntime {
+  runtime ??= createDatabaseRuntime();
+  return runtime;
 }

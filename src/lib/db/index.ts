@@ -1,19 +1,24 @@
 /**
  * The one database module. All three entry points import this — bin/fetch.ts,
- * bin/normalize.ts, and the Next app — so there is one schema, one migration
- * history, and no workspace tooling.
+ * legacy PGlite-only command helpers. The Next app owns its runtime through
+ * `src/app/db.ts`, so it does not lose a native node-postgres pool behind this
+ * compatibility helper.
  *
- * PGlite locally, Neon when hosted. Both are Postgres, so the schema file, the
- * SQL and the migrations are the same ones either way; moving to hosted is a
- * driver and connection-string change, not a rewrite. See issue #6.
+ * PGlite locally and node-postgres for a PostgreSQL URL. Both are Postgres, so
+ * the schema file, SQL and migrations are shared; `runtime.ts` owns their
+ * distinct resource lifecycles.
  */
 
-import { PGlite } from '@electric-sql/pglite';
-import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from './schema.ts';
+import { createDatabaseRuntime, type RuntimeDatabase } from './runtime.ts';
 import { resolveDatabaseUrl } from './url.ts';
 
-export type Database = ReturnType<typeof createDb>;
+/**
+ * The two native schema-typed driver handles. Resource ownership stays in
+ * `DatabaseRuntime`; callers that need driver-specific builders must narrow at
+ * a runtime composition boundary rather than casting one driver to the other.
+ */
+export type Database = RuntimeDatabase;
 
 /** A `postgres://` URL means hosted; anything else is a local PGlite directory. */
 export function isHostedUrl(url: string): boolean {
@@ -22,16 +27,16 @@ export function isHostedUrl(url: string): boolean {
 
 export function createDb(url = resolveDatabaseUrl()) {
   if (isHostedUrl(url)) {
-    // Deliberately not wired yet: nothing is hosted, and an untested Neon path
-    // that silently half-works is worse than one that says so. The swap is
-    // drizzle-orm/neon-serverless with the same `schema` object.
     throw new Error(
-      `DATABASE_URL points at a hosted Postgres (${url.split('@').pop()}), which is not wired up yet. ` +
-        `Hosting is a separate map — see issue #1. Use a local PGlite path for now.`,
+      'This command currently supports only a local PGlite directory. Use the application runtime or db:migrate for PostgreSQL.',
     );
   }
-  const client = new PGlite(url);
-  return drizzle(client, { schema });
+  const runtime = createDatabaseRuntime(url);
+  if (runtime.kind !== 'pglite') {
+    void runtime.close();
+    throw new Error('This command currently supports only a local PGlite directory.');
+  }
+  return runtime.db;
 }
 
 export { schema };

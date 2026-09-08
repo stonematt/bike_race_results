@@ -82,7 +82,7 @@ export async function createStory(db: Database, input: CreateStoryInput): Promis
         createdByUserId: input.actorId,
         updatedByUserId: input.actorId,
       })
-      .returning({ id: editorialStory.id });
+      .returning();
     if (!created) throw new StoryOperationError('Story could not be created.');
     await tx.insert(clubAuditEvent).values({
       clubId: input.clubId,
