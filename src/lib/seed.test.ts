@@ -16,7 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadEnvLocal } from '../../bin/env.ts';
-import { resolveDefaultSquad } from '../app/[season]/query.ts';
+import { loadSquadNavigation } from './db/editorial-query.ts';
 import { ClubConfigError, loadClubConfig, pseudonymFor, type ClubConfig } from './club-config.ts';
 import { createTestDb, type TestDatabase } from './db/testing.ts';
 import { resolveDatabaseUrl } from './db/url.ts';
@@ -1055,15 +1055,9 @@ describe('seedAdmin links its coach to the squads of their club', () => {
   });
 });
 
-/**
- * The acceptance test: after seeding, a fresh sign-in as the admin's address
- * lands on their squad through `squad_coach` — not through
- * `resolveDefaultSquad`'s single-squad fallback. Proven with two squads, so
- * the fallback (which only ever answers for exactly one) could not possibly
- * be what produced the result.
- */
-describe('a seeded admin resolves their squad through squad_coach, not the fallback', () => {
-  it('resolves the coach-linked squad even though the club has more than one', async () => {
+/** Bootstrap assignments remain observable without inventing a personal default. */
+describe('a seeded admin retains explicit squad assignments', () => {
+  it('offers a choice when bootstrap assigns the admin to two squads', async () => {
     const config = clubConfig({
       season: 2025,
       riders: [rider('rider-a', plate('202')), rider('rider-b', plate('204'))],
@@ -1080,15 +1074,13 @@ describe('a seeded admin resolves their squad through squad_coach, not the fallb
       seasonYear: config.season,
     });
 
-    const squad = await resolveDefaultSquad(db, admin.userId, seeded.seasonId);
-
-    // Deterministic tie-break, lowest name first — this is squad_coach doing
-    // the resolving, not the "exactly one squad" fallback, which two squads
-    // would have refused to answer for at all.
-    expect(squad).toEqual({
-      id: expect.any(Number),
-      name: 'Descenders',
-      slug: expect.any(String),
+    const navigation = await loadSquadNavigation(db, admin.clubId, seeded.seasonId, admin.userId);
+    // A choice-required result proves bootstrap created multiple assignments;
+    // available choices alone would not distinguish assigned from unassigned.
+    expect(navigation).toMatchObject({
+      personalSquad: null,
+      squadSelection: 'choice-required',
+      availableSquads: [{ name: 'Descenders' }, { name: 'JV' }],
     });
   });
 });

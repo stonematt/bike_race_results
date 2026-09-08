@@ -1,3 +1,4 @@
+import { loadSquadNavigation } from './db/editorial-query.ts';
 /**
  * The public D1 bootstrap seam: a persistent PGlite demo is only useful if
  * its own reporting reads continue to work after the process restarts.
@@ -13,7 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resolveCurrentSeason, resolveDefaultSquad } from '../app/[season]/query.ts';
+import { resolveCurrentSeason } from '../app/[season]/query.ts';
 import { listRaces, loadRaceDetail } from '../app/races/[eventId]/query.ts';
 import { bootstrapSafeDemo, DEMO_COACH_EMAIL, UnsafeDemoDatabaseError } from './demo.ts';
 import { createSquad } from './club-operations.ts';
@@ -443,10 +444,10 @@ describe('bootstrapSafeDemo', () => {
 
     const current = await resolveCurrentSeason(reopened.db);
     expect(current).toEqual({ id: expect.any(Number), year: 2026 });
-    expect(await resolveDefaultSquad(reopened.db, created.userId, current!.id)).toEqual({
-      id: expect.any(Number),
-      name: 'Cedar',
-      slug: 'cedar',
+    expect(await loadSquadNavigation(reopened.db, 1, current!.id, created.userId)).toMatchObject({
+      personalSquad: null,
+      squadSelection: 'choice-required',
+      availableSquads: [{ name: 'Cedar' }, { name: 'Summit' }],
     });
     expect(await listRaces(reopened.db)).toEqual([
       {

@@ -5,7 +5,8 @@ import { requireClubContext } from '@/app/club-context.ts';
 import { EditorialRoster } from '@/components/EditorialRoster.tsx';
 import { loadEditorialRoster } from '@/lib/db/editorial-roster-query.ts';
 import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
-import { listCoachSquads, resolveSeasonByYear, resolveSquadBySlug } from './query.ts';
+import { loadSquadNavigation } from '@/lib/db/editorial-query.ts';
+import { resolveSeasonByYear, resolveSquadBySlug } from './query.ts';
 
 /** Shared protected entry for Club and named Squad roster scopes. */
 export async function renderRoster({
@@ -37,6 +38,6 @@ export async function renderRoster({
     checkpoint: ordinal === undefined ? undefined : { kind: 'through', ordinal },
   });
   if (roster === null) notFound();
-  const squads = userId === null ? [] : await listCoachSquads(db, userId, season.id, club.clubId);
+  const { availableSquads: squads } = await loadSquadNavigation(db, club.clubId, season.id, userId);
   return <EditorialRoster roster={roster} squads={squads} />;
 }

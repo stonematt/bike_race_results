@@ -202,7 +202,8 @@ export function riderEventResultFromViewRow(row: Record<string, unknown>): Rider
   };
 }
 
-async function loadSquadNavigation(
+/** Active exact-club/season choices; preferences and assignments never grant access. */
+export async function loadSquadNavigation(
   db: AnyDatabase,
   clubId: number,
   seasonId: number,
@@ -235,12 +236,13 @@ async function loadSquadNavigation(
   });
   const preferred = rows.find((row) => row.preferred === true);
   const assigned = rows.filter((row) => row.assigned === true);
+  const [firstAssigned] = assigned;
   return {
     availableSquads: rows.map(squadRef),
     personalSquad: preferred
       ? squadRef(preferred)
-      : assigned.length === 1
-        ? squadRef(assigned[0]!)
+      : assigned.length === 1 && firstAssigned !== undefined
+        ? squadRef(firstAssigned)
         : null,
     squadSelection: preferred
       ? 'preferred'

@@ -80,45 +80,6 @@ export async function resolveCurrentSeason(
 }
 
 /**
- * The squad a coach lands on by default, for a given season.
- *
- * Read off `squad_coach` (many-to-many). When a coach holds more than one
- * squad in the season, the pick is deterministic — lowest `squad.name`
- * collating — and deliberately arbitrary: there is no coach preference to
- * break the tie honestly yet, so "first alphabetically" is a placeholder,
- * not a judgement about which squad matters more. A coach with more than one
- * squad also gets an in-UI switcher (`listCoachSquads`, `SquadSwitcher`) so
- * this pick is never the only way to reach the others.
- *
- * No coach link is null, full stop — there used to be a fallback here that
- * guessed the season's only Squad when the coach link came up empty, standing
- * in for a coach link that could not work yet (dev sign-in issued a session
- * `user.id` that never matched `coach.user_id`, #107; `squad_coach` had no
- * seeder, #108). Both landed in #116, so the fallback was a shim around a
- * broken link, not a decision anybody made, and removing it is the point of
- * #114: a multi-squad database no longer behaves differently from a
- * single-squad one depending on whether the guess happened to be right.
- */
-export async function resolveDefaultSquad(
-  db: AnyDatabase,
-  userId: string | null,
-  seasonId: number,
-  clubId?: number,
-): Promise<SquadRef | null> {
-  if (userId === null) return null;
-
-  const clubFilter = clubId === undefined ? sql`` : sql`and s.club_id = ${clubId}`;
-  const result = await db.execute(sql`
-    select s.id, s.name, s.slug from squad s
-      join squad_coach sc on sc.squad_id = s.id
-     where sc.user_id = ${userId} and s.season_id = ${seasonId} ${clubFilter}
-     order by s.name
-     limit 1`);
-  const row = rowsOf(result)[0];
-  return row ? { id: num(row.id), name: str(row.name), slug: str(row.slug) } : null;
-}
-
-/**
  * The Squad a `/[season]/squad/[slug]` URL segment names.
  *
  * `squad.slug` is unique per `(club_id, season_id)`, not globally. Callers
@@ -146,10 +107,8 @@ export async function resolveSquadBySlug(
 }
 
 /**
- * Every Squad a coach holds in a Season, ordered the same way
- * `resolveDefaultSquad` breaks its tie — the switcher's own read. Empty for a
- * coach who holds none or holds exactly one; the caller (`SquadSwitcher`)
- * only renders when there is a real choice to make.
+ * Legacy assignment-only read, ordered by squad name and including archives.
+ * Active reporting navigation uses `loadSquadNavigation` instead.
  */
 export async function listCoachSquads(
   db: AnyDatabase,
