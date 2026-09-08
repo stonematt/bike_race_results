@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { loadCategoryField } from './category-query.ts';
 import { createDatabaseRuntime, type DatabaseRuntime } from './runtime.ts';
 import { loadRaceDetail } from '../../app/races/[eventId]/query.ts';
+import { loadSeasonDispatch } from './editorial-query.ts';
 import { resolveSquadBySlug } from '../../app/[season]/query.ts';
 import { archiveSquad, createSquad, setPreferredSquad } from '../club-operations.ts';
 import {
@@ -59,6 +60,7 @@ type RaceProjection = {
   deficit: { headline: unknown; field: (number | null)[] };
   dnf: { headline: unknown; points: string | undefined };
   selectedTimeTrial: { headline: unknown; field: (number | null)[] };
+  checkpoint: { currentStarts: number; laterAvailability: string; laterStarts: number | null };
 };
 
 /**
@@ -105,6 +107,8 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
     await db.execute(
       sql`insert into squad_member (squad_id, rider_id) values (${squadId}, ${riderIds[index]})`,
     );
+    await db.execute(sql`insert into club_member (club_id, season_id, rider_id)
+      values (${clubId}, ${seasonId}, ${riderIds[index]})`);
   }
   const result = async (
     eventId: number,
@@ -145,13 +149,20 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   await db.execute(sql`insert into event_result_source (event_id, raw_fetch_id, list_id, hidden)
     values (${timeTrialEventId}, ${Number(selectedSource.rows[0]?.id)}, 'selected-tt', false)`);
 
-  const [northField, northDetail, southField, stateDetail, timeTrialDetail] = await Promise.all([
-    loadCategoryField(db, riderIds[0]!, combinedRoundId, squadId),
-    loadRaceDetail(db, `parity-combined-${suffix}`, clubId),
-    loadCategoryField(db, riderIds[1]!, combinedRoundId, squadId),
-    loadRaceDetail(db, `parity-state-${suffix}`, clubId),
-    loadRaceDetail(db, `parity-time-trial-${suffix}`, clubId),
-  ]);
+  const [northField, northDetail, southField, stateDetail, timeTrialDetail, dispatch] =
+    await Promise.all([
+      loadCategoryField(db, riderIds[0]!, combinedRoundId, squadId),
+      loadRaceDetail(db, `parity-combined-${suffix}`, clubId),
+      loadCategoryField(db, riderIds[1]!, combinedRoundId, squadId),
+      loadRaceDetail(db, `parity-state-${suffix}`, clubId),
+      loadRaceDetail(db, `parity-time-trial-${suffix}`, clubId),
+      loadSeasonDispatch(db, {
+        seasonId,
+        clubId,
+        userId: null,
+        checkpoint: { kind: 'through', ordinal: 1 },
+      }),
+    ]);
   const find = (detail: NonNullable<typeof northDetail>, plate: string) =>
     detail.squads[0]!.riders.find((rider) => rider.card.plate === plate)!;
   const north = find(northDetail!, plates[0]!);
@@ -160,6 +171,9 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   const dnf = find(northDetail!, plates[3]!);
   const state = find(stateDetail!, plates[4]!);
   const timeTrial = find(timeTrialDetail!, plates[5]!);
+  if (!dispatch || dispatch.schedule.kind !== 'available') {
+    throw new Error('Synthetic checkpoint dispatch unavailable');
+  }
   return {
     north: {
       fieldSize: northField!.fieldSize,
@@ -182,6 +196,11 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
       headline: timeTrial.card.headline,
       field: timeTrial.field.map((mark) => mark.pct),
     },
+    checkpoint: {
+      currentStarts: dispatch.schedule.rounds[0]!.clubStarts!,
+      laterAvailability: dispatch.schedule.rounds[1]!.availability,
+      laterStarts: dispatch.schedule.rounds[1]!.clubStarts,
+    },
   };
 }
 
@@ -199,6 +218,7 @@ describe('public race reporting transport parity', () => {
         headline: { kind: 'pct-back', value: '10%', caption: 'back' },
         field: [0, 10],
       },
+      checkpoint: { currentStarts: 5, laterAvailability: 'after-checkpoint', laterStarts: null },
     });
     if (postgresLocation) {
       await expect(
@@ -211,6 +231,7 @@ describe('public race reporting transport parity', () => {
           deficit: pglite.deficit,
           dnf: pglite.dnf,
           selectedTimeTrial: pglite.selectedTimeTrial,
+          checkpoint: pglite.checkpoint,
         }),
       );
     }
