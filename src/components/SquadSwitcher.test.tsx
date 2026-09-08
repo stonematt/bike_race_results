@@ -22,6 +22,14 @@ describe('SquadSwitcher', () => {
     expect(markup).toContain('href="/2026/squad/descenders"');
   });
 
+  it('preserves the selected checkpoint when switching squads', () => {
+    const markup = renderToStaticMarkup(
+      <SquadSwitcher seasonYear={2025} currentSlug="descenders" squads={squads} through={2} />,
+    );
+    expect(markup).toContain('href="/2025/squad/alpha-squad?through=2"');
+    expect(markup).toContain('href="/2025/squad/descenders?through=2"');
+  });
+
   it('renders every squad’s name', () => {
     const markup = renderToStaticMarkup(
       <SquadSwitcher seasonYear={2026} currentSlug="descenders" squads={squads} />,
