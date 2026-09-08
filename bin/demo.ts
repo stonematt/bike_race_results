@@ -31,7 +31,7 @@ try {
       : 'Synthetic demo database already matches the safe demo; no data changed.',
   );
   console.log(
-    `For local development login, run DATABASE_URL=${shellQuote(databaseUrl)} AUTH_DEV_LOGIN=1 pnpm dev and use ${result.coachEmail}.`,
+    `For local development login, run DATABASE_URL=${shellQuote(databaseUrl)} AUTH_URL=http://localhost:3000 AUTH_DEV_LOGIN=1 pnpm dev, open http://localhost:3000, and use ${result.coachEmail}.`,
   );
 } finally {
   await db.$client.close();
