@@ -1,3 +1,4 @@
+import { loadPublishedStory } from '@/lib/editorial-publication.ts';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
@@ -43,5 +44,15 @@ export default async function SeasonHomePage({
   });
   if (dispatch === null) notFound();
 
-  return <SeasonDispatch dispatch={dispatch} />;
+  const story =
+    dispatch.checkpoint.kind === 'through'
+      ? await loadPublishedStory(db, {
+          actorId: club.userId,
+          clubId: club.clubId,
+          seasonId: season.id,
+          checkpointOrdinal: dispatch.checkpoint.ordinal,
+          surface: 'season-dispatch',
+        })
+      : null;
+  return <SeasonDispatch dispatch={dispatch} story={story} />;
 }

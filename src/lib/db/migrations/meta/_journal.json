@@ -57,6 +57,13 @@
       "when": 1788855400973,
       "tag": "0007_persistent_club_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788863454526,
+      "tag": "0008_reviewed_editorial_stories",
+      "breakpoints": true
     }
   ]
 }

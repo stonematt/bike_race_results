@@ -1,3 +1,5 @@
+import { ReviewedObservation } from './ReviewedObservation.tsx';
+import type { PublishedStory } from '@/lib/editorial-publication.ts';
 import Link from 'next/link';
 import type {
   Checkpoint,
@@ -7,6 +9,7 @@ import type {
 
 export type SeasonDispatchProps = {
   dispatch: SeasonDispatchData;
+  story?: PublishedStory | null;
 };
 
 function checkpointLabel(checkpoint: Checkpoint): string {
@@ -172,7 +175,7 @@ function RaceRibbon({
   );
 }
 
-export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
+export function SeasonDispatch({ dispatch, story }: SeasonDispatchProps) {
   const { checkpoint, personalSquad, squadSelection, availableSquads, schedule, season } = dispatch;
   const through = checkpointSearch(checkpoint);
   const featuredRound =
@@ -257,7 +260,10 @@ export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
               </>
             ) : (
               <p className="text-muted max-w-xl text-sm">
-                Published starts are not included in this checkpoint.
+                {incompleteRound
+                  ? incompleteRound.round.name +
+                    ' results are incomplete; a whole-round starts count is unavailable.'
+                  : 'Published starts are not included in this checkpoint.'}
               </p>
             )}
           </section>
@@ -268,7 +274,14 @@ export function SeasonDispatch({ dispatch }: SeasonDispatchProps) {
         </p>
       )}
 
-      {featuredRound ? (
+      {story ? (
+        <section className="border-border mt-8 border-t pt-5" aria-labelledby="story-heading">
+          <h2 id="story-heading" className="font-display text-2xl tracking-wide uppercase">
+            From the published results
+          </h2>
+          <ReviewedObservation story={story} />
+        </section>
+      ) : featuredRound ? (
         <section className="border-border mt-8 border-t pt-5" aria-labelledby="weekend-heading">
           <h2 id="weekend-heading" className="font-display text-2xl tracking-wide uppercase">
             More from this weekend

@@ -35,7 +35,7 @@ try {
   console.log(
     result.status === 'created'
       ? 'Created the synthetic demo database.'
-      : 'Synthetic demo database already matches the safe demo; no data changed.',
+      : 'Synthetic demo database is ready; existing configuration preserved.',
   );
   console.log(
     `For local development login, run DATABASE_URL=${shellQuote(databaseUrl)} AUTH_URL=http://localhost:3000 AUTH_DEV_LOGIN=1 pnpm dev, open http://localhost:3000, and use ${result.coachEmail}.`,
