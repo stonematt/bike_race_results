@@ -63,8 +63,17 @@ export const resolveSeasonByYear = cache(
   },
 );
 
-/** The current season: the latest year on record. Null before anything is seeded. */
-export async function resolveCurrentSeason(db: AnyDatabase): Promise<SeasonRef | null> {
+/** An explicit current year never falls back; otherwise use the latest recorded year. */
+export async function resolveCurrentSeason(
+  db: AnyDatabase,
+  configuredYear?: string,
+): Promise<SeasonRef | null> {
+  if (configuredYear) {
+    if (!/^[1-9]\d{3}$/.test(configuredYear)) {
+      throw new Error('CURRENT_SEASON must be a four-digit year.');
+    }
+    return resolveSeasonByYear(db, configuredYear);
+  }
   const result = await db.execute(sql`select id, year from season order by year desc limit 1`);
   const row = rowsOf(result)[0];
   return row ? { id: num(row.id), year: num(row.year) } : null;

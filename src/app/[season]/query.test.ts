@@ -63,6 +63,21 @@ describe('which years exist', () => {
 });
 
 describe('the current season', () => {
+  it('uses a configured recorded year while an empty setting keeps the latest default', async () => {
+    expect(await resolveCurrentSeason(db, '2025')).toEqual({ id: 1, year: 2025 });
+    expect(await resolveCurrentSeason(db, '')).toEqual({ id: 2, year: 2026 });
+  });
+
+  it('rejects a malformed configured year instead of presenting it as a season', async () => {
+    await expect(resolveCurrentSeason(db, '2026-next')).rejects.toThrow(
+      'CURRENT_SEASON must be a four-digit year.',
+    );
+  });
+
+  it('does not substitute historical data for a configured season with no records', async () => {
+    expect(await resolveCurrentSeason(db, '2027')).toBeNull();
+  });
+
   it('is the latest year on record', async () => {
     expect(await resolveCurrentSeason(db)).toEqual({ id: 2, year: 2026 });
   });
