@@ -19,8 +19,7 @@ with event_lap_provenance as (
   select
     v.event_id,
     coalesce(bool_or(
-      ers.hidden = false
-        and rf.payload ? 'DataFields'
+      rf.payload ? 'DataFields'
         and rf.payload -> 'DataFields' ? 'RankOrStatusTT'
     ), false)
       and not bool_or(

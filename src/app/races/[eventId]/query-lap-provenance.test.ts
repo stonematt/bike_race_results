@@ -9,6 +9,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '../../../lib/db/schema.ts';
 import { createTestDb, type TestDatabase } from '../../../lib/db/testing.ts';
+import { normalize } from '../../../lib/ingest/normalize.ts';
+import { archive, CONFIG_LIST_NAME } from '../../../lib/ingest/raw.ts';
 import { loadRaceDetail } from './query.ts';
 
 let db: TestDatabase;
@@ -356,5 +358,73 @@ describe('lap provenance', () => {
     const detail = await loadRaceDetail(db, 'time-trial', null);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'tt-2')!;
     expect(rider.card.headline).toEqual({ kind: 'pct-back', value: '10%', caption: 'back' });
+  });
+
+  it('uses the selected sole hidden time-trial source after normalization', async () => {
+    const normalized = await createTestDb();
+    await archive(normalized, [
+      {
+        season: 2025,
+        eventId: 'sole-hidden-tt',
+        listId: null,
+        listName: CONFIG_LIST_NAME,
+        url: 'synthetic://sole-hidden-config',
+        httpStatus: 200,
+        payload: {
+          key: 'synthetic',
+          eventname: 'Race 1 - Synthetic - North',
+          lists: [{ ID: 'TTT333', Name: 'Time Trial', Mode: 'hidden' }],
+        },
+      },
+      {
+        season: 2025,
+        eventId: 'sole-hidden-tt',
+        listId: 'TTT333',
+        listName: 'Time Trial',
+        url: 'synthetic://sole-hidden-results',
+        httpStatus: 200,
+        payload: {
+          list: { ListName: 'Time Trial', ListFooterText: '', Fields: [] },
+          DataFields: [
+            'BIB',
+            'ID',
+            'RankOrStatusTT',
+            'FIRSTNAME',
+            'LASTNAME',
+            'CLUB',
+            'Start.TOD',
+            'End.TOD',
+            'TIME',
+          ],
+          data: {
+            '#1_HS1 Boys - North': [
+              ['sole-hidden-1', '1', '1', 'WINNER', 'TT', 'Other School', '', '', '16:40'],
+              ['sole-hidden-2', '2', '2', 'RIDER', 'TT', 'Test School', '', '', '18:20'],
+            ],
+          },
+        },
+      },
+    ]);
+    await normalize(normalized);
+
+    const [season] = await normalized.select().from(schema.season);
+    const [event] = await normalized.select().from(schema.event);
+    expect(await normalized.select().from(schema.eventResultSource)).toMatchObject([
+      { eventId: event!.id, listId: 'TTT333', hidden: true },
+    ]);
+    await normalized.insert(schema.club).values({ id: 1, name: 'Test Club' });
+    await normalized
+      .insert(schema.squad)
+      .values({ id: 1, clubId: 1, seasonId: season!.id, name: 'JV' });
+    await normalized.insert(schema.rider).values({ id: 1, displayName: '«RIDER-SOLE-HIDDEN»' });
+    await normalized
+      .insert(schema.riderPlate)
+      .values({ riderId: 1, seasonId: season!.id, plate: 'sole-hidden-2' });
+    await normalized.insert(schema.squadMember).values({ squadId: 1, riderId: 1 });
+
+    const detail = await loadRaceDetail(normalized, 'sole-hidden-tt', null);
+    const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'sole-hidden-2')!;
+    expect(rider.card.headline).toEqual({ kind: 'pct-back', value: '10%', caption: 'back' });
+    expect(rider.field.map((mark) => mark.pct)).toEqual([0, 10]);
   });
 });
