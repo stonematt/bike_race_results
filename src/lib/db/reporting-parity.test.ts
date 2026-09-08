@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomInt, randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { migrate as migratePostgres } from 'drizzle-orm/node-postgres/migrator';
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
@@ -21,8 +22,17 @@ import { migrationsFolder } from './testing.ts';
 
 const postgresLocation = process.env.D5_TEST_DATABASE_URL;
 
+if (process.env.D5_REQUIRE_POSTGRES_PARITY === '1' && !postgresLocation) {
+  throw new Error('D5 parity requires the dedicated loopback tracer cluster.');
+}
+
 if (postgresLocation) {
-  const location = new URL(postgresLocation);
+  let location: URL;
+  try {
+    location = new URL(postgresLocation);
+  } catch {
+    throw new Error('D5 parity requires the dedicated loopback tracer cluster.');
+  }
   if (
     location.hostname !== '127.0.0.1' ||
     location.port !== '55432' ||
@@ -70,9 +80,8 @@ type RaceProjection = {
  */
 async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise<RaceProjection> {
   const db = runtime.db;
-  const season = await db.execute(
-    sql`insert into season (year) values (${3000 + Number(suffix.slice(0, 3))}) returning id`,
-  );
+  const year = randomInt(1_000_000_000, 2_000_000_000);
+  const season = await db.execute(sql`insert into season (year) values (${year}) returning id`);
   const seasonId = Number(season.rows[0]?.id);
   const rounds = await db.execute(sql`
     insert into round (season_id, ordinal, name)
@@ -138,12 +147,12 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
   await result(timeTrialEventId, plates[5]!, 'HS2 Girls - North', '2', '1100', null);
   const selectedSource = await db.execute(sql`
     insert into raw_fetch (season, event_id, list_id, list_name, url, http_status, payload, content_hash)
-    values (${3000 + Number(suffix.slice(0, 3))}, ${'parity-time-trial-' + suffix}, 'selected-tt', 'Selected TT',
+    values (${year}, ${'parity-time-trial-' + suffix}, 'selected-tt', 'Selected TT',
       'synthetic://selected-tt', 200, ${JSON.stringify({ DataFields: ['RankOrStatusTT', 'Start.TOD', 'End.TOD'] })}::jsonb,
       ${'selected-tt-' + suffix}) returning id`);
   await db.execute(sql`
     insert into raw_fetch (season, event_id, list_id, list_name, url, http_status, payload, content_hash)
-    values (${3000 + Number(suffix.slice(0, 3))}, ${'parity-time-trial-' + suffix}, 'later-laps', 'Later lap list',
+    values (${year}, ${'parity-time-trial-' + suffix}, 'later-laps', 'Later lap list',
       'synthetic://later-laps', 200, ${JSON.stringify({ DataFields: ['NumberOfLaps', 'Lap1'] })}::jsonb,
       ${'later-laps-' + suffix})`);
   await db.execute(sql`insert into event_result_source (event_id, raw_fetch_id, list_id, hidden)
@@ -206,7 +215,7 @@ async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise
 
 describe('public race reporting transport parity', () => {
   it('keeps conference, null-conference, deficit and DNF projections identical', async () => {
-    const suffix = String(Date.now()).slice(-6);
+    const suffix = randomUUID();
     const pglite = await withRuntime('pglite', (runtime) => raceProjection(runtime, suffix));
     expect(pglite).toMatchObject({
       north: { fieldSize: 5, pctBack: 10, place: '2 / 5' },
@@ -240,8 +249,9 @@ describe('public race reporting transport parity', () => {
 
 type AuthorizationProjection = {
   address: { name: string; slug: string } | null;
-  preferenceRows: number;
-  malformedInvitationRows: number;
+  preferredSquad: { name: string; slug: string } | null;
+  archivedPreference: { personalSquad: { name: string; slug: string } | null; selection: string };
+  unavailableInvitation: { admission: boolean; rows: number; auditEvents: number };
   invitationAdmission: boolean;
   revokedInvitationAdmission: boolean;
   revokedMemberDenied: boolean;
@@ -255,9 +265,8 @@ async function authorizationProjection(
   const club = await db.execute(sql`
     insert into club (name, slug) values (${`Parity Authority ${suffix}`}, ${'authority-' + suffix}) returning id`);
   const clubId = Number(club.rows[0]?.id);
-  const season = await db.execute(
-    sql`insert into season (year) values (${3100 + Number(suffix.slice(0, 3))}) returning id`,
-  );
+  const year = randomInt(1_000_000_000, 2_000_000_000);
+  const season = await db.execute(sql`insert into season (year) values (${year}) returning id`);
   const seasonId = Number(season.rows[0]?.id);
   const adminId = `admin-${suffix}`;
   const memberId = `member-${suffix}`;
@@ -270,12 +279,33 @@ async function authorizationProjection(
       (${clubId}, ${adminId}, 'admin'), (${clubId}, ${memberId}, 'member')`);
   const squad = await createSquad(db, { actorId: adminId, clubId, seasonId, name: 'Cedar' });
   await setPreferredSquad(db, { actorId: memberId, clubId, seasonId, squadId: squad.id });
+  const preferredDispatch = await loadSeasonDispatch(db, { seasonId, clubId, userId: memberId });
   await expect(
-    createClubInvitation(db, { actorId: adminId, clubId, email: 'not-an-address', role: 'member' }),
-  ).rejects.toThrow('Invitation email is invalid.');
-  const malformedInvitationRows = Number(
-    (await db.execute(sql`select count(*)::int as count from club_invitation`)).rows[0]?.count,
-  );
+    createClubInvitation(db, {
+      actorId: adminId,
+      clubId,
+      email: `unavailable-${suffix}@example.test`,
+      role: 'member',
+      squadId: squad.id + 1,
+    }),
+  ).rejects.toThrow('Invitation squad is unavailable.');
+  const unavailableInvitation = {
+    admission: await canStartEmailSignIn(db, `unavailable-${suffix}@example.test`),
+    rows: Number(
+      (
+        await db.execute(
+          sql`select count(*)::int as count from club_invitation where club_id = ${clubId}`,
+        )
+      ).rows[0]?.count,
+    ),
+    auditEvents: Number(
+      (
+        await db.execute(
+          sql`select count(*)::int as count from club_audit_event where club_id = ${clubId}`,
+        )
+      ).rows[0]?.count,
+    ),
+  };
   const issued = await createClubInvitation(db, {
     actorId: adminId,
     clubId,
@@ -286,6 +316,7 @@ async function authorizationProjection(
   await revokeClubInvitation(db, { actorId: adminId, clubId, invitationId: issued.id });
   const revokedInvitationAdmission = await canStartEmailSignIn(db, invitee);
   await archiveSquad(db, { actorId: adminId, clubId, seasonId, squadId: squad.id });
+  const archivedDispatch = await loadSeasonDispatch(db, { seasonId, clubId, userId: memberId });
   await revokeClubMembership(db, { actorId: adminId, clubId, userId: memberId });
   let revokedMemberDenied = false;
   try {
@@ -293,15 +324,19 @@ async function authorizationProjection(
   } catch {
     revokedMemberDenied = true;
   }
-  const preferenceRows = Number(
-    (await db.execute(sql`select count(*)::int as count from user_squad_preference`)).rows[0]
-      ?.count,
-  );
   const address = await resolveSquadBySlug(db, seasonId, squad.slug, clubId);
   return {
     address: address ? { name: address.name, slug: address.slug } : null,
-    preferenceRows,
-    malformedInvitationRows,
+    preferredSquad: preferredDispatch?.personalSquad
+      ? { name: preferredDispatch.personalSquad.name, slug: preferredDispatch.personalSquad.slug }
+      : null,
+    archivedPreference: {
+      personalSquad: archivedDispatch?.personalSquad
+        ? { name: archivedDispatch.personalSquad.name, slug: archivedDispatch.personalSquad.slug }
+        : null,
+      selection: archivedDispatch?.squadSelection ?? 'missing',
+    },
+    unavailableInvitation,
     invitationAdmission,
     revokedInvitationAdmission,
     revokedMemberDenied,
@@ -310,14 +345,15 @@ async function authorizationProjection(
 
 describe('public authorization-state transport parity', () => {
   it('preserves archived addresses and denies revoked invitation or membership on the next read', async () => {
-    const suffix = String(Date.now()).slice(-6);
+    const suffix = randomUUID();
     const pglite = await withRuntime('pglite', (runtime) =>
       authorizationProjection(runtime, suffix),
     );
     expect(pglite).toEqual({
       address: { name: 'Cedar', slug: 'cedar' },
-      preferenceRows: 0,
-      malformedInvitationRows: 0,
+      preferredSquad: { name: 'Cedar', slug: 'cedar' },
+      archivedPreference: { personalSquad: null, selection: 'unassigned' },
+      unavailableInvitation: { admission: false, rows: 0, auditEvents: 1 },
       invitationAdmission: true,
       revokedInvitationAdmission: false,
       revokedMemberDenied: true,

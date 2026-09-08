@@ -35,6 +35,20 @@ jobs:
     name: typecheck · lint · format · test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: d5_runtime_tracer
+          POSTGRES_USER: d5_runtime
+          POSTGRES_PASSWORD: d5_runtime
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U d5_runtime -d d5_runtime_tracer"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +81,11 @@ jobs:
 
       # The default lane only. `pnpm test:local` reads the real corpus and must
       # never run here.
-      - run: pnpm test
+      - name: Public suite, including required native parity tracer
+        env:
+          D5_REQUIRE_POSTGRES_PARITY: '1'
+          D5_TEST_DATABASE_URL: postgresql://d5_runtime:d5_runtime@127.0.0.1:55432/d5_runtime_tracer
+        run: pnpm test
 
       # A schema edited without a migration is the failure that bites a year
       # later, when nobody remembers. If `generate` produces anything, the
