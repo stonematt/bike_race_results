@@ -27,3 +27,7 @@ Planning for this project is charted as a wayfinder map on the issue tracker: `g
 ## Product and delivery authority
 
 Read `PRODUCT.md`, `docs/design/editorial-direction.md` and `docs/delivery/status.md` before implementation. Accepted playground UX and editorial storytelling lead product judgment over historical engineering layouts. Source semantics and privacy remain binding. ADR-0005 permits persistent club administration. Keep completed work and verification distinct from decisions in the delivery ledger.
+
+## Development lifecycle
+
+Follow `docs/agents/development-lifecycle.md`: use stone-commit and stone-merge, require review of the current diff, merge PRs with no-fast-forward merge commits, and verify task-branch/worktree cleanup. These owner-confirmed rules override conflicting skill defaults. Codex also reads the root `AGENTS.md`.

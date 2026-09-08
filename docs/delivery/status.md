@@ -41,6 +41,8 @@ Hosted database URLs throw. Auth uses an environment allowlist rather than invit
 
 - 2026-09-07: Created delivery epic #121 and milestone 7; linked epic beneath map #1. Created the requested Obsidian progress summary using the CLI in the existing SCD area. Documentation only; no implementation issues closed.
 
+- 2026-09-07: Owner confirmed the dev → task branch → reviewed PR → dev → separate release to main lifecycle, Conventional Commits, no-fast-forward PR merges and verified branch cleanup. Persisted in global Codex instructions and repository AGENTS.md/development-lifecycle.md. Shared skills were inspected but not modified. No PR merge or production release was requested by this workflow-setup instruction.
+
 **Next handoff**
 
 Review the documented role/invitation lifecycle and confirm the proposed public TDD seams, then activate the delivery objective and begin D1. This is the outstanding recipe approval boundary, not a blocker on persisting the decisions already accepted. Actual production release remains a distinct action after implementation and verification. Reconcile GitHub state before claiming work.
