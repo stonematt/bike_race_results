@@ -14,6 +14,17 @@ Independent art-direction planning by `foundation_spec`, before D2 implementatio
 - Replace the automatic squad redirect as the whole season experience, repeated per-rider category strips, category list as a substitute for rider profile, and coach-facing instructions to edit seed files.
 - Acceptance requires actual desktop/mobile captures, keyboard/direct-URL/back navigation, readable long names and chart alternatives, plus independent analyst and art-director review of the implemented artifact. This planning pass performed no browser review.
 
+## D2 implementation boundaries
+
+Read-only code mapping by `foundation_spec`; implementation tracked in #125 after D1. Existing #89/#34/#82 received reconciliation comments preserving source-honesty rules while superseding the mandatory wall homepage/four-chart grid and obsolete blanket TT rule.
+
+- Query/model owner: reporting query modules, route query files and explicit response types. Begin with a migrated synthetic Race-2 checkpoint regression that excludes later starts and deduplicates overlapping squad membership. Add Race-3, current-season, shared category and rider-neighborhood cases one behavior at a time. No schema change is currently needed.
+- UI owner: season/race/rider route components, dispatch/profile components and behavioral component tests. First slice exposes checkpoint, actual starts, personal-squad entry and a working race link. Consume agreed query types; derive no independent production statistics.
+- Season integration: replace `[season]/page.tsx` redirect; reuse season resolution but add explicit configured-season behavior and honest missing-data states. Existing roster queries are squad-specific and cannot simply be summed for club totals.
+- Race integration: group by event/category/conference, retain the percent-back scale and explicit outside-axis states. Reuse FieldStrip once per group; keep the category destination as detailed evidence.
+- Rider integration: new `[season]/rider/[riderId]` route with current identity, season history, selected-race official total, measured splits and valid classified neighbors. Preserve checkpoint in links/direct URLs/Back. My ride/Field context shows only the active perspective.
+- Independent analyst and art-director reviews follow actual desktop/mobile captures and keyboard/browser checks. Factual observations/questions can ship in D2; approved story storage/publication remains D4.
+
 ## D5 database transport
 
 Independent source/installed-code investigation by `foundation_spec`. Installed Drizzle 0.38.4 supports `drizzle-orm/node-postgres` and its migrator. Recommend standard `pg` Pool, preserving PGlite for local persistent operation. No Drizzle upgrade is needed merely to add this transport. The public database/executor contract must support both implementations without casting a NodePg database to PgliteDatabase.
