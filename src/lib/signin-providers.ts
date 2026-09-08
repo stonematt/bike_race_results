@@ -18,8 +18,9 @@ export interface AvailableProviders {
   /**
    * The development credentials shim. Two conditions, both required, because
    * either one alone has been enough to ship a second sign-in path by accident.
-   * It skips the mail server AND the allowlist, so these two conditions are the
-   * whole of what keeps it off a server. The loopback bind in `pnpm dev` is the
+   * It skips the mail server and bootstrap allowlist, so these two conditions
+   * keep this identity-only provider off a server. Active database membership
+   * still governs protected club data. The loopback bind in `pnpm dev` is the
    * other half of that decision; see src/lib/admission.ts.
    */
   dev: boolean;
