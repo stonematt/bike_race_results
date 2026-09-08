@@ -13,8 +13,9 @@
  * row, not a null, and not a calendar entry pointing at a race day with no
  * results.
  *
- * **Idempotent.** Every write is an upsert on the natural key, so a second
- * normalize over unchanged payloads changes no rows.
+ * **Idempotent.** Retained individual results are upserted on their natural
+ * key; rows omitted by the selected list are removed within that Event. Other
+ * families retain their upsert semantics. Unchanged payloads change no rows.
  *
  * A failing event stops the run rather than being skipped past. Continuing
  * would produce a database quietly missing a race day, which is the outcome
@@ -22,7 +23,7 @@
  * re-running after the fix is a no-op for them.
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import * as schema from '../db/schema.ts';
@@ -402,6 +403,22 @@ async function writeEvent(db: Db, decoded: DecodedEvent): Promise<Record<string,
       decoded.individual.rows,
       forEvent,
     );
+    // A source correction can omit a previously published plate. Upsert keeps
+    // retained rows current, then this event-local delete makes the normalized
+    // spine exactly the selected list without touching another Event.
+    const retainedPlates = decoded.individual.rows.map((row) => row.plate);
+    if (retainedPlates.length === 0) {
+      await tx.delete(schema.individualResult).where(eq(schema.individualResult.eventId, eventPk));
+    } else {
+      await tx
+        .delete(schema.individualResult)
+        .where(
+          and(
+            eq(schema.individualResult.eventId, eventPk),
+            notInArray(schema.individualResult.plate, retainedPlates),
+          ),
+        );
+    }
     await tx
       .insert(schema.eventResultSource)
       .values({
