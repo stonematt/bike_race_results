@@ -96,3 +96,34 @@ jobs:
         env:
           DATABASE_URL: ${{ runner.temp }}/ci-pglite
         run: node bin/migrate.ts
+
+  browser:
+    name: production browser gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Keep the public runner free of payload-shaped data before dependencies,
+      # browser binaries, or the synthetic demo are allowed to run.
+      - name: Privacy guard — payload-shaped data in the tree
+        run: node scripts/privacy-guard.ts
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium only
+        run: pnpm exec playwright install --with-deps chromium
+
+      # test:e2e owns a fresh synthetic PGlite demo, production build and
+      # loopback-only server. It never calls seed, fetch, normalize or the
+      # local-corpus lane, and emits no trace/video/HAR artifacts.
+      - name: Synthetic production browser gate
+        run: pnpm test:e2e
