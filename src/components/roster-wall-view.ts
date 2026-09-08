@@ -106,10 +106,9 @@ export function cellDeficit(cell: Extract<RosterWallCell, { state: 'positioned' 
 
 /**
  * The percent-back reading, worded so a null never reads as zero or as a
- * blank that could be mistaken for one. A DNF, a short-lap rider, and
- * (today) every rider at a time trial carry a null here — this is the
- * different kind of statement the null becomes, never `0%` and never
- * silence.
+ * blank that could be mistaken for one. A DNF, a short-lap rider, and a row
+ * whose lap count cannot be compared carry a null here — this is the different
+ * kind of statement the null becomes, never `0%` and never silence.
  */
 export function pctBackText(pctBack: number | null): string {
   return pctBack === null ? 'no gap published' : `+${pctBack}% back`;

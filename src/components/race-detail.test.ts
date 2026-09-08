@@ -32,6 +32,7 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
   return {
     plate: '974',
     category: 'HS1 Boys',
+    conference: null,
     place: '1',
     status: 'finished',
     timeRaw: '47:09.83',
@@ -184,9 +185,8 @@ describe('a finisher who rode the full distance', () => {
   });
 
   it('falls back to place where the race has no percent-back axis at all', () => {
-    // The 2025 prologue: a time trial publishes no lap columns, so nobody in
-    // the list has a percent-back (issue #48). The card must still say
-    // something true rather than a blank or a zero.
+    // A row whose lap count cannot be compared has no percent-back. The card
+    // must still say something true rather than a blank or a zero.
     expect(headline(row({ pctBack: null, place: '11', fieldSize: 457 }))).toEqual({
       kind: 'place',
       value: '11',

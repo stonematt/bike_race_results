@@ -3,16 +3,14 @@
  *
  * A time trial publishes no lap columns at all. Counting non-empty splits to
  * recover a lap count — which is right for a mass-start race — turns that
- * absence into `0`, and once every rider in a category sits at zero laps the
- * category's leader also sits at zero, the lapped guard in `v_race_result`
- * never fires, and a percent-back gets computed against a field where the
- * concept has no meaning. That is issue #48: 457 of the 2025 prologue's
- * finishers carried a `pct_back`, topping out at 172.1%.
+ * absence into `0`. The source shape still establishes a time trial: its
+ * finishers share one comparable clock, while `laps` remains unknown because
+ * the source never said how to count distance.
  *
  * So this suite pins the distinction from both sides: a list with no lap
- * columns yields `laps = null` and no percentage, and a list that does publish
- * splits still recovers exactly the count it always did — including a
- * legitimate zero.
+ * columns yields `laps = null` and a comparable percentage, while a list that
+ * does publish splits recovers exactly the count it always did — including a
+ * legitimate zero and an individually unknown row.
  *
  * Separate from `views.test.ts` because these need several events in one
  * database and that suite counts rows across the whole view.
@@ -36,7 +34,7 @@ const TIME_TRIAL = [
   ['508', '8', 1355.2],
   ['509', '9', 1402.8],
   ['510', '10', 1499.6],
-  ['511', '11', 2940.7], // 172% of the winner's time, and still not a percentage
+  ['511', '11', 2940.7], // 172% back from the time-trial winner
   ['512', 'DNF', null], // the time trial marks a DNF in place, not in time
 ] as const;
 
@@ -67,6 +65,25 @@ beforeAll(async () => {
     { id: 1, roundId: 1, sourceEventId: '357242', conference: null, name: 'Race 1 - Prologue' },
     { id: 2, roundId: 2, sourceEventId: '359477', conference: 'North', name: 'Race 2 - North' },
   ]);
+  const [timeTrialSource] = await db
+    .insert(schema.rawFetch)
+    .values({
+      season: 2025,
+      eventId: '357242',
+      listId: 'tt-results',
+      listName: 'Time Trial Results',
+      url: 'synthetic://time-trial',
+      httpStatus: 200,
+      payload: { DataFields: ['RankOrStatusTT', 'Start.TOD', 'End.TOD'] },
+      contentHash: 'synthetic-time-trial-layout',
+    })
+    .returning({ id: schema.rawFetch.id });
+  await db.insert(schema.eventResultSource).values({
+    eventId: 1,
+    rawFetchId: timeTrialSource!.id,
+    listId: 'tt-results',
+    hidden: false,
+  });
 
   await db.insert(schema.individualResult).values([
     ...TIME_TRIAL.map(([plate, place, seconds]) => ({
@@ -103,6 +120,24 @@ beforeAll(async () => {
       lap4: null,
     })),
   ]);
+  await db.insert(schema.individualResult).values({
+    // This is a blank row inside a lap-publishing event, not a list without
+    // lap columns. No `-` sentinel or split establishes an honest count.
+    eventId: 2,
+    plate: '606',
+    displayName: 'RIDER 606',
+    scoringTeam: 'Some Team',
+    categoryRaw: 'HS1 Boys - North',
+    place: '6',
+    status: 'finished',
+    timeRaw: '3600',
+    timeSeconds: '3600',
+    laps: null,
+    lap1: null,
+    lap2: null,
+    lap3: null,
+    lap4: null,
+  });
 });
 
 async function rows(eventId: number) {
@@ -125,11 +160,11 @@ describe('a list that publishes no lap columns', () => {
     expect(all.every((r) => r.category_laps === null)).toBe(true);
   });
 
-  it('puts no rider on the percent-back axis', async () => {
-    // The defect in one assertion: 457 rows here in the real corpus, the
-    // slowest of them 172.1% "back" from a winner it never raced against.
-    const all = await rows(1);
-    expect(all.filter((r) => r.pct_back !== null)).toEqual([]);
+  it('uses its winner’s clock for each finisher, while DNF remains null', async () => {
+    expect(Number((await byPlate(1, '501')).pct_back)).toBe(0);
+    expect(Number((await byPlate(1, '502')).pct_back)).toBeCloseTo(2, 1);
+    expect(Number((await byPlate(1, '511')).pct_back)).toBeCloseTo(172.2, 1);
+    expect((await byPlate(1, '512')).pct_back).toBeNull();
   });
 
   it('calls nobody lapped, and says so as false rather than as unknown', async () => {
@@ -158,6 +193,13 @@ describe('a list that publishes splits but no lap count', () => {
     // The `-` splits are published emptiness, not an absent column, and zero is
     // the honest reading of them.
     expect(Number((await byPlate(2, '605')).laps)).toBe(0);
+  });
+
+  it('leaves a blank row unknown when the event publishes lap columns', async () => {
+    const unknown = await byPlate(2, '606');
+    expect(unknown.laps).toBeNull();
+    expect(unknown.laps_down).toBeNull();
+    expect(unknown.pct_back).toBeNull();
   });
 
   it('still refuses a percentage to a lapped rider with a faster clock', async () => {

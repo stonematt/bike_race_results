@@ -32,7 +32,7 @@ import type { PlacedRider } from '../../../components/race-detail.ts';
 
 /** 2025 Race 4 North — where a naive percent-back inverts the HS1 Boys field. */
 const RACE_4_NORTH = '363499';
-/** 2025 Race 1 — the prologue time trial, which has no percent-back axis at all. */
+/** 2025 Race 1 — the prologue time trial, whose finishers share a winner clock. */
 const PROLOGUE = '357242';
 /** The 2026 opener. A 2025 config maps no plates into it, and must not try. */
 const OPENER_2026 = '418436';
@@ -207,31 +207,34 @@ describe('lap splits, as the lists actually publish them', () => {
   });
 });
 
-describe('the prologue has no percent-back axis at all', () => {
-  it('renders a place for all twenty-five riders and a percentage for none', () => {
-    // Issue #48: a time trial publishes no lap columns, so `v_race_result`
-    // publishes no percent back. Before that fix, 457 rows here carried one.
+describe('the prologue time-trial field', () => {
+  it('renders percent back where the category publishes a usable winner', () => {
     const riders = cards(prologue);
     expect(riders).toHaveLength(25);
-    expect(tally(riders.map((rider) => rider.card.headline.kind))).toEqual({ place: 25 });
+    expect(tally(riders.map((rider) => rider.card.headline.kind))).toEqual({
+      'pct-back': 20,
+      place: 5,
+    });
 
-    for (const rider of riders) {
-      expect(rider.card.mark.pct).toBeNull();
-      expect(rider.field.every((mark) => mark.pct === null)).toBe(true);
-    }
+    expect(tally(riders.map((rider) => (rider.card.mark.pct === null ? 'no-gap' : 'gap')))).toEqual(
+      {
+        gap: 20,
+        'no-gap': 5,
+      },
+    );
   });
 
   it('still ranks the field, because a percentile needs places and not laps', () => {
     expect(
       tally(cards(prologue).map((rider) => (/^top /.test(fieldCell(rider)) ? 'top' : 'place'))),
-    ).toEqual({ top: 20, place: 5 });
+    ).toEqual({ top: 12, place: 13 });
   });
 
   it('draws no lap chart, because the list published no splits', () => {
     expect(tally(cards(prologue).map((rider) => rider.card.laps.kind))).toEqual({ none: 25 });
   });
 
-  it('renders the no-axis treatment on all twenty-five cards and a strip on none', () => {
+  it('renders a strip only where the field has a comparable winner', () => {
     /*
      * The other half of the seam. Everything above stops at the model, and the
      * model was already right: a green suite and a clean typecheck both missed
@@ -247,10 +250,10 @@ describe('the prologue has no percent-back axis at all', () => {
 
     expect(
       tally(rendered.map((markup) => (markup.includes('<svg') ? 'strip' : 'no strip'))),
-    ).toEqual({ 'no strip': 25 });
+    ).toEqual({ strip: 20, 'no strip': 5 });
     expect(
       tally(rendered.map((markup) => (markup.includes(NO_AXIS_REASON) ? 'said why' : 'silent'))),
-    ).toEqual({ 'said why': 25 });
+    ).toEqual({ silent: 20, 'said why': 5 });
   });
 });
 

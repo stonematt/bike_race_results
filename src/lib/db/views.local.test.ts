@@ -26,13 +26,12 @@ const PROLOGUE = '357242';
  * Rows carrying a non-null `pct_back`, per event, recorded at `60d3a0e` — the
  * commit before the fix.
  *
- * The prologue's entry is the defect: 457 finishers on a percent-back axis, the
- * slowest of them 172.1% back from a winner they never raced against. It must
- * go to zero. Every other number must not move, which is the whole reason they
+ * The prologue's 498 finishers share one time-trial clock and therefore remain
+ * comparable. Every other number must not move, which is the whole reason they
  * are written down.
  */
 const PCT_BACK_ROWS_AT_60D3A0E: Record<string, number> = {
-  '357242': 457, // the prologue — the only expected change, to 0
+  '357242': 498, // the prologue — all finished time-trial rows compare
   '359477': 131,
   '359478': 130,
   '362112': 184,
@@ -94,9 +93,8 @@ describe('v_race_result against the published corpus', () => {
     );
   });
 
-  it('publishes no percent-back at all for the prologue time trial', () => {
-    // Before the fix: 457 of these, topping out at 172.1%.
-    expect(forEvent(PROLOGUE).with_pct).toBe(0);
+  it('publishes percent-back for the prologue time trial finishers', () => {
+    expect(forEvent(PROLOGUE).with_pct).toBe(PCT_BACK_ROWS_AT_60D3A0E[PROLOGUE]);
   });
 
   it('leaves every prologue lap count null rather than zero', () => {
@@ -105,10 +103,7 @@ describe('v_race_result against the published corpus', () => {
     expect(prologue.rows).toBe(535);
   });
 
-  it('leaves the other eight events percent-back counts exactly as they were', () => {
-    // Regression-sensitive by construction: these eight publish a lap count, so
-    // the fallback this fix changes never fires for them, and the numbers are
-    // written down so that stops being an argument and starts being a test.
+  it('leaves every other event percent-back count exactly as published', () => {
     for (const [sourceEventId, expected] of Object.entries(PCT_BACK_ROWS_AT_60D3A0E)) {
       if (sourceEventId === PROLOGUE) continue;
       expect({ sourceEventId, withPct: forEvent(sourceEventId).with_pct }).toEqual({
@@ -136,10 +131,11 @@ describe('v_race_result against the published corpus', () => {
     expect(offenders.n).toBe(0);
   });
 
-  it('never reports a percent-back where the lap count is unknown', async () => {
+  it('never reports a percent-back for an unknown lap count outside the time trial', async () => {
     const offenders = (
       await db.execute(
-        `select count(*)::int n from v_race_result where laps is null and pct_back is not null`,
+        `select count(*)::int n from v_race_result
+          where source_event_id <> '${PROLOGUE}' and laps is null and pct_back is not null`,
       )
     ).rows[0] as { n: number };
     expect(offenders.n).toBe(0);

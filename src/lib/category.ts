@@ -19,10 +19,9 @@
  * assignment, DQ or eligibility. Those are adjudication, and NICA is the
  * scoring authority.
  *
- * A live inconsistency this module does not paper over (issue #98):
- * `v_race_result` nulls `pct_back` for every rider at a time trial today,
- * though `CONTEXT.md` says the Prologue has a real one. `pctBack` here is
- * exactly what the source view publishes — null included.
+ * `pctBack` is exactly what `v_race_result` publishes. A time trial's
+ * no-lap source shape still has a comparable winner; a blank lap row inside a
+ * lap-publishing Event does not.
  */
 
 /** Conference-scoped at Rounds 1–4; league-wide at State Champs (`CONTEXT.md`, Category). */
@@ -42,9 +41,9 @@ export type CategoryFieldRow = {
   place: string;
   status: 'finished' | 'dnf';
   /**
-   * Null for a DNF, a short-lap rider, and — today, issue #98 — every rider at
-   * a time trial. Read exactly as `v_race_result` publishes it; never derived
-   * from times here.
+   * Null for a DNF, a short-lap rider, or a row whose lap count is unknown in
+   * a lap-publishing Event. Read exactly as `v_race_result` publishes it;
+   * never derived from times here.
    */
   pctBack: number | null;
   /**

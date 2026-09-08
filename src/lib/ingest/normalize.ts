@@ -63,6 +63,7 @@ export class NormalizeError extends IngestError {}
 
 /** One list, placed into a family and — where it feeds a table — decoded. */
 export interface PlacedList {
+  rawFetchId: number;
   season: number;
   eventId: string;
   listId: string;
@@ -103,6 +104,7 @@ export interface NormalizeResult {
 interface DecodedEvent {
   identity: EventIdentity;
   individual: DecodedList<IndividualRow>;
+  individualSource: PlacedList;
   byTeam?: DecodedList<ByTeamRow>;
   teamRace?: DecodedList<TeamRaceRow>;
   teamCounter?: DecodedList<TeamCounterRow>;
@@ -142,6 +144,7 @@ function placeLists(
     checkExpressionsRecognized(where, layout, family);
 
     return {
+      rawFetchId: row.id,
       season,
       eventId,
       listId: row.listId!,
@@ -257,6 +260,7 @@ function decodeEvent(
   const decoded: DecodedEvent = {
     identity,
     individual: decodeSpine(eventId, chosenOf.get(INDIVIDUAL_FLAT)!, payloadFor),
+    individualSource: chosenOf.get(INDIVIDUAL_FLAT)!,
   };
 
   for (const [family, list] of chosenOf) {
@@ -398,6 +402,22 @@ async function writeEvent(db: Db, decoded: DecodedEvent): Promise<Record<string,
       decoded.individual.rows,
       forEvent,
     );
+    await tx
+      .insert(schema.eventResultSource)
+      .values({
+        eventId: eventPk,
+        rawFetchId: decoded.individualSource.rawFetchId,
+        listId: decoded.individualSource.listId,
+        hidden: decoded.individualSource.hidden,
+      })
+      .onConflictDoUpdate({
+        target: schema.eventResultSource.eventId,
+        set: {
+          rawFetchId: decoded.individualSource.rawFetchId,
+          listId: decoded.individualSource.listId,
+          hidden: decoded.individualSource.hidden,
+        },
+      });
 
     if (decoded.byTeam) {
       await upsertAll(

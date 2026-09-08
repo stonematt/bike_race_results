@@ -23,6 +23,7 @@ function row(over: Partial<RaceResultRow> = {}): RaceResultRow {
   return {
     plate: '974',
     category: 'HS1 Boys',
+    conference: null,
     place: '1',
     status: 'finished',
     timeRaw: '47:09.83',
@@ -141,10 +142,8 @@ describe('a field with fewer than ten starters', () => {
 });
 
 /*
- * Issue #60. The corpus prologue is a time trial, so `v_race_result` publishes
- * no percent back for anyone in the category — the whole field is unplaceable
- * at once. The strip drew its frame anyway, labelled with the axis floor, on
- * every one of the event's 25 cards.
+ * A field can publish no comparable gap to its winner. The strip must not draw
+ * an axis labelled with the floor when no rider can occupy it.
  *
  * The data layer already asserted the field was all-null and was right to. This
  * is the other half of that seam: what a coach is shown once it is.

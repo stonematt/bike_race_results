@@ -118,6 +118,7 @@ export async function archive(db: Db, records: readonly RawFetchRecord[]): Promi
 
 /** One archived payload, as normalize reads it back. */
 export interface ArchivedPayload {
+  id: number;
   season: number;
   eventId: string;
   listId: string | null;
@@ -142,6 +143,7 @@ export interface ArchivedPayload {
 export async function latestPayloads(db: Db): Promise<ArchivedPayload[]> {
   return db
     .selectDistinctOn([schema.rawFetch.eventId, schema.rawFetch.listId], {
+      id: schema.rawFetch.id,
       season: schema.rawFetch.season,
       eventId: schema.rawFetch.eventId,
       listId: schema.rawFetch.listId,

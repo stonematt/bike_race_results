@@ -257,6 +257,44 @@ describe('normalize', () => {
     expect(result).toMatchObject({ lists: 2, decodedLists: 1, skipped: 1 });
     const [stored] = await db.select().from(schema.individualResult);
     expect(stored!.timeRaw).toBe('39:37.12');
+    expect(await db.select().from(schema.eventResultSource)).toMatchObject([
+      { listId: 'AAA111', hidden: false },
+    ]);
+  });
+
+  it('updates the selected source revision and mode only when it re-normalizes', async () => {
+    await seed([
+      configRecord('357242', config('357242', [{ ID: 'TTT333', Name: 'prologue' }])),
+      listRecord(
+        '357242',
+        'TTT333',
+        listPayload(TT_FIELDS, { '#1_HS1 Boys - North': [ttRow('101')] }),
+      ),
+    ]);
+    await normalize(db);
+    const [first] = await db.select().from(schema.eventResultSource);
+
+    // A later config revision marks the source list hidden and the list itself
+    // has a correction. The new normalized spine and provenance commit together.
+    await seed([
+      configRecord(
+        '357242',
+        config('357242', [{ ID: 'TTT333', Name: 'prologue', Mode: 'hidden' }]),
+      ),
+      listRecord(
+        '357242',
+        'TTT333',
+        listPayload(TT_FIELDS, {
+          '#1_HS1 Boys - North': [[...ttRow('101').slice(0, -1), '41:00.00']],
+        }),
+      ),
+    ]);
+    await normalize(db);
+
+    const [second] = await db.select().from(schema.eventResultSource);
+    expect(second).toMatchObject({ listId: 'TTT333', hidden: true });
+    expect(second!.rawFetchId).not.toBe(first!.rawFetchId);
+    expect((await db.select().from(schema.individualResult))[0]!.timeRaw).toBe('41:00.00');
   });
 
   it('takes the time trial where it is the published list, as at Race 1', async () => {

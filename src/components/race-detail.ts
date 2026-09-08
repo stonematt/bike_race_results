@@ -60,6 +60,8 @@ import { categoryRank } from '../lib/category-order.ts';
 export type RaceResultRow = {
   plate: string;
   category: string;
+  /** Null for a league-wide Category; otherwise the source contest boundary. */
+  conference: string | null;
   /** Verbatim. `*` or `DNF` for a non-finisher — never rewritten. */
   place: string;
   status: 'finished' | 'dnf';
@@ -149,8 +151,8 @@ export function fieldPosition(row: RaceResultRow): string | null {
  *
  * A percentage is offered only to a rider whose time is comparable to the
  * winner's. `pctBack` is null for everyone else — a DNF, a short-lap rider,
- * and every rider in a time trial — and a null here becomes a different kind
- * of headline rather than a blank or a zero.
+ * or a row whose lap count is unknown in a lap-publishing Event — and a null
+ * here becomes a different kind of headline rather than a blank or a zero.
  *
  * A short-lap rider's headline is her published place, exactly as printed —
  * NICA orders her in the same single sequence as everyone else (issue #111),
@@ -171,11 +173,9 @@ export function headline(row: RaceResultRow): Headline {
     };
   }
   if (row.pctBack === null) {
-    // Either a time trial — no lap count published anywhere in the list, so no
-    // rider has a percent-back axis to sit on (issue #48) — or a row whose lap
-    // count the view could not compare. Place carries the race either way, and
-    // inventing a lap deficit to fill the space would be worse than not having
-    // one.
+    // This row's time cannot be compared to the winner's. Place carries the
+    // race either way, and inventing a lap deficit to fill the space would be
+    // worse than not having one.
     return { kind: 'place', value: row.place, caption: `of ${row.fieldSize}` };
   }
   return { kind: 'pct-back', value: `${row.pctBack}%`, caption: 'back' };
@@ -405,7 +405,9 @@ export function buildSquadCard(
       // is in it — but an empty strip is a better failure than a crash on a
       // page a coach opened at a race venue.
       field: categoryMarks(
-        fieldByCategory.get(entry.row.category) ?? [entry.row],
+        fieldByCategory.get(categoryFieldKey(entry.row.category, entry.row.conference)) ?? [
+          entry.row,
+        ],
         new Set([entry.row.plate]),
       ),
     })),
@@ -421,12 +423,21 @@ export function buildSquadCard(
  * one sort and makes the whole view model a function of the rows rather than of
  * the query plan.
  */
+/** A canonical Category needs its Conference to identify a combined-event contest. */
+function categoryFieldKey(category: string, conference: string | null): string {
+  // Preserve the historic category key where the source published one
+  // league-wide contest. Combined events need the additional separator only
+  // for the conference-scoped cases that would otherwise collide.
+  return conference === null ? category : `${category}\u0000${conference}`;
+}
+
 export function fieldsByCategory(rows: readonly RaceResultRow[]): Map<string, RaceResultRow[]> {
   const out = new Map<string, RaceResultRow[]>();
   for (const row of rows) {
-    const field = out.get(row.category);
+    const key = categoryFieldKey(row.category, row.conference);
+    const field = out.get(key);
     if (field) field.push(row);
-    else out.set(row.category, [row]);
+    else out.set(key, [row]);
   }
   for (const field of out.values()) field.sort(compareByPlace);
   return out;
