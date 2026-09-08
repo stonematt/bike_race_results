@@ -13,7 +13,7 @@ import {
   finalizeKnownDemoMigration,
   resolveDemoDatabaseUrl,
 } from '../src/lib/demo.ts';
-import { createDb } from '../src/lib/db/index.ts';
+import { createDatabaseRuntime } from '../src/lib/db/runtime.ts';
 import { loadEnvLocal } from './env.ts';
 
 // Capture only the invocation's DATABASE_URL before `.env.local` is loaded.
@@ -24,7 +24,12 @@ const explicitDatabaseUrl = process.env.DATABASE_URL;
 loadEnvLocal();
 
 const databaseUrl = resolveDemoDatabaseUrl({ DATABASE_URL: explicitDatabaseUrl });
-const db = createDb(databaseUrl);
+const runtime = createDatabaseRuntime(databaseUrl);
+if (runtime.kind !== 'pglite') {
+  await runtime.close();
+  throw new Error('pnpm demo only supports a local PGlite directory.');
+}
+const db = runtime.db;
 
 try {
   await assertSafeDemoMigrationPreflight(db);
@@ -41,7 +46,7 @@ try {
     `For local development login, run DATABASE_URL=${shellQuote(databaseUrl)} AUTH_URL=http://localhost:3000 AUTH_DEV_LOGIN=1 pnpm dev, open http://localhost:3000, and use ${result.coachEmail}.`,
   );
 } finally {
-  await db.$client.close();
+  await runtime.close();
 }
 
 function shellQuote(value: string): string {

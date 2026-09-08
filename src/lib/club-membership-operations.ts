@@ -85,7 +85,7 @@ export async function createClubInvitation(
         expiresAt,
         createdByUserId: input.actorId,
       })
-      .returning({ id: schema.clubInvitation.id });
+      .returning();
     if (!invitation) throw new InvitationRejected('Invitation could not be created.');
     await tx.execute(sql`
       insert into club_audit_event (club_id, actor_user_id, action, invitation_id)

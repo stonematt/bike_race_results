@@ -17,9 +17,9 @@ it('announces a failed save and preserves the entered name for correction', asyn
   );
   fireEvent.change(screen.getByLabelText('Squad name'), { target: { value: 'North' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Save name' }).closest('form')!);
-  await waitFor(() =>
-    expect(screen.getByRole('alert')).toHaveTextContent('Choose a different squad name.'),
-  );
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose a different squad name.');
+    expect(screen.getByRole('alert')).toHaveFocus();
+  });
   expect(screen.getByLabelText('Squad name')).toHaveValue('North');
-  expect(screen.getByRole('alert')).toHaveFocus();
 });
