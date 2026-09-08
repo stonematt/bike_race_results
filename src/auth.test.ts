@@ -9,7 +9,7 @@
  *
  * The adapter itself is still mocked — it validates its constructor argument
  * and neither it nor which driver backs `createDb()` participates in a
- * callback decision. `createDb()` is not: the dev provider's `authorize` now
+ * callback decision. `appDb()` is not: the dev provider's `authorize` now
  * resolves (or creates) a real `user` row (#107), so this needs a database
  * that can actually hold one. `createTestDb()` gives it a real in-memory
  * Postgres, migrated once and reused for the whole file — the tests that
@@ -28,10 +28,7 @@ vi.mock('@auth/drizzle-adapter', () => ({ DrizzleAdapter: () => ({}) }));
 
 const testDb = await createTestDb();
 
-vi.mock('./lib/db/index.ts', () => ({
-  createDb: () => testDb,
-  schema: { users: {}, accounts: {}, sessions: {}, verificationTokens: {} },
-}));
+vi.mock('./app/db.ts', () => ({ appDb: () => testDb }));
 
 const { authOptions, providers } = await import('./auth.ts');
 const { DEV_PROVIDER_ID } = await import('./lib/admission.ts');

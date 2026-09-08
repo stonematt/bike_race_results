@@ -19,7 +19,7 @@ export type DatabaseRuntime =
        * database. The lock belongs to one dedicated pg session, not a pooled
        * query used by the migrator, and is released even when migration fails.
        */
-      withMigrationLock<T>(work: () => Promise<T>): Promise<T>;
+      withMigrationLock<T>(work: (db: NodePgDatabase<typeof schema>) => Promise<T>): Promise<T>;
       close(): Promise<void>;
     };
 
@@ -59,32 +59,48 @@ export function createDatabaseRuntime(url = resolveDatabaseUrl()): DatabaseRunti
     return {
       kind: 'postgres',
       db: postgresDrizzle(pool, { schema }),
-      async withMigrationLock<T>(work: () => Promise<T>): Promise<T> {
+      async withMigrationLock<T>(
+        work: (db: NodePgDatabase<typeof schema>) => Promise<T>,
+      ): Promise<T> {
         const client = await pool.connect();
         let locked = false;
         let failed = false;
         let poolError: Error | undefined;
+        let clientLost = false;
+        const onClientError = (error: Error) => {
+          clientLost = true;
+          poolError ??= errorForPool(error);
+        };
+        // A checked-out client is not covered by the pool's idle-client error
+        // listener. Keep this handler attached until we destroy or release it.
+        client.once('error', onClientError);
         try {
           await client.query(migrationLock);
           locked = true;
-          return await work();
+          const result = await work(postgresDrizzle(client, { schema }));
+          if (clientLost) throw poolError;
+          return result;
         } catch (error) {
           failed = true;
           poolError = errorForPool(error);
           throw error;
         } finally {
+          let unlockError: Error | undefined;
           if (locked) {
             try {
               await client.query(migrationUnlock);
             } catch (error) {
-              const unlockError = errorForPool(error);
+              unlockError = errorForPool(error);
               poolError ??= unlockError;
-              if (!failed) throw unlockError;
             }
           }
           // Destroy a session that lost its lock/unlock command. Releasing it
           // normally could retain a session-scoped advisory lock in the pool.
+          client.removeListener('error', onClientError);
           client.release(poolError);
+          // A successful migration must still surface a failed unlock, but only
+          // after the borrowed connection has been released or destroyed.
+          if (!failed && unlockError) throw unlockError;
         }
       },
       close: () => pool.end(),

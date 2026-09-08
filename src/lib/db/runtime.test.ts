@@ -278,6 +278,51 @@ it.skipIf(!postgresLocation)(
 );
 
 it.skipIf(!postgresLocation)(
+  'destroys a lock session that loses its unlock command before returning the error',
+  async () => {
+    const runtime = createDatabaseRuntime(postgresLocation!);
+    const control = createDatabaseRuntime(postgresLocation!);
+    const successor = createDatabaseRuntime(postgresLocation!);
+    if (
+      runtime.kind !== 'postgres' ||
+      control.kind !== 'postgres' ||
+      successor.kind !== 'postgres'
+    ) {
+      throw new Error('Expected native PostgreSQL runtimes');
+    }
+    let entered!: () => void;
+    const enteredLock = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let finish!: () => void;
+    const finishWork = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    try {
+      const locked = runtime.withMigrationLock(async () => {
+        entered();
+        await finishWork;
+      });
+      await enteredLock;
+      const lockOwner = await control.db.execute(sql`
+        select pid from pg_locks
+         where locktype = 'advisory'
+           and objid = hashtext('descenders:drizzle-migrate')
+         limit 1`);
+      const pid = Number(lockOwner.rows[0]?.pid);
+      expect(Number.isInteger(pid)).toBe(true);
+      await control.db.execute(sql`select pg_terminate_backend(${pid})`);
+      finish();
+      await expect(locked).rejects.toThrow();
+      await expect(successor.withMigrationLock(async () => undefined)).resolves.toBeUndefined();
+    } finally {
+      await Promise.all([runtime.close(), control.close(), successor.close()]);
+    }
+  },
+  10000,
+);
+
+it.skipIf(!postgresLocation)(
   'handles an idle backend loss with a sanitized error and recovers on the next query',
   async () => {
     const reported = vi.spyOn(console, 'error').mockImplementation(() => undefined);

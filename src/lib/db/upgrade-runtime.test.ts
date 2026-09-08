@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { migrate as migratePostgres } from 'drizzle-orm/node-postgres/migrator';
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
+import { Pool } from 'pg';
 import { expect, it } from 'vitest';
 import { resolveSelectedClub } from '../authz/access.ts';
 import { resolveSquadBySlug } from '../../app/[season]/query.ts';
@@ -12,6 +13,22 @@ import { createDatabaseRuntime, type DatabaseRuntime } from './runtime.ts';
 
 const migrationsFolder = join(import.meta.dirname, 'migrations');
 const postgresUrl = process.env.D5_TEST_DATABASE_URL;
+
+function isolatedPostgresUrl(): { databaseName: string; url: string } | null {
+  if (!postgresUrl) return null;
+  const url = new URL(postgresUrl);
+  if (
+    url.hostname !== '127.0.0.1' ||
+    url.port !== '55432' ||
+    url.pathname !== '/d5_runtime_tracer' ||
+    url.username !== 'd5_runtime'
+  ) {
+    throw new Error('D5 upgrade test requires the dedicated loopback tracer cluster.');
+  }
+  const databaseName = `d5_upgrade_${randomUUID().replaceAll('-', '')}`;
+  url.pathname = `/${databaseName}`;
+  return { databaseName, url: url.toString() };
+}
 
 async function migrate(runtime: DatabaseRuntime, folder: string): Promise<void> {
   if (runtime.kind === 'postgres') return migratePostgres(runtime.db, { migrationsFolder: folder });
@@ -39,15 +56,22 @@ for (const [kind, location] of [
       const folder = await baselineMigrations();
       const directory =
         kind === 'pglite' ? await mkdtemp(join(tmpdir(), 'descenders-upgrade-db-')) : null;
-      const databaseLocation = location ?? directory!;
+      const isolatedPostgres = kind === 'postgres' ? isolatedPostgresUrl() : null;
+      const databaseLocation = isolatedPostgres?.url ?? directory!;
       const suffix = randomUUID();
       const userId = `upgrade-${suffix}`;
       const clubName = `Upgrade Club ${suffix}`;
       const squadSlug = `retained-${suffix}`;
       const year = 2200 + Math.floor(Math.random() * 700);
+      const admin = isolatedPostgres ? new Pool({ connectionString: location }) : null;
+      if (isolatedPostgres) await admin!.query(`create database ${isolatedPostgres.databaseName}`);
       let runtime = createDatabaseRuntime(databaseLocation);
       try {
         await migrate(runtime, folder);
+        const journal = await runtime.db.execute(
+          sql`select count(*)::int as count from "drizzle"."__drizzle_migrations"`,
+        );
+        expect(Number(journal.rows[0]?.count)).toBe(8);
         const club = await runtime.db.execute(
           sql`insert into club (name, slug) values (${clubName}, ${squadSlug}) returning id`,
         );
@@ -91,6 +115,8 @@ for (const [kind, location] of [
         });
       } finally {
         await runtime.close();
+        if (isolatedPostgres) await admin!.query(`drop database ${isolatedPostgres.databaseName}`);
+        await admin?.end();
         await rm(folder, { recursive: true, force: true });
         if (directory) await rm(directory, { recursive: true, force: true });
       }
