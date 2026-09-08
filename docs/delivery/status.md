@@ -1,25 +1,37 @@
 # Delivery status
 
-Updated 2026-09-07 local date. **Goal active; foundation merged into dev; D1 reviews passed, final CI pending.** No token budget. No production deployment, paid resource, real invitation or external athlete-data transfer. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
+Updated 2026-09-07 local date. **Goal active; D1 merged and cleaned up; D2 implementation started.** No token budget. No production deployment, paid resource, real invitation or external athlete-data transfer. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D5 security: #124. Epic children #123/#124/#125 are linked natively. Unrelated backlog is preserved.
 
-| Increment  | Current state                                                                                                                                                                            |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation | Merged through PR #122; cleanup verified below.                                                                                                                                          |
-| D1         | Implemented on `feat/local-delivery-foundation`; review corrections passed; final CI pending. Draft PR [#126](https://github.com/stonematt/bike_race_results/pull/126); not merge-ready. |
-| D2         | Art brief and concrete query/UI ownership plan prepared; #125 ready after D1. No implementation.                                                                                         |
-| D3         | Persistent membership/roles, invitations, preferences and safe squad editing remain unimplemented.                                                                                       |
-| D4         | Evidence-backed draft/review/publish remains unimplemented.                                                                                                                              |
-| D5         | Driver research and local Postgres binaries prepared; adapter, security upgrades, auth mailbox, CI and recovery runbook remain unimplemented.                                            |
+| Increment  | Current state                                                                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | Merged through PR #122; cleanup verified below.                                                                                               |
+| D1         | Merged through PR #126; cleanup verified below.                                                                                               |
+| D2         | Implementing #125 on `feat/editorial-reporting`; checkpoint query and first dispatch UI in parallel.                                          |
+| D3         | Persistent membership/roles, invitations, preferences and safe squad editing remain unimplemented.                                            |
+| D4         | Evidence-backed draft/review/publish remains unimplemented.                                                                                   |
+| D5         | Driver research and local Postgres binaries prepared; adapter, security upgrades, auth mailbox, CI and recovery runbook remain unimplemented. |
 
 ## Current work and resume point
 
-Branch base `36ab935e7c5a8f79e88fa75dd2581499fa65060b`; latest integrated code `0b09ca3`. Astra orchestrates. `d1_demo` completed demo preflight and command tests; `d1_reporting` completed reporting validation and migration upgrade smoke. `foundation_standards` reviews Standards and reporting semantics; `foundation_spec` reviews Spec and supplies independent art planning. Preserve others' changes.
+Current branch `feat/editorial-reporting`, from dev `4ad144a72aeaf08bb5d535bbf201bb09cf4ed998`. Astra orchestrates. D2 `d1_reporting` owns new editorial query/types/tests; `d1_demo` owns the first SeasonDispatch component/test and season page. Parent owns current-season root/query/config integration and ledger. No schema changes authorized within these first slices; demonstrate a need before changing that boundary. Preserve other workers' files.
 
 Task-owned development server was stopped after acceptance; port 3100 is free. Synthetic database `/private/tmp/descenders-d1-accepted` remains for restart and later increments. Isolated Chrome: CDP 9224, profile `/private/tmp/descenders-d1-chrome`, session 59301. The new synthetic database has the final migration bytes and passed setup/login/navigation. Stop the app before rebuild/migrations. No mail delivery configured.
 
-Next: record final-head CI and confirm review coverage; finalize D1 PR #126 into dev, verify checks, merge commit and clean task refs. Continue D2–D5 without another scope approval. Never mark the goal complete at D1.
+Next: finish the first checkpoint-aware dispatch query and component with red/green evidence, wire protected club scope, verify current-season empty state and dispatch browser behavior, then continue race/rider slices. Analyst and art-director acceptance are required before D2 lands. D3–D5 remain active delivery obligations.
+
+## D1 delivery audit
+
+PR [#126](https://github.com/stonematt/bike_race_results/pull/126) merged into dev with merge commit `4ad144a72aeaf08bb5d535bbf201bb09cf4ed998`; reviewed head `38824bc2f3d2fcce7ebf6258eab77e24993428e5`. CI run `34192422103` passed, including 62 public test files / 901 tests. Independent review coverage and resolved findings appear below and in the PR.
+
+Cleanup confirmed: local dev fast-forwarded, reviewed head ancestry verified, local and remote `feat/local-delivery-foundation` deleted, refs pruned and absent. One clean main worktree remained on dev before creating D2 branch. Issues #98/#100/#106/#123 closed, no stale staged labels. Stone-merge run log recorded the result. Epic #121 D1 checkbox and Obsidian journal updated; D2–D5 remain incomplete.
+
+## D2 first slices
+
+- Query contract: explicit checkpoint through ordinal or none. Default latest published ordinal; no published results retains an unpublished schedule. Distinct club riders supply starts, never sums of squads. History preserves all result rows per race; selected event disambiguates. Links retain checkpoint.
+- Parent current-season regression ran red: explicit missing 2027 returned 2026. Optional CURRENT_SEASON now prevents that fallback; malformed settings reject. Existing/default lookup remains latest recorded year. Focused season query suite passes 23 tests. Committed as `c073526`. Root empty state offers deliberate recorded-season links rather than seed commands. Authenticated browser check passed: explicit 2027 stays empty at root; 2026 requires its recorded-season link. Test server stopped.
+- Worker dispatch query/component code remains in progress and uncommitted. Initial query tests pass checkpoint counts and no-published-results defaults; explicit-none suppression and invalid-checkpoint guards are the next red/green cases. Initial query red was a missing module, not a demonstrated numerical failure; record that limit honestly. Parent flagged unsupported WIP UI headline/null-to-zero and route/contrast issues before acceptance; art director is reviewing the first composition. Use public synthetic tests; no placeholder production data.
 
 **Foundation delivery audit**
 
@@ -42,7 +54,7 @@ Next: record final-head CI and confirm review coverage; finalize D1 PR #126 into
 
 | Check                     | Evidence and limits                                                                                                                                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public suite              | 62 files / 900 tests passed after c9ce385 and the initial preflight correction. The final additional Drizzle-schema refusal regression and demo/URL lane passed (12 tests); final-head CI pending.                               |
+| Public suite              | 62 files / 900 tests passed after c9ce385 and the initial preflight correction. The final additional Drizzle-schema refusal regression and demo/URL lane passed (12 tests); final-head CI passed (901 tests), recorded above.    |
 | Protected local corpus    | Full configured local lane passed: eight files / 85 tests after c9ce385. No refetch or identifying output published.                                                                                                             |
 | Types/lint/format/privacy | Final correction typecheck passed. Integrated lint, formatting, whitespace and privacy passed (277 tracked files).                                                                                                               |
 | Brand                     | All 15 tokens matched; check was not skipped. D1 adds no visual redesign.                                                                                                                                                        |
@@ -72,6 +84,6 @@ Audit reports 13 advisory findings (3 critical, 5 high, 5 moderate), not proof o
 
 PostgreSQL 17.11 installed via Homebrew for disposable synthetic parity. Homebrew initialized its empty default cluster at `/opt/homebrew/var/postgresql@17`; no service started. Use a separate task-owned temporary cluster, not that default. Standard node-postgres pool/Drizzle transport is the proposed implementation; no hosted provider is verified.
 
-Obsidian journal: `tyee/2a/scd/Descenders race reporting.md`, maintained exclusively through the CLI. Updated at 080564c checkpoint with foundation merge, D1 evidence, auth discovery, advisory work and remaining increments. Refresh after D1 merge. Canonical implementation state stays in this repository.
+Obsidian journal: `tyee/2a/scd/Descenders race reporting.md`, maintained exclusively through the CLI. Updated at 080564c checkpoint with foundation merge, D1 evidence, auth discovery, advisory work and remaining increments. D1 merge has also been recorded; refresh at the next integrated milestone. Canonical implementation state stays in this repository.
 
 Documentation accuracy/scope review by `foundation_spec` passed after correcting final migration status and advisory terminology; final PR/CI facts are recorded in #126 before merge.
