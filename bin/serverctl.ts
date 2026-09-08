@@ -130,7 +130,6 @@ function ensurePrivateCorpus(): void {
 
   // A link avoids a second copy but needs an index exclusion because git treats
   // a symlink as a file, not as the ignored fixtures/ directory.
-  symlinkSync(ARCHIVED_CORPUS, corpusRoot());
   const exclusion = join(repoRoot, '.git', 'info', 'exclude');
   const current = existsSync(exclusion) ? readFileSync(exclusion, 'utf8') : '';
   if (!current.split(/\r?\n/).includes('fixtures')) {
@@ -139,6 +138,7 @@ function ensurePrivateCorpus(): void {
       `${current}${current.endsWith('\n') || current === '' ? '' : '\n'}fixtures\n`,
     );
   }
+  symlinkSync(ARCHIVED_CORPUS, corpusRoot());
 }
 
 function requirePreparation(email: string): void {
