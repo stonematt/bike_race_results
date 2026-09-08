@@ -73,7 +73,7 @@ export function createDatabaseRuntime(url = resolveDatabaseUrl()): DatabaseRunti
         };
         // A checked-out client is not covered by the pool's idle-client error
         // listener. Keep this handler attached until we destroy or release it.
-        client.once('error', onClientError);
+        client.on('error', onClientError);
         try {
           await client.query(migrationLock);
           locked = true;
