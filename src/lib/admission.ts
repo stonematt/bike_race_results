@@ -67,6 +67,6 @@ export function admits(
   env: AdmissionEnv = process.env,
 ): boolean {
   if (!user?.email) return false;
-  if (bypassesAllowlist(provider, env)) return true;
+  if (provider === DEV_PROVIDER_ID) return bypassesAllowlist(provider, env);
   return isAllowed(user.email, env);
 }
