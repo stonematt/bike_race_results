@@ -219,3 +219,52 @@ it('keeps an unassigned member connected to active club squads without inventing
   expect(markup).toContain('href="/2026/roster?through=2"');
   expect(markup).not.toContain('You are assigned to more than one squad.');
 });
+
+it('keeps a reviewed exact-Event observation visible when sibling coverage prevents a featured Round', () => {
+  const markup = renderToStaticMarkup(
+    <SeasonDispatch
+      dispatch={{
+        ...dispatch,
+        schedule: {
+          kind: 'available',
+          rounds: [
+            {
+              ...dispatch.schedule.rounds[1],
+              availability: 'partial',
+              clubStarts: null,
+              firstRecordedStarts: null,
+            },
+          ],
+        },
+      }}
+      story={{
+        id: 1,
+        surface: 'season-dispatch',
+        candidate: {
+          template: 'club-starts-at-event',
+          clubId: 1,
+          season: { id: 2, year: 2026 },
+          checkpoint: { kind: 'through', ordinal: 2 },
+          event: {
+            id: 2,
+            sourceEventId: 'pine-creek',
+            name: 'Pine Creek',
+            conference: 'North',
+            round: { id: 2, ordinal: 2, name: 'Race 2' },
+          },
+          count: 5,
+          source: { rawFetchId: 1, contentHash: 'synthetic', listId: 'flat', hidden: false },
+          fingerprint: 'synthetic',
+        },
+      }}
+    />,
+  );
+  expect(markup).toContain('5 club riders recorded a start at Pine Creek (North).');
+  expect(markup).toContain('href="/2026/round/2?through=2#event-pine-creek"');
+  expect(markup).toContain('current season roster');
+  expect(markup).not.toContain('5 club riders recorded a start at Race 2.');
+  expect(markup).toContain(
+    'Race 2 results are incomplete; a whole-round starts count is unavailable.',
+  );
+  expect(markup).not.toContain('Published starts are not included in this checkpoint.');
+});

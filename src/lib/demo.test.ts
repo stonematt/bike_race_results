@@ -1,4 +1,5 @@
 import { loadSquadNavigation } from './db/editorial-query.ts';
+import { loadStoryCandidate } from './editorial-evidence.ts';
 /**
  * The public D1 bootstrap seam: a persistent PGlite demo is only useful if
  * its own reporting reads continue to work after the process restarts.
@@ -232,7 +233,7 @@ describe('bootstrapSafeDemo', () => {
     });
 
     expect(result.stdout).toContain(
-      'Synthetic demo database already matches the safe demo; no data changed.',
+      'Synthetic demo database is ready; existing configuration preserved.',
     );
     const reopened = new PGlite(directory);
     expect(
@@ -307,9 +308,38 @@ describe('bootstrapSafeDemo', () => {
       'Created the synthetic demo database.',
     );
     expect((await run(process.execPath, ['bin/demo.ts'], options)).stdout).toContain(
-      'Synthetic demo database already matches the safe demo; no data changed.',
+      'Synthetic demo database is ready; existing configuration preserved.',
     );
   }, 60_000);
+
+  it('provides a source-bound five-rider story candidate for the 2026 demo event', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-story-candidate-'));
+    directories.push(directory);
+    const demo = await openDemoDatabase(directory);
+    const seeded = await bootstrapSafeDemo(demo.db);
+
+    await expect(
+      loadStoryCandidate(demo.db, {
+        actorId: seeded.userId,
+        clubId: 1,
+        seasonId: 2,
+        checkpointOrdinal: 1,
+        eventId: 2,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'available',
+      candidate: {
+        count: 5,
+        event: { sourceEventId: 'demo-2026-round-1' },
+        source: {
+          listId: 'demo-2026-individual-results',
+          hidden: false,
+          contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+    });
+    await demo.client.close();
+  });
 
   it('creates the demo coach as the active club admin', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-admin-'));

@@ -1,3 +1,4 @@
+import { loadPublishedStory } from '@/lib/editorial-publication.ts';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth.ts';
@@ -5,7 +6,7 @@ import { appDb } from '@/app/db.ts';
 import { requireClubContext } from '@/app/club-context.ts';
 import { RaceReview } from '@/components/RaceReview.tsx';
 import { loadRaceCategories } from '@/lib/db/editorial-query.ts';
-import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
+import { checkpointFromSearch, eventAnchorId } from '@/lib/reporting-navigation.ts';
 import { resolveSeasonByYear } from '../../query.ts';
 import { listRoundEvents, resolveRound } from './query.ts';
 
@@ -55,13 +56,24 @@ export default async function RoundPage({
 
   const events = await listRoundEvents(db, round.id);
   const reviews = await Promise.all(
-    events.map(async (event) => ({
-      event,
-      review: await loadRaceCategories(db, {
+    events.map(async (event) => {
+      const review = await loadRaceCategories(db, {
         sourceEventId: event.sourceEventId,
         clubId: club.clubId,
-      }),
-    })),
+      });
+      const story =
+        review === null
+          ? null
+          : await loadPublishedStory(db, {
+              actorId: club.userId,
+              clubId: club.clubId,
+              seasonId: season.id,
+              checkpointOrdinal: through,
+              surface: 'race-review',
+              eventId: review.race.eventId,
+            });
+      return { event, review, story };
+    }),
   );
   const publishedReviews = reviews.flatMap(({ review }) => (review === null ? [] : [review]));
   const clubRiderIds = new Set(
@@ -98,12 +110,34 @@ export default async function RoundPage({
         </p>
       ) : null}
 
+      {events.length > 1 ? (
+        <nav aria-label="Choose an Event" className="mt-5">
+          <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold">
+            {events.map((event) => (
+              <li key={event.sourceEventId}>
+                <a
+                  href={'#' + eventAnchorId(event.sourceEventId)}
+                  className="hover:text-accent inline-flex min-h-11 items-center underline underline-offset-4"
+                >
+                  {event.name}
+                  {event.conference ? ' · ' + event.conference : ''}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
+
       {reviews.length === 0 ? (
         <p className="text-muted mt-8 text-sm">No events are recorded for this round.</p>
       ) : (
-        reviews.map(({ event, review }) =>
+        reviews.map(({ event, review, story }) =>
           review === null ? (
-            <section key={event.sourceEventId} className="border-border mt-8 border-t pt-4">
+            <section
+              key={event.sourceEventId}
+              id={eventAnchorId(event.sourceEventId)}
+              className="border-border mt-8 scroll-mt-6 border-t pt-4"
+            >
               <h2 className="font-display text-2xl tracking-wide uppercase">{event.name}</h2>
               <p className="text-muted mt-2 text-sm">Results are not published for this event.</p>
             </section>
@@ -111,6 +145,7 @@ export default async function RoundPage({
             <RaceReview
               key={event.sourceEventId}
               review={review}
+              story={story}
               through={through}
               showEventHeading={events.length > 1}
             />

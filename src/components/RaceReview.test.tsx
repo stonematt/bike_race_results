@@ -153,3 +153,36 @@ describe('RaceReview', () => {
     expect(markup).not.toContain('place * · no field spread to compare');
   });
 });
+
+it('places one reviewed observation beside its exact Event evidence with singular grammar', () => {
+  const markup = renderToStaticMarkup(
+    <RaceReview
+      review={review}
+      through={2}
+      story={{
+        id: 1,
+        surface: 'race-review',
+        candidate: {
+          template: 'club-starts-at-event',
+          clubId: 1,
+          season: { id: 2, year: 2026 },
+          checkpoint: { kind: 'through', ordinal: 2 },
+          event: {
+            id: 22,
+            sourceEventId: 'pine-creek-north',
+            name: 'Pine Creek',
+            conference: 'North',
+            round: { id: 2, ordinal: 2, name: 'Race 2' },
+          },
+          count: 1,
+          source: { rawFetchId: 1, contentHash: 'synthetic', listId: 'flat', hidden: false },
+          fingerprint: 'synthetic',
+        },
+      }}
+    />,
+  );
+  expect(markup).toContain('1 club rider recorded a start at Pine Creek (North).');
+  expect(markup).toContain('href="/2026/round/2?through=2#event-pine-creek-north"');
+  expect(markup.match(/What would you like to try at the next race\?/g)).toHaveLength(1);
+  expect(markup.indexOf('recorded a start')).toBeLessThan(markup.indexOf('Choose a field'));
+});
