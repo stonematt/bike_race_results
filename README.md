@@ -8,7 +8,7 @@ It ingests what the league published, normalizes it across races and seasons, an
 
 The done-condition: _a race posts on a Sunday night and a coach opens the app to see how their riders did._
 
-**What this is not: team management.** Messaging, calendars, practice plans and volunteer coordination belong to a separate project. This repo is the read model of record for what happened on course; results flow out to that project, and roster or scheduling data never flows in here as truth.
+**Product boundary.** League results remain source-authoritative. The accepted delivery includes persistent club memberships, squad administration, invitations and reviewed editorial stories; the delivery ledger records which are implemented. Messaging, calendars, practice plans and volunteer coordination remain outside this application.
 
 ## The shape of the domain
 
@@ -39,22 +39,20 @@ Season is the **frame**, not a filter — club membership is season-keyed, so "a
 
 **NICA is the scoring authority, and the line is description versus adjudication.** We derive what is recomputable from the published rows and carries no consequence — percent back, lap deficit, field size, start count, percentile. We never produce what the league decides and acts on — points, place, category, State Champs eligibility. So the app will tell you a rider started three of four rounds, and will never tell you whether that makes them eligible. Where the published numbers look wrong, the app shows the published numbers.
 
-**Two orientations, both first-class.** Some riders measure a season in places and podiums; others measure it in starts and finishes. Both are well represented, and the split does not follow middle school versus high school — there are high schoolers whose season is finishing a lap. So it can never be a filter or a segment: a view that renders only place serves half the roster. This is why a result has three states rather than two — positioned (the league published a place, whether or not a percent back is comparable), started without a comparable position (a DNF), and did not start at all.
+**Two orientations, both first-class.** Some riders measure a season in places and podiums; others measure it in starts and finishes. Both are well represented, and the split does not follow middle school versus high school — there are high schoolers whose season is finishing a lap. So it can never be a filter or a segment: a view that renders only place serves half the roster. This is why a result has three states rather than two — positioned (the league published a place, whether or not a percent back is comparable), started without a comparable position (a DNF), and no result recorded. An absent row does not establish DNS; unpublished, incomplete and excluded results need their own states.
 
 **There is no public half.** Race payloads carry the names of minors, so every route sits behind auth, and `next.config.ts` sends `noindex, nofollow, noarchive`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store` on every path.
 
 ## Status
 
-Early scaffolding — pre-MVP. What works today:
+Local application delivery is active through [epic #121](https://github.com/stonematt/bike_race_results/issues/121). The [delivery ledger](docs/delivery/status.md) records reviewed commits, merge status and verification limits.
 
-- schema, migrations, and the five domain views
-- the auth gate — every route behind it, and admission re-decided on every request, not just at sign-in
-- the `migrate` and `seed` CLIs
-- the authenticated shell, plus the race list and a race-detail page reading the domain views — squad cards and the field strip
-- live fetching in `bin/fetch.ts`, and decoding the archive into the normalized tables
-- unit suites over the admission rules, the provider wiring and the brand-token check, and integration suites over seeding and the domain views against a real in-memory Postgres
+- Persistent PGlite, migrations and a repeatable synthetic demo share authentication and reporting identity.
+- Normalized reporting binds exact source revisions and keeps conference fields, lap comparability and published scoring separate.
+- The season dispatch and club/squad rosters retain an explicit race checkpoint. Named rider and race-review routes provide deeper evidence.
+- Persistent club operations, reviewed stories and the hosted-Postgres readiness path are subsequent delivery increments; production has not been released.
 
-What doesn't exist yet: a way to _act_ on the unmapped-rider queue (the race page warns; nothing resolves it), any view above a single race — no rider progression, no squad page, no club-vs-field, no season — no navigation between views, and the hosted-database path. The append-only raw layer is real — `node bin/normalize.ts --load-fixtures` archives the local fixture corpus into it without touching the network. Planning is charted on the issue tracker — `gh issue list --label "wayfinder:map"` finds the map, and the map holds the destination, the domain vocabulary, and the standing decisions.
+The append-only raw layer archives and normalizes local fixtures without refetching them. Public tests use pseudonymous data; protected corpus checks stay local. See the ledger for current tests, visual/data reviews and production-mode smoke checks rather than treating a local build as hosted-provider verification.
 
 ## Stack
 
@@ -106,6 +104,8 @@ DATABASE_URL=./.pglite-demo AUTH_URL=http://localhost:3000 AUTH_DEV_LOGIN=1 pnpm
 ```
 
 Use the dependency installation and `AUTH_SECRET` setup above, then open `http://localhost:3000` and sign in through the local development form as `demo.coach@example.test`. The browser origin and `AUTH_URL` must match, including hostname and port; do not mix `localhost` and `127.0.0.1`, because cookies belong to one host. For a custom port, change both `AUTH_URL` and the `pnpm dev --port` argument. `AUTH_DEV_LOGIN=1` is development-only and the server remains bound to loopback. The demo's default is `./.pglite-demo`, deliberately separate from the ordinary `./.pglite` database. For safety, `pnpm demo` ignores a `DATABASE_URL` supplied only by `.env.local`; set it on the command when choosing a demo location, then use that same explicit path when starting the app.
+
+Set `CURRENT_SEASON=2026` to select the intended current year explicitly. If that year is missing, the landing page stays empty and offers deliberate recorded-season links. With the setting omitted, the latest recorded year remains the default. Use `?through=2` on a season URL for a Race 2 checkpoint; later results and category changes remain excluded while moving between dispatch, roster, race and rider views.
 
 To use another disposable location, set `DATABASE_URL` to an empty local PGlite directory for both commands. A rerun recognizes its exact synthetic database and makes no changes. Any other populated database is refused before writes, so the command cannot replace an existing local installation.
 

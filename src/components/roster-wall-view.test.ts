@@ -107,7 +107,7 @@ describe('describeCell', () => {
   });
 
   it('states the null percent back as its own fact, not a zero', () => {
-    expect(describeCell(positionedNoGap)).toContain('no gap published');
+    expect(describeCell(positionedNoGap)).toContain('Time comparison unavailable');
     expect(describeCell(positionedNoGap)).not.toMatch(/0%/);
   });
 
@@ -116,10 +116,10 @@ describe('describeCell', () => {
   });
 
   it('states a short-lap rider’s deficit beside her place, in the same sentence', () => {
-    expect(describeCell(shortLap)).toBe('Place 65 of 30, no gap published, −1 lap');
+    expect(describeCell(shortLap)).toBe('Place 65 of 30, Time comparison unavailable, −1 lap');
   });
 
   it('says a did-not-start cell is a non-start, not a blank', () => {
-    expect(describeCell(absent)).toBe('Did not start this round');
+    expect(describeCell(absent)).toBe('No result recorded');
   });
 });

@@ -254,6 +254,32 @@ describe('the field strip', () => {
     expect(markup).toContain('role="img"');
     expect(markup).toContain('«RIDER-A» at +19.6% back');
   });
+
+  it('does not turn a one-rider field into an invented percent-back spread', () => {
+    const markup = renderToStaticMarkup(
+      <FieldStrip marks={[{ pct: 0, ours: true, place: '1', label: '«ONLY RIDER»' }]} />,
+    );
+
+    expect(markup).toContain('One comparable finisher; no field spread to compare.');
+    expect(markup).not.toContain('<svg');
+  });
+
+  it('keeps an outside DNF visible when one comparable finisher cannot establish a field spread', () => {
+    const markup = renderToStaticMarkup(
+      <FieldStrip
+        marks={[
+          { pct: 0, ours: true, place: '1', label: '«WINNER»' },
+          { pct: null, ours: true, place: '*', label: '«DNF»' },
+        ]}
+        outside={[{ text: '«DNF» — DNF', kind: 'dnf' }]}
+      />,
+    );
+
+    expect(markup).toContain('One comparable finisher; no field spread to compare.');
+    expect(markup).toContain('«DNF» — DNF');
+    expect(markup).not.toContain('<svg');
+    expect(markup).not.toContain('+10%');
+  });
 });
 
 describe('the squad frame', () => {

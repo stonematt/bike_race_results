@@ -55,8 +55,16 @@ function NoAxis() {
     // The strip's own sentence, from the module that owns its prose, so both
     // readers get the same reason. Visible text is the accessible name here —
     // no `title`, which an `<svg>` needs only because it has no text of its own.
-    <p className="border-border bg-surface text-muted rounded-md border px-3 py-2 text-[11px]">
+    <p className="border-border bg-surface text-muted rounded-md border px-3 py-2 text-sm">
       {NO_AXIS_REASON}
+    </p>
+  );
+}
+
+function SingletonField() {
+  return (
+    <p className="border-border bg-surface text-muted rounded-md border px-3 py-2 text-sm">
+      One comparable finisher; no field spread to compare.
     </p>
   );
 }
@@ -73,7 +81,9 @@ export function FieldStrip({ marks, outside = [], size = 'md', caption, max }: F
         </figcaption>
       ) : null}
 
-      {model.max === null ? (
+      {model.placed === 1 ? (
+        <SingletonField />
+      ) : model.max === null ? (
         <NoAxis />
       ) : (
         <>
@@ -117,7 +127,7 @@ export function FieldStrip({ marks, outside = [], size = 'md', caption, max }: F
                   cx={inset(dot.x)}
                   cy={g.axisY}
                   r={g.dot}
-                  className="fill-muted/40"
+                  className="fill-navy/65"
                 />
               ),
             )}

@@ -1,43 +1,54 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
 import { Banner } from '@/components/Banner.tsx';
 import { SignOutButton } from '@/components/SignOutButton.tsx';
-import { resolveCurrentSeason } from './[season]/query.ts';
+import { listSeasonYears, resolveCurrentSeason } from './[season]/query.ts';
 
-/**
- * `/` is not a page of its own — it resolves the current season (the latest
- * year on record) and hands off to `/[season]`, the wall's route (issue #88).
- * Season is the ambient frame every view sits inside (CONTEXT.md), so there is
- * nothing to render at the bare root once a season exists.
- *
- * Before anything has been fetched or normalized there is no season to hand
- * off to, and that is a legitimate bootstrap state rather than a not-found —
- * the same call `races/page.tsx` makes for "nothing ingested yet".
- */
+/** The configured season is explicit; historical results remain a deliberate choice. */
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const season = await resolveCurrentSeason(appDb());
+  const db = appDb();
+  const configuredYear = process.env.CURRENT_SEASON;
+  const season = await resolveCurrentSeason(db, configuredYear);
+  if (season !== null) redirect(`/${season.year}`);
 
-  if (season === null) {
-    const session = await auth();
-    return (
-      <>
-        <Banner>
-          {session?.user?.email ? <span>{session.user.email}</span> : null}
-          <SignOutButton />
-        </Banner>
-        <main className="mx-auto max-w-5xl px-6 py-10">
-          <h1 className="font-display text-4xl tracking-wide uppercase">Descenders</h1>
-          <p className="text-muted mt-3 max-w-2xl">
-            Nothing ingested yet. Archive a season with <code>pnpm fetch</code>, then{' '}
-            <code>pnpm normalize</code>.
-          </p>
-        </main>
-      </>
-    );
-  }
-
-  redirect(`/${season.year}`);
+  const [session, years] = await Promise.all([auth(), listSeasonYears(db)]);
+  return (
+    <>
+      <Banner>
+        {session?.user?.email ? <span>{session.user.email}</span> : null}
+        <SignOutButton />
+      </Banner>
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <h1 className="font-display text-4xl tracking-wide uppercase">
+          {configuredYear ? `${configuredYear} season` : 'Season results'}
+        </h1>
+        <p className="text-muted mt-4 max-w-prose">
+          {configuredYear
+            ? `Results for ${configuredYear} are not available yet.`
+            : 'No season results have been published yet.'}
+        </p>
+        {years.length > 0 ? (
+          <nav aria-label="Recorded seasons" className="mt-8">
+            <h2 className="font-display text-2xl uppercase">Explore a recorded season</h2>
+            <ul className="mt-3 flex flex-wrap gap-6">
+              {years.map((year) => (
+                <li key={year}>
+                  <Link
+                    href={`/${year}`}
+                    className="text-fg font-semibold underline underline-offset-4"
+                  >
+                    {year} season
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+      </main>
+    </>
+  );
 }

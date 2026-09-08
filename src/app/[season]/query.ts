@@ -63,8 +63,17 @@ export const resolveSeasonByYear = cache(
   },
 );
 
-/** The current season: the latest year on record. Null before anything is seeded. */
-export async function resolveCurrentSeason(db: AnyDatabase): Promise<SeasonRef | null> {
+/** An explicit current year never falls back; otherwise use the latest recorded year. */
+export async function resolveCurrentSeason(
+  db: AnyDatabase,
+  configuredYear?: string,
+): Promise<SeasonRef | null> {
+  if (configuredYear) {
+    if (!/^[1-9]\d{3}$/.test(configuredYear)) {
+      throw new Error('CURRENT_SEASON must be a four-digit year.');
+    }
+    return resolveSeasonByYear(db, configuredYear);
+  }
   const result = await db.execute(sql`select id, year from season order by year desc limit 1`);
   const row = rowsOf(result)[0];
   return row ? { id: num(row.id), year: num(row.year) } : null;
@@ -110,14 +119,10 @@ export async function resolveDefaultSquad(
 /**
  * The Squad a `/[season]/squad/[slug]` URL segment names.
  *
- * Keyed on `(season_id, slug)`, not on slug alone: `squad.slug` is unique per
- * `(club_id, season_id)` (issue #114), not globally, so two clubs in one
- * Season are free to each hold a `descenders`. With no club segment in this
- * route to disambiguate, that collision is genuinely ambiguous — this
- * returns null rather than guessing which club's squad was meant, the same
- * refusal-to-guess `resolveDefaultSquad`'s removed fallback used to violate.
- * A future `/[season]/[club]/squad/[slug]` segment is how a second club's
- * collision gets resolved; today's single-club deployment never reaches it.
+ * `squad.slug` is unique per `(club_id, season_id)`, not globally. Callers
+ * with an auth-resolved Club pass it here so duplicate slugs resolve inside
+ * that Club. The optional unscoped form remains conservative: a cross-Club
+ * duplicate is ambiguous and returns null.
  *
  * `limit 2` so "exactly one" is a fact this checks rather than assumes — the
  * same shape `resolveRound` and `resolveClub` use elsewhere.
@@ -126,10 +131,12 @@ export async function resolveSquadBySlug(
   db: AnyDatabase,
   seasonId: number,
   slug: string,
+  clubId?: number,
 ): Promise<SquadRef | null> {
+  const clubFilter = clubId === undefined ? sql`` : sql`and club_id = ${clubId}`;
   const result = await db.execute(sql`
     select id, name, slug from squad
-     where season_id = ${seasonId} and slug = ${slug}
+     where season_id = ${seasonId} and slug = ${slug} ${clubFilter}
      limit 2`);
   const rows = rowsOf(result);
   if (rows.length !== 1) return null;
@@ -146,11 +153,13 @@ export async function listCoachSquads(
   db: AnyDatabase,
   userId: string,
   seasonId: number,
+  clubId?: number,
 ): Promise<SquadRef[]> {
+  const clubFilter = clubId === undefined ? sql`` : sql`and s.club_id = ${clubId}`;
   const result = await db.execute(sql`
     select s.id, s.name, s.slug from squad s
       join squad_coach sc on sc.squad_id = s.id
-     where sc.user_id = ${userId} and s.season_id = ${seasonId}
+     where sc.user_id = ${userId} and s.season_id = ${seasonId} ${clubFilter}
      order by s.name`);
   return rowsOf(result).map((row) => ({
     id: num(row.id),

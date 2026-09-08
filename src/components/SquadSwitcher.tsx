@@ -13,24 +13,26 @@ export function SquadSwitcher({
   seasonYear,
   currentSlug,
   squads,
+  through,
 }: {
   seasonYear: number;
   currentSlug: string;
   squads: readonly SquadSwitcherOption[];
+  through?: number;
 }) {
   return (
-    <nav aria-label="Switch squad" className="mt-4 flex flex-wrap gap-2 text-sm">
+    <nav aria-label="Switch squad" className="mt-2 flex flex-wrap gap-2 text-sm">
       {squads.map((squad) => {
         const isCurrent = squad.slug === currentSlug;
         return (
           <Link
             key={squad.id}
-            href={`/${seasonYear}/squad/${squad.slug}`}
+            href={`/${seasonYear}/squad/${squad.slug}${through === undefined ? '' : `?through=${through}`}`}
             aria-current={isCurrent ? 'page' : undefined}
             className={
               isCurrent
                 ? 'border-accent bg-accent/10 text-fg rounded-full border px-3 py-1 font-semibold'
-                : 'border-border bg-surface text-muted hover:text-fg rounded-full border px-3 py-1'
+                : 'border-border bg-surface text-fg hover:border-fg rounded-full border px-3 py-1'
             }
           >
             {squad.name}

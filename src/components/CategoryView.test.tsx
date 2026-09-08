@@ -185,7 +185,7 @@ describe('the three states render inline', () => {
 
   it('never renders a null percent back as zero or as blank silence', () => {
     const markup = render(withDnfAndShortLap, 1);
-    expect(markup).toContain('no gap published');
+    expect(markup).toContain('Time comparison unavailable');
     expect(markup).not.toMatch(/>0%</);
   });
 

@@ -111,7 +111,7 @@ export function cellDeficit(cell: Extract<RosterWallCell, { state: 'positioned' 
  * kind of statement the null becomes, never `0%` and never silence.
  */
 export function pctBackText(pctBack: number | null): string {
-  return pctBack === null ? 'no gap published' : `+${pctBack}% back`;
+  return pctBack === null ? 'Time comparison unavailable' : `+${pctBack}% back`;
 }
 
 /**
@@ -131,6 +131,6 @@ export function describeCell(cell: RosterWallCell): string {
     case 'started-not-positioned':
       return 'Started, did not finish';
     case 'did-not-start':
-      return 'Did not start this round';
+      return 'No result recorded';
   }
 }
