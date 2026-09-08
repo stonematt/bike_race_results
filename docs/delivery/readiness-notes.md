@@ -40,3 +40,15 @@ Primary references:
 - [Neon connection pooling](https://neon.com/docs/connect/connection-pooling). Investigator read official search excerpt; full-page retrieval unavailable in that pass. Recheck before provider setup.
 
 Initial local inspection found libpq clients and Docker CLI but no Postgres server or running container daemon. Parent began installation of PostgreSQL 17 binaries for a disposable loopback synthetic cluster. No hosted service, paid resource, production release or athlete-data transfer is authorized by this preparation. Record completed installation and parity evidence in status when verified.
+
+## D3 implementation preparation (2026-09-08)
+
+Read-only bounded design by d1_reporting; not implemented or a replacement for the accepted contract. D2 remains the active integration branch.
+
+Keep `club_member` as the season rider roster and existing squad tables as grouping/assignment. Add distinct user `club_membership` with member/coach/admin role and revocation; Auth.js adapter tables remain adapter-owned and `coach` is a legacy bridge, not authority. Resolve active membership per protected request so revocation takes effect without waiting for a session refresh.
+
+Proposed additional persistence: invitation email/role/optional squad with hashed random token, expiry and consumed/revoked metadata; user/club/season squad preference; structured protected audit events; squad archive timestamp/actor preserving scoped slug identity. No free-text athlete notes. Seed reconciliation becomes additive/bootstrap-only so managed state survives re-seeding.
+
+Invite acceptance must atomically validate a matching verified normalized email, consume an active unexpired token, create/reactivate membership, apply a valid optional assignment and write audit evidence. Validate requested role and assignment semantics against the accepted matrix. Membership changes and archive validate actor/club inside the transaction. Serialize last-admin demotion/revocation by locking the club before counting active admins; later Postgres concurrency tests must prove this beyond sequential PGlite tests. Preferences grant no access and validate club, season and active accessible squad.
+
+Public seams: anonymous/member/coach/admin and forged/cross-club IDs; next-request revocation; invite wrong/unverified email, expiry/reuse/revoke without partial writes; final-admin protection; coach assigned-squad vs admin-all authorization; multiple rider squads without invalid season membership; archive stable routes; seed preservation; auto/explicit/invalidated preference fallback. One owner handles schema/migrations, with bounded transaction/query and UI work after the schema contract is frozen. Issue #120's historical ADR-0003 blocker is superseded by ADR-0005 and the accepted delivery contract; reconcile its triage state when D3 starts.
