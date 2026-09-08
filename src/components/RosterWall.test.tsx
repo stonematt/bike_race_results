@@ -108,7 +108,7 @@ describe('the three cell states', () => {
 
   it('never renders a null percent back as zero or as blank silence', () => {
     const markup = render();
-    expect(markup).toContain('no gap published');
+    expect(markup).toContain('Time comparison unavailable');
     expect(markup).not.toMatch(/>0%</);
   });
 
@@ -152,7 +152,7 @@ describe('the three cell states', () => {
     expect(markup).not.toContain('>DNF<');
     expect(markup).not.toContain('>Lapped<');
     expect(markup).not.toMatch(/<td[^>]*>\s*<[^s][^>]*>\d/);
-    expect(markup).toContain('Did not start this round');
+    expect(markup).toContain('No result recorded');
     expect(markup).toContain('sr-only');
   });
 
