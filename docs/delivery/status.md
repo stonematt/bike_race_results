@@ -1,6 +1,6 @@
 # Delivery status
 
-Updated 2026-09-08 local date. **Goal active; D1, D2 and D3A merged and cleaned up; D5A dependency fixes merged and cleaned up; source-correction prerequisite merged and cleaned up; D4 implementation active; invitations remain incomplete.** No token budget. No production deployment, paid resource, real invitation or external athlete-data transfer. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
+Updated 2026-09-08 local date. **Goal active; D1, D2, D3A and D4 merged and cleaned up; D5A dependency fixes merged and cleaned up; invitations remain incomplete.** No token budget. No production deployment, paid resource, real invitation or external athlete-data transfer. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
 
