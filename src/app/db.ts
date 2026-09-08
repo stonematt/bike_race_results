@@ -11,7 +11,7 @@
  * is nothing to query.
  */
 
-import { createDb, type Database } from '@/lib/db/index.ts';
+import { createDb, type Database } from '../lib/db/index.ts';
 
 let handle: Database | undefined;
 
