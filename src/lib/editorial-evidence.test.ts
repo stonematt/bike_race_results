@@ -30,15 +30,13 @@ beforeEach(async () => {
   db = await createTestDb();
   await db.insert(schema.season).values({ id: 1, year: 2025 });
   await db.insert(schema.round).values({ id: 1, seasonId: 1, ordinal: 2, name: 'Race 2' });
-  await db
-    .insert(schema.event)
-    .values({
-      id: 1,
-      roundId: 1,
-      sourceEventId: 'test-north',
-      name: 'Forest Loop',
-      conference: 'North',
-    });
+  await db.insert(schema.event).values({
+    id: 1,
+    roundId: 1,
+    sourceEventId: 'test-north',
+    name: 'Forest Loop',
+    conference: 'North',
+  });
   await db.insert(schema.club).values({ id: 1, name: 'Test Club' });
   await db.insert(schema.users).values({ id: 'reader', email: 'reader@example.invalid' });
   await db.insert(schema.clubMembership).values({ clubId: 1, userId: 'reader', role: 'member' });
@@ -76,19 +74,17 @@ beforeEach(async () => {
       timeRaw: '21:00',
     },
   ]);
-  await db
-    .insert(schema.rawFetch)
-    .values({
-      id: 1,
-      season: 2025,
-      eventId: 'test-north',
-      listId: 'flat',
-      listName: 'Results',
-      url: 'https://example.invalid/list',
-      httpStatus: 200,
-      payload,
-      contentHash: 'synthetic-source-hash',
-    });
+  await db.insert(schema.rawFetch).values({
+    id: 1,
+    season: 2025,
+    eventId: 'test-north',
+    listId: 'flat',
+    listName: 'Results',
+    url: 'https://example.invalid/list',
+    httpStatus: 200,
+    payload,
+    contentHash: 'synthetic-source-hash',
+  });
   await db
     .insert(schema.eventResultSource)
     .values({ eventId: 1, rawFetchId: 1, listId: 'flat', hidden: false });
@@ -177,20 +173,18 @@ it('withholds an Event without its normalized source binding', async () => {
 it.each([{ eventId: 'foreign-event' }, { season: 2026 }, { listId: 'other-list' }])(
   'rejects a source binding to the wrong archive scope (%j)',
   async (scope) => {
-    await db
-      .insert(schema.rawFetch)
-      .values({
-        id: 2,
-        season: 2025,
-        eventId: 'test-north',
-        listId: 'flat',
-        listName: 'Results',
-        url: 'https://example.invalid/list',
-        httpStatus: 200,
-        payload,
-        contentHash: 'other-source',
-        ...scope,
-      });
+    await db.insert(schema.rawFetch).values({
+      id: 2,
+      season: 2025,
+      eventId: 'test-north',
+      listId: 'flat',
+      listName: 'Results',
+      url: 'https://example.invalid/list',
+      httpStatus: 200,
+      payload,
+      contentHash: 'other-source',
+      ...scope,
+    });
     await db.update(schema.eventResultSource).set({ rawFetchId: 2 });
     expect(await loadStoryCandidate(db, input)).toEqual({
       kind: 'unavailable',
@@ -205,19 +199,17 @@ it('withholds legacy normalized rows omitted by their newly bound correction', a
     list: { Fields: [], ListFooterText: '1 finishers' },
     data: { '#1_HS1 Boys - North': [payload.data['#1_HS1 Boys - North'][0]] },
   };
-  await db
-    .insert(schema.rawFetch)
-    .values({
-      id: 2,
-      season: 2025,
-      eventId: 'test-north',
-      listId: 'flat',
-      listName: 'Results',
-      url: 'https://example.invalid/list',
-      httpStatus: 200,
-      payload: correction,
-      contentHash: 'corrected-source',
-    });
+  await db.insert(schema.rawFetch).values({
+    id: 2,
+    season: 2025,
+    eventId: 'test-north',
+    listId: 'flat',
+    listName: 'Results',
+    url: 'https://example.invalid/list',
+    httpStatus: 200,
+    payload: correction,
+    contentHash: 'corrected-source',
+  });
   await db.update(schema.eventResultSource).set({ rawFetchId: 2 });
   expect(await loadStoryCandidate(db, input)).toEqual({
     kind: 'unavailable',
@@ -248,15 +240,13 @@ it.each([
 
 it('keeps a sole hidden selected list eligible despite an unpublished sibling conference', async () => {
   await db.update(schema.eventResultSource).set({ hidden: true });
-  await db
-    .insert(schema.event)
-    .values({
-      id: 2,
-      roundId: 1,
-      sourceEventId: 'test-south',
-      name: 'River Loop',
-      conference: 'South',
-    });
+  await db.insert(schema.event).values({
+    id: 2,
+    roundId: 1,
+    sourceEventId: 'test-south',
+    name: 'River Loop',
+    conference: 'South',
+  });
   expect(await loadStoryCandidate(db, input)).toMatchObject({
     kind: 'available',
     candidate: {
@@ -296,19 +286,17 @@ it('counts current-season resolved riders once across overlapping squads and ign
 
 it('preserves the bound fingerprint when another raw revision is archived without normalization', async () => {
   const before = await loadStoryCandidate(db, input);
-  await db
-    .insert(schema.rawFetch)
-    .values({
-      id: 2,
-      season: 2025,
-      eventId: 'test-north',
-      listId: 'flat',
-      listName: 'Results',
-      url: 'https://example.invalid/list',
-      httpStatus: 200,
-      payload: { unavailable: true },
-      contentHash: 'pending-correction',
-    });
+  await db.insert(schema.rawFetch).values({
+    id: 2,
+    season: 2025,
+    eventId: 'test-north',
+    listId: 'flat',
+    listName: 'Results',
+    url: 'https://example.invalid/list',
+    httpStatus: 200,
+    payload: { unavailable: true },
+    contentHash: 'pending-correction',
+  });
   expect(await loadStoryCandidate(db, input)).toEqual(before);
 });
 
@@ -320,19 +308,17 @@ it.each([
 ])(
   'does not expose cells or offer a story for an undecodable bound list (case %#)',
   async (invalidPayload) => {
-    await db
-      .insert(schema.rawFetch)
-      .values({
-        id: 2,
-        season: 2025,
-        eventId: 'test-north',
-        listId: 'flat',
-        listName: 'Results',
-        url: 'https://example.invalid/list',
-        httpStatus: 200,
-        payload: invalidPayload ?? 'invalid',
-        contentHash: 'invalid-source-hash',
-      });
+    await db.insert(schema.rawFetch).values({
+      id: 2,
+      season: 2025,
+      eventId: 'test-north',
+      listId: 'flat',
+      listName: 'Results',
+      url: 'https://example.invalid/list',
+      httpStatus: 200,
+      payload: invalidPayload ?? 'invalid',
+      contentHash: 'invalid-source-hash',
+    });
     await db.update(schema.eventResultSource).set({ rawFetchId: 2 });
     expect(await loadStoryCandidate(db, input)).toEqual({
       kind: 'unavailable',
@@ -347,18 +333,16 @@ it('rejects missing normalized plates and an equally sized but different normali
     kind: 'unavailable',
     reason: 'inconsistent-coverage',
   });
-  await db
-    .insert(schema.individualResult)
-    .values({
-      eventId: 1,
-      plate: 'C',
-      displayName: 'RIDER C',
-      scoringTeam: 'Test School',
-      categoryRaw: 'HS1 Boys - North',
-      place: '3',
-      status: 'finished',
-      timeRaw: '22:00',
-    });
+  await db.insert(schema.individualResult).values({
+    eventId: 1,
+    plate: 'C',
+    displayName: 'RIDER C',
+    scoringTeam: 'Test School',
+    categoryRaw: 'HS1 Boys - North',
+    place: '3',
+    status: 'finished',
+    timeRaw: '22:00',
+  });
   expect(await loadStoryCandidate(db, input)).toEqual({
     kind: 'unavailable',
     reason: 'inconsistent-coverage',
@@ -390,19 +374,17 @@ it('fingerprints every displayed Event, checkpoint, source and aggregate-count c
   expect(await fingerprint()).not.toBe(baseline);
   await db.insert(schema.clubMember).values({ clubId: 1, seasonId: 1, riderId: 2 });
   expect(await fingerprint()).toBe(baseline);
-  await db
-    .insert(schema.rawFetch)
-    .values({
-      id: 2,
-      season: 2025,
-      eventId: 'test-north',
-      listId: 'other-list',
-      listName: 'Results',
-      url: 'https://example.invalid/list',
-      httpStatus: 200,
-      payload,
-      contentHash: 'other-source-hash',
-    });
+  await db.insert(schema.rawFetch).values({
+    id: 2,
+    season: 2025,
+    eventId: 'test-north',
+    listId: 'other-list',
+    listName: 'Results',
+    url: 'https://example.invalid/list',
+    httpStatus: 200,
+    payload,
+    contentHash: 'other-source-hash',
+  });
   await db.update(schema.eventResultSource).set({ rawFetchId: 2, listId: 'other-list' });
   expect(await fingerprint()).not.toBe(baseline);
 });
