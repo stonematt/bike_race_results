@@ -3,7 +3,7 @@ import type { RiderEventResult } from '../lib/db/editorial-query.ts';
 import { describe, expect, it } from 'vitest';
 import { EditorialRoster, type EditorialRosterData } from './EditorialRoster.tsx';
 
-const squad = { id: 1, name: 'Cedar', slug: 'cedar' };
+const squad = { id: 1, name: 'Cedar', slug: 'cedar', archived: false };
 const roster: EditorialRosterData = {
   season: { id: 1, year: 2025 },
   checkpoint: { kind: 'through', ordinal: 2 },
@@ -103,4 +103,17 @@ describe('EditorialRoster', () => {
     expect(markup).toContain('1 of 1 rostered riders recorded a start at Race 2');
     expect(markup).not.toContain('0%');
   });
+});
+
+it('labels an archived roster read-only and does not claim a historical membership snapshot', () => {
+  const markup = renderToStaticMarkup(
+    <EditorialRoster roster={{ ...roster, squad: { ...squad, archived: true } }} squads={[]} />,
+  );
+  expect(markup).toContain('Archived squad');
+  expect(markup).toContain('Read-only');
+  expect(markup).toContain(
+    'Membership shown is the currently recorded roster, not a historical snapshot.',
+  );
+  expect(markup).toContain('href="/2025?through=2"');
+  expect(markup).toContain('«RIDER-A»');
 });

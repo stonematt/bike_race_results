@@ -103,13 +103,15 @@ export async function resolveDefaultSquad(
   db: AnyDatabase,
   userId: string | null,
   seasonId: number,
+  clubId?: number,
 ): Promise<SquadRef | null> {
   if (userId === null) return null;
 
+  const clubFilter = clubId === undefined ? sql`` : sql`and s.club_id = ${clubId}`;
   const result = await db.execute(sql`
     select s.id, s.name, s.slug from squad s
       join squad_coach sc on sc.squad_id = s.id
-     where sc.user_id = ${userId} and s.season_id = ${seasonId}
+     where sc.user_id = ${userId} and s.season_id = ${seasonId} ${clubFilter}
      order by s.name
      limit 1`);
   const row = rowsOf(result)[0];

@@ -54,6 +54,14 @@ export function EditorialRoster({
       <p className="text-muted mt-2 text-sm">
         {through === undefined ? 'No published checkpoint' : `Through Race ${through}`}
       </p>
+      {squad?.archived ? (
+        <div className="mt-4 max-w-prose text-sm">
+          <p className="font-bold">Archived squad · Read-only</p>
+          <p className="text-muted mt-2">
+            Membership shown is the currently recorded roster, not a historical snapshot.
+          </p>
+        </div>
+      ) : null}
       <nav aria-label="Roster scope" className="mt-4 flex gap-4 text-sm font-bold">
         {squad ? (
           <span aria-current="page" className="border-fg border-b-2 pb-1">

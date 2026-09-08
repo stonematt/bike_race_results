@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
-import { resolveClub } from '@/app/races/[eventId]/query.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { SeasonDispatch } from '@/components/SeasonDispatch.tsx';
 import { loadSeasonDispatch } from '@/lib/db/editorial-query.ts';
 import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
@@ -30,25 +30,14 @@ export default async function SeasonHomePage({
 
   const session = await auth();
   const userId = session?.user?.id ?? null;
-  const club = await resolveClub(db, userId);
-
-  if (club === null) {
-    return (
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="font-display text-4xl tracking-wide uppercase">{season.year} season</h1>
-        <p className="text-muted mt-3 max-w-2xl">
-          Your account is not linked to a club, and there is more than one to choose from.
-        </p>
-      </main>
-    );
-  }
+  const club = await requireClubContext(db, userId);
 
   const { through } = await searchParams;
   const ordinal = checkpointFromSearch(through);
   if (ordinal === null) notFound();
   const dispatch = await loadSeasonDispatch(db, {
     seasonId: season.id,
-    clubId: club.id,
+    clubId: club.clubId,
     userId,
     checkpoint: ordinal === undefined ? undefined : { kind: 'through', ordinal },
   });

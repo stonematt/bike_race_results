@@ -10,7 +10,7 @@
  * `v_unmapped_rider` without touching a normalized row.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -22,6 +22,7 @@ import { createTestDb, type TestDatabase } from './db/testing.ts';
 import { resolveDatabaseUrl } from './db/url.ts';
 import * as schema from './db/schema.ts';
 import { findOrCreateUser } from './db/users.ts';
+import { setSquadAccounts } from './club-operations.ts';
 import {
   ClubMismatchError,
   NotAllowlistedError,
@@ -60,6 +61,69 @@ describe('seedAdmin', () => {
     expect(coaches).toHaveLength(1);
     expect(coaches[0]!.userId).toBe(users[0]!.id);
     expect(coaches[0]!.clubId).toBe(clubs[0]!.id);
+  });
+
+  it('appoints the first bootstrap user as the club’s active admin', async () => {
+    const result = await seedAdmin(db, { email: 'coach@example.org', clubName: CLUB, env });
+
+    const memberships = await db.select().from(schema.clubMembership);
+    expect(memberships).toHaveLength(1);
+    expect(memberships[0]).toMatchObject({
+      clubId: result.clubId,
+      userId: result.userId,
+      role: 'admin',
+      revokedAt: null,
+    });
+  });
+
+  it('does not restore a revoked membership during an explicit bootstrap rerun', async () => {
+    const result = await seedAdmin(db, { email: 'coach@example.org', clubName: CLUB, env });
+    const revokedAt = new Date('2026-09-08T00:00:00Z');
+    await db
+      .update(schema.clubMembership)
+      .set({ role: 'coach', revokedAt })
+      .where(eq(schema.clubMembership.userId, result.userId));
+
+    await seedAdmin(db, { email: 'coach@example.org', clubName: CLUB, env });
+
+    expect(await db.select().from(schema.clubMembership)).toEqual([
+      expect.objectContaining({
+        clubId: result.clubId,
+        userId: result.userId,
+        role: 'coach',
+        revokedAt,
+      }),
+    ]);
+  });
+
+  it('does not overwrite a managed active role when the club already has an admin', async () => {
+    await seedAdmin(db, {
+      email: 'admin@example.org',
+      clubName: CLUB,
+      env: { AUTH_ALLOWED_EMAILS: 'admin@example.org,coach@example.org' },
+    });
+    const coach = await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: CLUB,
+      env: { AUTH_ALLOWED_EMAILS: 'admin@example.org,coach@example.org' },
+    });
+    await db.insert(schema.clubMembership).values({
+      clubId: coach.clubId,
+      userId: coach.userId,
+      role: 'coach',
+    });
+
+    await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: CLUB,
+      env: { AUTH_ALLOWED_EMAILS: 'admin@example.org,coach@example.org' },
+    });
+
+    const memberships = await db
+      .select()
+      .from(schema.clubMembership)
+      .where(eq(schema.clubMembership.userId, coach.userId));
+    expect(memberships).toEqual([expect.objectContaining({ role: 'coach', revokedAt: null })]);
   });
 
   it('refuses an address that is not on the allowlist', async () => {
@@ -433,6 +497,53 @@ describe('seedClubConfig', () => {
     expect(await db.select().from(schema.squadMember)).toHaveLength(2);
   });
 
+  it('preserves a managed squad and its assignments across a reseed', async () => {
+    const config = clubConfig({
+      riders: [rider('rider-a', plate('202')), rider('rider-b', plate('204'))],
+      squads: [{ name: 'Descenders', members: ['rider-a'] }],
+    });
+    await seedClubConfig(db, config);
+
+    const [seededSquad] = await db.select().from(schema.squad);
+    const riders = await db.select().from(schema.rider).orderBy(schema.rider.id);
+    const coachId = await findOrCreateUser(db, 'managed-coach@example.org');
+
+    await db
+      .update(schema.squad)
+      .set({ name: 'Managed Descenders' })
+      .where(eq(schema.squad.id, seededSquad!.id));
+    await db
+      .insert(schema.squadMember)
+      .values({ squadId: seededSquad!.id, riderId: riders[1]!.id });
+    await db.insert(schema.squadCoach).values({ squadId: seededSquad!.id, userId: coachId });
+
+    await seedClubConfig(db, config);
+
+    const squads = await db.select().from(schema.squad);
+    expect(squads.map((squad) => squad.name)).toEqual(['Managed Descenders']);
+    expect(await db.select().from(schema.squadMember)).toEqual([
+      { squadId: seededSquad!.id, riderId: riders[0]!.id },
+      { squadId: seededSquad!.id, riderId: riders[1]!.id },
+    ]);
+    expect(await db.select().from(schema.squadCoach)).toEqual([
+      { squadId: seededSquad!.id, userId: coachId },
+    ]);
+  });
+
+  it('keeps a managed squad archived across a reseed', async () => {
+    const config = clubConfig();
+    await seedClubConfig(db, config);
+    const [seededSquad] = await db.select().from(schema.squad);
+
+    await db.execute(
+      sql`update squad set archived_at = ${new Date('2026-09-08T00:00:00Z')} where id = ${seededSquad!.id}`,
+    );
+    await seedClubConfig(db, config);
+
+    const archived = await db.execute(sql`select archived_at is not null as archived from squad`);
+    expect(archived.rows).toEqual([{ archived: true }]);
+  });
+
   it('reuses the club seedAdmin already created rather than making a second one', async () => {
     await seedAdmin(db, { email: 'coach@example.org', clubName: 'Descenders', env });
     const result = await seedClubConfig(db, clubConfig());
@@ -667,7 +778,7 @@ describe('seedClubConfig cleans up what the config dropped', () => {
     expect((await unmapped()).map((r) => r.plate)).toEqual(['204']);
   });
 
-  it('removes a squad the config no longer names, members and all', async () => {
+  it('keeps a managed squad the config no longer names, with its members', async () => {
     await seedClubConfig(db, twoRiders);
     await seedClubConfig(
       db,
@@ -678,8 +789,8 @@ describe('seedClubConfig cleans up what the config dropped', () => {
     );
 
     const squads = await db.select().from(schema.squad);
-    expect(squads.map((s) => s.name)).toEqual(['Racers']);
-    expect(await db.select().from(schema.squadMember)).toHaveLength(1);
+    expect(squads.map((s) => s.name)).toEqual(['Descenders']);
+    expect(await db.select().from(schema.squadMember)).toHaveLength(2);
   });
 });
 
@@ -704,10 +815,9 @@ describe('findOrCreateUser', () => {
 });
 
 /**
- * `squad_coach` (#108). Nothing populated this table before; these prove it is
- * filled from `squads[].coaches`, resolved through the out-of-tree
- * coach-emails map, and reconciled the same way `squad_member` is — a removed
- * assignment actually disappears rather than lingering.
+ * `squad_coach` (#108). Initial bootstrap resolves the config's coach keys
+ * through the out-of-tree coach-emails map. Once written, the physical adult
+ * assignment is managed state and later seed runs leave it standing.
  */
 describe('squad_coach', () => {
   const coachEmails = new Map([['coach-a', 'coach-a@example.org']]);
@@ -774,7 +884,7 @@ describe('squad_coach', () => {
     expect(await db.select().from(schema.users)).toHaveLength(0);
   });
 
-  it('removes a squad_coach row for an assignment the config no longer names', async () => {
+  it('keeps a squad_coach row when a later seed no longer names it', async () => {
     const withCoach = clubConfig({
       squads: [{ name: 'Descenders', members: ['rider-a'], coaches: ['coach-a'] }],
     });
@@ -786,9 +896,8 @@ describe('squad_coach', () => {
     });
     await seedClubConfig(db, withoutCoach, { coachEmails });
 
-    // The link actually disappears — reconciled like squad_member, not merely
-    // never re-added.
-    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+    // The assignment is managed state. Re-seeding cannot remove it.
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
     // And the user row it resolved to is left standing, same as a rider row
     // survives losing a plate mapping — this is not a "delete the coach" edit.
     expect(await db.select().from(schema.users)).toHaveLength(1);
@@ -807,10 +916,9 @@ describe('squad_coach', () => {
 });
 
 /**
- * `seedAdmin`'s own squad linkage (#108). Add-only and orthogonal to
- * `squad_coach`'s config-driven reconciliation above: this is what lets a
- * fresh single-squad database put its one coach on its one squad on the very
- * first `pnpm seed`, with nothing to hand-edit first.
+ * `seedAdmin`'s own squad linkage (#108). Add-only after initial squad
+ * bootstrap, so a fresh single-squad database puts its first admin on its
+ * squad without hand-editing configuration.
  */
 describe('seedAdmin links its coach to the squads of their club', () => {
   it('links the coach to every squad of their club in the given season', async () => {
@@ -834,6 +942,47 @@ describe('seedAdmin links its coach to the squads of their club', () => {
     const links = await db.select().from(schema.squadCoach);
     expect(links).toHaveLength(2);
     expect(links.every((l) => l.userId === admin.userId)).toBe(true);
+  });
+
+  it('does not restore a managed removal of the admin’s squad assignment on rerun', async () => {
+    const config = clubConfig({
+      season: 2025,
+      riders: [rider('rider-a', plate('202')), rider('rider-b', plate('204'))],
+      squads: [
+        { name: 'Descenders', members: ['rider-a'], coaches: [] },
+        { name: 'JV', members: ['rider-b'], coaches: [] },
+      ],
+    });
+    const seeded = await seedClubConfig(db, config);
+    const admin = await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+    const [removed] = await db
+      .select()
+      .from(schema.squad)
+      .where(eq(schema.squad.name, 'Descenders'));
+    if (!removed) throw new Error('Synthetic squad missing');
+
+    await setSquadAccounts(db, {
+      actorId: admin.userId,
+      clubId: seeded.clubId,
+      seasonId: seeded.seasonId,
+      squadId: removed.id,
+      userIds: [],
+    });
+    await seedAdmin(db, {
+      email: 'coach@example.org',
+      clubName: config.club,
+      env,
+      seasonYear: config.season,
+    });
+
+    expect(
+      await db.select().from(schema.squadCoach).where(eq(schema.squadCoach.squadId, removed.id)),
+    ).toEqual([]);
   });
 
   it('does nothing when no seasonYear is given, matching the existing no-op tests', async () => {
@@ -876,11 +1025,9 @@ describe('seedAdmin links its coach to the squads of their club', () => {
     expect(links).toHaveLength(2);
   });
 
-  it('re-adds its own link after seedClubConfig has reconciled squad_coach away', async () => {
-    // The order bin/seed.ts runs in: club config first, admin second. A
-    // squad_coach row seedClubConfig's reconcile just wiped (because config
-    // named someone else, or no one) must not stay gone through this half of
-    // the same run.
+  it('keeps its own link when seedClubConfig runs again', async () => {
+    // The command seeds club config first, then links its explicit admin.
+    // Later seed runs preserve that managed physical assignment.
     const config = clubConfig({ season: 2025 });
     await seedClubConfig(db, config);
     const admin = await seedAdmin(db, {
@@ -892,9 +1039,9 @@ describe('seedAdmin links its coach to the squads of their club', () => {
     expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
 
     // Re-seed the config (reconciles squad_coach back to "no one"), then run
-    // seedAdmin again in the same order bin/seed.ts uses.
+    // A later config seed cannot remove the managed assignment.
     await seedClubConfig(db, config);
-    expect(await db.select().from(schema.squadCoach)).toHaveLength(0);
+    expect(await db.select().from(schema.squadCoach)).toHaveLength(1);
 
     await seedAdmin(db, {
       email: 'coach@example.org',

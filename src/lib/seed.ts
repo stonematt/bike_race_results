@@ -1,7 +1,7 @@
 /**
  * Seeding: the two hand-maintained things a fresh database needs.
  *
- * `seedAdmin` bootstraps the first coach who can sign in. `seedClubConfig`
+ * `seedAdmin` bootstraps the first active club admin. `seedClubConfig`
  * writes the club's own facts — club, scoring teams, roster, plate mappings and
  * squads — from the checked-in config file that `src/lib/club-config.ts` reads
  * and validates. Both are idempotent and neither is ever run by ingest.
@@ -28,11 +28,12 @@
  *     #7, for the same reason: the operator should be able to re-run it without
  *     thinking about what it did last time.
  *
- * It grants no privilege. There is one role in this app; "admin" here means the
- * first coach who can get in, not a permission level.
+ * An explicit bootstrap can appoint the first active club admin. It is not a
+ * recovery path: existing roles stay managed state, and a revoked membership
+ * remains revoked even when that leaves the club with no active admin.
  */
 
-import { and, eq, inArray, ne, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { isAllowed, type AllowlistEnv } from './allowlist.ts';
 import {
@@ -65,11 +66,9 @@ export interface SeedAdminOptions {
   clubName: string;
   env?: AllowlistEnv;
   /**
-   * When given, this coach is also linked (`squad_coach`) to every squad of
-   * their club in this season, in addition to whatever config-driven
-   * assignment `seedClubConfig` has already made. Only adds — never removes
-   * an assignment `seedClubConfig`'s own reconciliation is responsible for —
-   * so it is safe to pass on every run, including a no-op one.
+   * When this run appoints the first active club admin, the new admin is also
+   * linked (`squad_coach`) to active squads in this season. It does not run on
+   * later seed requests: those assignments are managed club state.
    *
    * This is what makes a fresh single-squad database put its one coach on its
    * one squad on the very first `pnpm seed`, with nothing to hand-edit in
@@ -196,19 +195,22 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
         created: false,
       };
       if (club!.name !== clubName) result.requestedClubName = clubName;
-      // Squad linking is maintenance, not creation — it runs on the calm no-op
-      // path too, so a `squad_coach` row `seedClubConfig`'s own reconciliation
-      // just removed (because config named a different coach, or none) comes
-      // back on the very next `pnpm seed`, rather than staying gone until
-      // someone notices and re-runs by hand.
-      await linkCoachToClubSquads(db, userId, coach.clubId, options.seasonYear);
+      // A mismatch reports the stored club and makes no bootstrap authority
+      // change for a different requested club.
+      if (club!.name === clubName) {
+        const appointedAdmin = await ensureInitialClubAdmin(db, userId, coach.clubId);
+        if (appointedAdmin) {
+          await linkCoachToClubSquads(db, userId, coach.clubId, options.seasonYear);
+        }
+      }
       return result;
     }
     // A user with no coach profile: half-seeded, or created by a magic-link
     // sign-in before this ever ran. Finish the job rather than refusing.
     const clubId = await upsertClub(db, clubName);
     await db.insert(schema.coach).values({ userId, clubId, displayName });
-    await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
+    const appointedAdmin = await ensureInitialClubAdmin(db, userId, clubId);
+    if (appointedAdmin) await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
     return { userId, clubId, email, displayName, clubName, created: true };
   }
 
@@ -221,20 +223,59 @@ export async function seedAdmin(db: Db, options: SeedAdminOptions): Promise<Seed
   const userId = await findOrCreateUser(db, email, displayName);
 
   await db.insert(schema.coach).values({ userId, clubId, displayName });
-  await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
+  const appointedAdmin = await ensureInitialClubAdmin(db, userId, clubId);
+  if (appointedAdmin) await linkCoachToClubSquads(db, userId, clubId, options.seasonYear);
 
   return { userId, clubId, email, displayName, clubName, created: true };
 }
 
 /**
- * Make sure a coach holds a `squad_coach` row for every squad of their club in
- * a season, without touching any assignment already there.
- *
- * Add-only, on purpose: this is the bootstrap admin's own guaranteed
- * visibility, not the config-driven assignment `seedClubConfig` reconciles,
- * and the two must not fight each other. A squad `seedClubConfig` assigned to
- * someone else stays assigned to them too — this never removes a row it did
- * not add.
+ * `seedAdmin` is the explicit first-admin bootstrap, never a membership repair
+ * tool. It may promote a live legacy coach only when the club has no active
+ * admin. A revoked row is deliberately inert, even if it is the sole row.
+ */
+async function ensureInitialClubAdmin(
+  executor: Executor,
+  userId: string,
+  clubId: number,
+): Promise<boolean> {
+  const [membership] = await executor
+    .select()
+    .from(schema.clubMembership)
+    .where(and(eq(schema.clubMembership.clubId, clubId), eq(schema.clubMembership.userId, userId)));
+  if (membership?.revokedAt) return false;
+
+  const [activeAdmin] = await executor
+    .select({ userId: schema.clubMembership.userId })
+    .from(schema.clubMembership)
+    .where(
+      and(
+        eq(schema.clubMembership.clubId, clubId),
+        eq(schema.clubMembership.role, 'admin'),
+        isNull(schema.clubMembership.revokedAt),
+      ),
+    )
+    .limit(1);
+  if (activeAdmin) return false;
+
+  if (membership) {
+    await executor
+      .update(schema.clubMembership)
+      .set({ role: 'admin', updatedAt: new Date() })
+      .where(
+        and(eq(schema.clubMembership.clubId, clubId), eq(schema.clubMembership.userId, userId)),
+      );
+    return true;
+  }
+
+  await executor.insert(schema.clubMembership).values({ clubId, userId, role: 'admin' });
+  return true;
+}
+
+/**
+ * Give a newly appointed bootstrap admin access to active squads in their club
+ * for one season. This runs only with that initial appointment: later squad
+ * assignments are managed state and seed must never restore a removed row.
  *
  * A `seasonYear` with no matching `season` row (nothing seeded for it yet) or
  * a club with no squads yet is a quiet no-op, not an error — the ordinary
@@ -257,7 +298,13 @@ async function linkCoachToClubSquads(
   const squads = await executor
     .select()
     .from(schema.squad)
-    .where(and(eq(schema.squad.clubId, clubId), eq(schema.squad.seasonId, season.id)));
+    .where(
+      and(
+        eq(schema.squad.clubId, clubId),
+        eq(schema.squad.seasonId, season.id),
+        isNull(schema.squad.archivedAt),
+      ),
+    );
 
   for (const squad of squads) {
     const existing = await executor
@@ -310,9 +357,9 @@ export interface SeedClubOptions {
  * a string the league does not publish, and a guarantee that holds only because
  * every caller remembered to validate first is not that guarantee.
  *
- * The config file is the source of truth, so the three tables that are pure
- * projections of it — `club_scoring_team`, `rider_plate` and `squad_member` —
- * are reconciled, not merged into. A mapping the coach deleted has to actually
+ * League-facing scoring-team and plate mappings remain source/config projections
+ * and are reconciled. Squad membership is different: it is club-managed state
+ * after initial bootstrap and is never replaced by a later seed. A mapping the coach deleted has to actually
  * disappear, or the unmapped-rider warning goes on quietly resolving a plate to
  * the wrong person. `club` and `rider` rows are only ever created or renamed:
  * dropping a rider cascades away squad membership and is a decision a config
@@ -357,8 +404,8 @@ export async function seedClubConfig(
     const seasonId = await upsertSeason(tx, config.season);
     const clubId = await upsertClub(tx, config.club, config.clubSlug);
 
-    // Read the club's current roster reach before rewriting anything: after the
-    // squads are reconciled, a rider dropped from the config is unreachable.
+    // Read the club's current squad reach before changing source/config identity
+    // mappings. Managed squad state remains standing across later seed runs.
     const priorRiderIds = await ridersInClubSquads(tx, clubId, seasonId);
 
     await replaceScoringTeams(tx, clubId, seasonId, config);
@@ -488,18 +535,14 @@ async function replaceRiders(
 }
 
 /**
- * Reconciles this club's squads *for one season*. A config file carries exactly
- * one season, so the delete has to be season-scoped too: without it, seeding
- * 2026 would reap 2025's squads as though the coach had dropped them.
+ * Bootstraps this club's squads for one season. Once a season has any squads,
+ * they are managed club state: a later seed may refresh source-owned scoring
+ * teams, riders, and plates, but cannot rename, replace, or remove squads or
+ * their rider/adult assignments.
  *
- * `squad_coach` is reconciled the same way as `squad_member`, right alongside
- * it: every coach key the config names for a squad is resolved and inserted,
- * and everything else on that squad is deleted first, so a coach the config
- * stopped naming actually loses the link rather than keeping a stale one
- * (#108). A key with no entry in `coachEmails` — or the map itself absent — is
- * skipped with a log line; that coach's row for this squad is left absent,
- * not left over from a prior run, because the delete-then-insert applies to
- * every coach on the squad, resolved or not.
+ * A key with no entry in `coachEmails` — or the map itself absent — is skipped
+ * with a log line during the initial bootstrap. `squad_coach` remains the
+ * physical adult-assignment table; it is not a role grant.
  */
 async function replaceSquads(
   tx: Tx,
@@ -510,10 +553,12 @@ async function replaceSquads(
   coachEmails: Map<string, string>,
 ): Promise<{ squadMembers: number; squadCoaches: number }> {
   const inSeason = and(eq(schema.squad.clubId, clubId), eq(schema.squad.seasonId, seasonId));
-  const names = config.squads.map((squad) => squad.name);
-  await tx
-    .delete(schema.squad)
-    .where(names.length === 0 ? inSeason : and(inSeason, notInArray(schema.squad.name, names)));
+  const existing = await tx
+    .select({ id: schema.squad.id })
+    .from(schema.squad)
+    .where(inSeason)
+    .limit(1);
+  if (existing[0]) return { squadMembers: 0, squadCoaches: 0 };
 
   let squadMembers = 0;
   let squadCoaches = 0;

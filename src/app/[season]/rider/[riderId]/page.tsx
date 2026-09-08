@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
-import { resolveClub } from '@/app/races/[eventId]/query.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { RiderProfile } from '@/components/RiderProfile.tsx';
 import { loadRiderSeason } from '@/lib/db/editorial-query.ts';
 import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
@@ -30,17 +30,7 @@ export default async function RiderPage({
   if (season === null) notFound();
 
   const session = await auth();
-  const club = await resolveClub(db, session?.user?.id ?? null);
-  if (club === null) {
-    return (
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="font-display text-4xl tracking-wide uppercase">Rider</h1>
-        <p className="text-muted mt-3 max-w-2xl">
-          Your account is not linked to a club, and there is more than one to choose from.
-        </p>
-      </main>
-    );
-  }
+  const club = await requireClubContext(db, session?.user?.id);
 
   const { through: throughSearch, event: eventSearch, view: viewSearch } = await searchParams;
   const ordinal = checkpointFromSearch(throughSearch);
@@ -53,7 +43,7 @@ export default async function RiderPage({
 
   const profile = await loadRiderSeason(db, {
     seasonId: season.id,
-    clubId: club.id,
+    clubId: club.clubId,
     riderId,
     checkpoint: ordinal === undefined ? undefined : { kind: 'through', ordinal },
     selectedSourceEventId: eventSearch,

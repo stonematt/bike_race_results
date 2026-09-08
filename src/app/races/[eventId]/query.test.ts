@@ -11,7 +11,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '../../../lib/db/schema.ts';
 import { createTestDb, type TestDatabase } from '../../../lib/db/testing.ts';
-import { listRaces, loadRaceDetail, resolveClub } from './query.ts';
+import { listRaces, loadRaceDetail } from './query.ts';
 
 let db: TestDatabase;
 
@@ -164,7 +164,7 @@ beforeAll(async () => {
   ]);
 });
 
-const detail = async () => (await loadRaceDetail(db, SOURCE_EVENT_ID, null))!;
+const detail = async () => (await loadRaceDetail(db, SOURCE_EVENT_ID, 1))!;
 const cardFor = async (name: string) =>
   (await detail()).squads[0]!.riders.find((r) => r.card.name === name)!;
 
@@ -177,7 +177,7 @@ describe('the race', () => {
   });
 
   it('is null for an event that was never archived', async () => {
-    expect(await loadRaceDetail(db, '999999', null)).toBeNull();
+    expect(await loadRaceDetail(db, '999999', 1)).toBeNull();
   });
 
   it('lists itself among the races there are to open', async () => {
@@ -292,14 +292,17 @@ describe('percent back, taken from the view and never recomputed', () => {
 });
 
 describe('which club is asking', () => {
-  it('falls back to the only club when the user has no coach profile', async () => {
-    expect(await resolveClub(db, null)).toEqual({ id: 1, name: 'Salem Composite Descenders' });
+  it('does not infer a sole club when the caller supplied no authorized club scope', async () => {
+    const page = await loadRaceDetail(db, SOURCE_EVENT_ID, null);
+
+    expect(page?.club).toBeNull();
+    expect(page?.squads).toEqual([]);
   });
 });
 
 describe('card order, decided by the builder rather than the query plan', () => {
   const cardPlates = async (sourceEventId: string) =>
-    (await loadRaceDetail(db, sourceEventId, null))!.squads[0]!.riders.map((r) => r.card.plate);
+    (await loadRaceDetail(db, sourceEventId, 1))!.squads[0]!.riders.map((r) => r.card.plate);
 
   it('runs the cards category by category, then by place, DNF last', async () => {
     // HS1 Boys before HS2 Girls, and within HS1 Boys: 3rd, 11th, then the DNF.
@@ -315,7 +318,7 @@ describe('card order, decided by the builder rather than the query plan', () => 
   });
 
   it('hands the strip its field in a defined order too', async () => {
-    const page = await loadRaceDetail(db, SCRAMBLED_SOURCE_EVENT_ID, null);
+    const page = await loadRaceDetail(db, SCRAMBLED_SOURCE_EVENT_ID, 1);
     const field = page!.squads[0]!.riders[0]!.field.map((m) => m.pct);
 
     // Every placeable rider first, slowest last; the lapped and the DNF behind them.

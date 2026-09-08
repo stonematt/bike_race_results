@@ -19,7 +19,7 @@
 
 import { eq } from 'drizzle-orm';
 import type { Provider } from 'next-auth/providers';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestDb } from './lib/db/testing.ts';
 
 // The adapter validates its db argument on construction, and neither it nor
@@ -39,12 +39,13 @@ const schema = await import('./lib/db/schema.ts');
 
 const LISTED = 'coach@example.org';
 const STRANGER = 'anyone@example.test';
+const MEMBER = 'member@example.test';
 
 /** next-auth types these callbacks loosely; both only read what is named here. */
 const signIn = authOptions().callbacks.signIn as (arg: {
   user: { email?: string | null };
   account: { provider?: string } | null;
-}) => boolean;
+}) => Promise<boolean>;
 
 const jwt = authOptions().callbacks.jwt as (arg: {
   token: Record<string, unknown>;
@@ -54,8 +55,19 @@ const jwt = authOptions().callbacks.jwt as (arg: {
 function devEnv() {
   vi.stubEnv('NODE_ENV', 'development');
   vi.stubEnv('AUTH_DEV_LOGIN', '1');
-  vi.stubEnv('AUTH_ALLOWED_EMAILS', LISTED);
+  vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
+  vi.stubEnv('AUTH_ALLOWED_EMAILS', `${LISTED},${MEMBER}`);
 }
+
+beforeAll(async () => {
+  await testDb.insert(schema.club).values({ id: 900, name: 'Auth Club', slug: 'auth-club' });
+  await testDb.insert(schema.users).values({ id: 'active-member', email: MEMBER });
+  await testDb.insert(schema.clubMembership).values({
+    clubId: 900,
+    userId: 'active-member',
+    role: 'member',
+  });
+});
 
 /**
  * The dev shim's own config, dug out of the registered provider.
@@ -92,20 +104,27 @@ afterEach(() => {
 });
 
 describe('the signIn callback', () => {
-  it('forwards the provider, so the shim branch is actually reachable', () => {
+  it('forwards the provider, so the shim branch is actually reachable', async () => {
     devEnv();
     // Cut `account` out of the destructure and this is the assertion that goes
     // red. STRANGER is not on the allowlist, so only the provider can admit it.
-    expect(signIn({ user: { email: STRANGER }, account: { provider: DEV_PROVIDER_ID } })).toBe(
-      true,
-    );
+    await expect(
+      signIn({ user: { email: STRANGER }, account: { provider: DEV_PROVIDER_ID } }),
+    ).resolves.toBe(true);
   });
 
-  it('still runs the allowlist for every other provider', () => {
+  it('requires an active membership after the Edge allowlist check for email sign-in', async () => {
     devEnv();
-    expect(signIn({ user: { email: STRANGER }, account: { provider: 'nodemailer' } })).toBe(false);
-    expect(signIn({ user: { email: LISTED }, account: { provider: 'nodemailer' } })).toBe(true);
-    expect(signIn({ user: { email: STRANGER }, account: null })).toBe(false);
+    await expect(
+      signIn({ user: { email: STRANGER }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(false);
+    await expect(
+      signIn({ user: { email: LISTED }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(false);
+    await expect(
+      signIn({ user: { email: MEMBER }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(true);
+    await expect(signIn({ user: { email: STRANGER }, account: null })).resolves.toBe(false);
   });
 });
 

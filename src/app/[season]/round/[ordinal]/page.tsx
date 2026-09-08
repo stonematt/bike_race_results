@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
-import { resolveClub } from '@/app/races/[eventId]/query.ts';
+import { requireClubContext } from '@/app/club-context.ts';
 import { RaceReview } from '@/components/RaceReview.tsx';
 import { loadRaceCategories } from '@/lib/db/editorial-query.ts';
 import { checkpointFromSearch } from '@/lib/reporting-navigation.ts';
@@ -51,23 +51,16 @@ export default async function RoundPage({
   if (through === null) notFound();
 
   const session = await auth();
-  const club = await resolveClub(db, session?.user?.id ?? null);
-  if (club === null) {
-    return (
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="font-display text-4xl tracking-wide uppercase">{round.name}</h1>
-        <p className="text-muted mt-3 max-w-2xl">
-          Your account is not linked to a club, and there is more than one to choose from.
-        </p>
-      </main>
-    );
-  }
+  const club = await requireClubContext(db, session?.user?.id);
 
   const events = await listRoundEvents(db, round.id);
   const reviews = await Promise.all(
     events.map(async (event) => ({
       event,
-      review: await loadRaceCategories(db, { sourceEventId: event.sourceEventId, clubId: club.id }),
+      review: await loadRaceCategories(db, {
+        sourceEventId: event.sourceEventId,
+        clubId: club.clubId,
+      }),
     })),
   );
   const publishedReviews = reviews.flatMap(({ review }) => (review === null ? [] : [review]));

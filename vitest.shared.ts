@@ -12,6 +12,7 @@
  */
 
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 import type { InlineConfig } from 'vitest/node';
 
 /** Test files that read real payloads. Excluded from the default lane by name. */
@@ -25,6 +26,9 @@ export const LOCAL_ONLY_GLOB = '**/*.local.test.{ts,tsx}';
  * both lanes — go in the root `plugins` array, not under `test`.
  */
 export const sharedPlugins = [react()];
+
+/** Match Next's source alias for server-action boundary tests in either lane. */
+export const sharedResolve = { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } };
 
 export const sharedTestConfig = {
   environment: 'node',

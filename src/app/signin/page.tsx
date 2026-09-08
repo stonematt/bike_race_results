@@ -7,22 +7,22 @@ import { availableProviders } from '@/lib/signin-providers.ts';
  * The one route outside the gate, and the only one. It offers exactly the
  * providers src/auth.ts actually registered: the magic link when a mail server
  * is configured, and the development shim when it is explicitly switched on.
- * The magic link runs through the allowlist; the shim does not, and says so —
- * this page renders a door, not a key.
+ * Email sign-in is limited server-side to active members and live invitation
+ * addresses. This page renders a door, not a key.
  */
 
 /**
  * next-auth reports a failed sign-in by redirecting back here with `?error=`.
- * Every refusal reads the same, whatever caused it: an address off the
- * allowlist and an address that simply failed must not be distinguishable, or
- * this page becomes a way to ask whether a given coach is in the league.
+ * Every refusal reads the same, whatever caused it: an address without a live
+ * membership/invitation and an address that simply failed must not be
+ * distinguishable, or this page becomes a membership-discovery surface.
  *
  * It is not a complete answer — a successful magic-link send still looks
  * different from a refusal. Closing that gap is a render-layer decision and
  * belongs to issue #9, not here.
  */
 const REFUSED =
-  'That sign-in was refused. Access to this app is per address — ask your league admin if yours should be on the list.';
+  'That sign-in was refused. Access to this app is by invitation — ask your club admin if you need access.';
 
 const MESSAGES: Record<string, string> = {
   Verification: 'That sign-in link has expired or was already used. Request a new one.',
@@ -43,12 +43,12 @@ export default async function SignIn({
       <main className="mx-auto max-w-md px-6 py-12">
         <h1 className="font-display text-3xl tracking-wide uppercase">Sign in</h1>
         <p className="text-muted mt-3 text-sm">
-          Coaches only. This app shows minors&rsquo; names, so there is no public view and no shared
-          password — access is per address.
+          Club members only. This app shows minors&rsquo; names, so there is no public view and no
+          shared password — access is per address.
         </p>
 
         {error ? (
-          <p className="border-danger text-danger mt-6 rounded border-l-4 bg-white px-4 py-3 text-sm">
+          <p className="border-danger text-danger mt-6 rounded border-l bg-white px-4 py-3 text-sm">
             {MESSAGES[error] ?? REFUSED}
           </p>
         ) : null}
@@ -96,8 +96,8 @@ export default async function SignIn({
               Development sign-in
             </label>
             <p className="text-muted mt-1 text-xs">
-              No mail server and no allowlist — any address signs in. This server is bound to
-              localhost, which is what makes that safe.
+              Local development identity only. Active club membership is still required to open
+              reporting.
             </p>
             <input
               id="dev-email"
@@ -116,7 +116,7 @@ export default async function SignIn({
         ) : null}
 
         {!email && !dev ? (
-          <p className="border-warn mt-8 rounded border-l-4 bg-white px-4 py-3 text-sm">
+          <p className="border-warn mt-8 rounded border-l bg-white px-4 py-3 text-sm">
             No sign-in method is configured. Set <code>AUTH_EMAIL_SERVER</code>, or{' '}
             <code>AUTH_DEV_LOGIN=1</code> in development. See <code>.env.example</code>.
           </p>

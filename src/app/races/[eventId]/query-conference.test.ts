@@ -155,7 +155,7 @@ describe('combined events', () => {
   it('keeps a rider’s category winner, field, and strip inside her Conference', async () => {
     const [field, detail] = await Promise.all([
       loadCategoryField(db, 1, 1, 1),
-      loadRaceDetail(db, 'combined', null),
+      loadRaceDetail(db, 'combined', 1),
     ]);
 
     expect(field?.fieldSize).toBe(6);
@@ -174,7 +174,7 @@ describe('combined events', () => {
   });
 
   it('keeps an unsuffixed State Champs category league-wide', async () => {
-    const detail = await loadRaceDetail(db, 'state', null);
+    const detail = await loadRaceDetail(db, 'state', 1);
     expect(detail!.starters).toBe(2);
     const rider = detail!.squads[0]!.riders.find((entry) => entry.card.plate === 'state-2')!;
     expect(rider.card.stats.find((stat) => stat.label === 'Place')?.value).toBe('2 / 2');

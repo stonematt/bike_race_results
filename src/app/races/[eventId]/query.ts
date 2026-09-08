@@ -130,32 +130,6 @@ export async function listRaces(db: AnyDatabase): Promise<RaceHeader[]> {
 }
 
 /**
- * The club this coach belongs to.
- *
- * Falls back to the only club when the signed-in user has no coach profile.
- * The development sign-in shim admits any address without creating one, so
- * without the fallback every locally-signed-in coach would see an empty page
- * and no reason why. With more than one club and no profile, there is nothing
- * honest to guess, so it returns null and the page says so.
- */
-export async function resolveClub(
-  db: AnyDatabase,
-  userId: string | null,
-): Promise<{ id: number; name: string } | null> {
-  if (userId !== null) {
-    const owned = await db.execute(sql`
-      select c.id, c.name from coach co join club c on c.id = co.club_id
-       where co.user_id = ${userId} limit 1`);
-    const row = rowsOf(owned)[0];
-    if (row) return { id: num(row.id), name: str(row.name) };
-  }
-
-  const only = await db.execute(sql`select id, name from club order by id limit 2`);
-  const rows = rowsOf(only);
-  return rows.length === 1 ? { id: num(rows[0]!.id), name: str(rows[0]!.name) } : null;
-}
-
-/**
  * The squads to show, for the season this race belongs to.
  *
  * A coach's own squads, from `squad_coach` — or every squad in the club when
@@ -193,7 +167,8 @@ async function squadNames(
 export async function loadRaceDetail(
   db: AnyDatabase,
   sourceEventId: string,
-  userId: string | null,
+  clubId: number | null,
+  userId: string | null = null,
 ): Promise<RaceDetail | null> {
   const fieldResult = await db.execute(sql`
     select * from v_race_result where source_event_id = ${sourceEventId}`);
@@ -210,10 +185,13 @@ export async function loadRaceDetail(
   };
 
   const byCategory = fieldsByCategory(fieldRows.map(toResultRow));
-  const club = await resolveClub(db, userId);
-  if (club === null) {
+  if (clubId === null) {
     return { race, club: null, squads: [], unmapped: [], starters: fieldRows.length };
   }
+  const clubResult = await db.execute(sql`select id, name from club where id = ${clubId}`);
+  const clubRow = rowsOf(clubResult)[0];
+  if (!clubRow) return { race, club: null, squads: [], unmapped: [], starters: fieldRows.length };
+  const club = { id: num(clubRow.id), name: str(clubRow.name) };
 
   // Not on RaceHeader: the season id is a join key, and the header carries the
   // year because that is what renders.

@@ -4,6 +4,7 @@
  */
 
 import { PGlite } from '@electric-sql/pglite';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { execFile } from 'node:child_process';
@@ -15,6 +16,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveCurrentSeason, resolveDefaultSquad } from '../app/[season]/query.ts';
 import { listRaces, loadRaceDetail } from '../app/races/[eventId]/query.ts';
 import { bootstrapSafeDemo, DEMO_COACH_EMAIL, UnsafeDemoDatabaseError } from './demo.ts';
+import { createSquad } from './club-operations.ts';
 import { migrationsFolder } from './db/testing.ts';
 import * as schema from './db/schema.ts';
 
@@ -46,6 +48,24 @@ async function migrationsThrough0004(): Promise<string> {
   };
   journal.entries = journal.entries.filter((entry) => entry.idx <= 4);
   await fs.writeFile(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+  return directory;
+}
+
+async function migrationsThrough0006(): Promise<string> {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-migrations-'));
+  directories.push(directory);
+  await fs.cp(migrationsFolder, directory, { recursive: true });
+  await fs.rm(path.join(directory, '0007_persistent_club_operations.sql'));
+  const journalPath = path.join(directory, 'meta', '_journal.json');
+  const journal = JSON.parse(await fs.readFile(journalPath, 'utf8')) as {
+    entries: Array<{ idx: number }>;
+  };
+  journal.entries = journal.entries.filter((entry) => entry.idx <= 6);
+  await fs.writeFile(
+    journalPath,
+    `${JSON.stringify(journal, null, 2)}
+`,
+  );
   return directory;
 }
 
@@ -222,6 +242,58 @@ describe('bootstrapSafeDemo', () => {
     await reopened.close();
   }, 60_000);
 
+  it('appoints the demo coach after a recognized 0006 upgrade', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-known-0006-'));
+    directories.push(directory);
+    const legacy = new PGlite(directory);
+    const legacyDb = drizzle(legacy, { schema });
+    await migrate(legacyDb, { migrationsFolder: await migrationsThrough0006() });
+    await bootstrapSafeDemo(legacyDb);
+    await legacy.close();
+
+    await run(process.execPath, ['bin/demo.ts'], {
+      cwd: path.resolve(import.meta.dirname, '../..'),
+      env: { ...process.env, DATABASE_URL: directory },
+    });
+
+    const reopened = new PGlite(directory);
+    expect(
+      await reopened.query<{ user_id: string; role: string; revoked_at: Date | null }>(
+        'select user_id, role, revoked_at from club_membership order by user_id',
+      ),
+    ).toMatchObject({ rows: [{ user_id: expect.any(String), role: 'admin', revoked_at: null }] });
+    await reopened.close();
+  }, 60_000);
+
+  it('advances explicit fixture sequences after a recognized 0006 upgrade', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-sequences-0006-'));
+    directories.push(directory);
+    const legacy = new PGlite(directory);
+    const legacyDb = drizzle(legacy, { schema });
+    await migrate(legacyDb, { migrationsFolder: await migrationsThrough0006() });
+    const seeded = await bootstrapSafeDemo(legacyDb);
+    // Existing 0006 demos were seeded before the sequence repair. Model the
+    // persisted initial sequence value while preserving their exact row data.
+    await legacyDb.execute(sql`select setval(pg_get_serial_sequence('squad', 'id'), 1, false)`);
+    await legacy.close();
+
+    await run(process.execPath, ['bin/demo.ts'], {
+      cwd: path.resolve(import.meta.dirname, '../..'),
+      env: { ...process.env, DATABASE_URL: directory },
+    });
+
+    const upgraded = await openDemoDatabase(directory);
+    await expect(
+      createSquad(upgraded.db, {
+        actorId: seeded.userId,
+        clubId: 1,
+        seasonId: 2,
+        name: 'Maple',
+      }),
+    ).resolves.toEqual({ id: 4, slug: 'maple' });
+    await upgraded.client.close();
+  }, 60_000);
+
   it('creates and reruns the synthetic demo command on its own database', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-command-'));
     directories.push(directory);
@@ -236,6 +308,116 @@ describe('bootstrapSafeDemo', () => {
     expect((await run(process.execPath, ['bin/demo.ts'], options)).stdout).toContain(
       'Synthetic demo database already matches the safe demo; no data changed.',
     );
+  }, 60_000);
+
+  it('creates the demo coach as the active club admin', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-admin-'));
+    directories.push(directory);
+    const demo = await openDemoDatabase(directory);
+
+    const created = await bootstrapSafeDemo(demo.db);
+
+    expect(await demo.db.select().from(schema.clubMembership)).toEqual([
+      expect.objectContaining({
+        clubId: 1,
+        userId: created.userId,
+        role: 'admin',
+        revokedAt: null,
+      }),
+    ]);
+    expect(await bootstrapSafeDemo(demo.db)).toEqual({
+      status: 'already-seeded',
+      coachEmail: DEMO_COACH_EMAIL,
+      userId: created.userId,
+    });
+    expect(await demo.db.select().from(schema.clubMembership)).toEqual([
+      expect.objectContaining({
+        clubId: 1,
+        userId: created.userId,
+        role: 'admin',
+        revokedAt: null,
+      }),
+    ]);
+    await demo.client.close();
+  }, 60_000);
+
+  it('advances explicit fixture sequences after an unchanged current-demo rerun', async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'descenders-demo-sequences-current-'),
+    );
+    directories.push(directory);
+    const current = await openDemoDatabase(directory);
+    const seeded = await bootstrapSafeDemo(current.db);
+    // Model a pre-fix current demo whose exact row signature is unchanged.
+    await current.db.execute(sql`select setval(pg_get_serial_sequence('squad', 'id'), 1, false)`);
+    await current.client.close();
+
+    await run(process.execPath, ['bin/demo.ts'], {
+      cwd: path.resolve(import.meta.dirname, '../..'),
+      env: { ...process.env, DATABASE_URL: directory },
+    });
+
+    const rerun = await openDemoDatabase(directory);
+    await expect(
+      createSquad(rerun.db, {
+        actorId: seeded.userId,
+        clubId: 1,
+        seasonId: 2,
+        name: 'Maple',
+      }),
+    ).resolves.toEqual({ id: 4, slug: 'maple' });
+    await rerun.client.close();
+  }, 60_000);
+
+  it('creates a new squad after the demo’s explicit fixture IDs', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'descenders-demo-new-squad-'));
+    directories.push(directory);
+    const demo = await openDemoDatabase(directory);
+    const created = await bootstrapSafeDemo(demo.db);
+
+    await expect(
+      createSquad(demo.db, {
+        actorId: created.userId,
+        clubId: 1,
+        seasonId: 2,
+        name: 'Maple',
+      }),
+    ).resolves.toEqual({ id: 4, slug: 'maple' });
+    await demo.client.close();
+  }, 60_000);
+
+  it('refuses a demo whose managed membership changed before migration', async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'descenders-demo-managed-membership-'),
+    );
+    directories.push(directory);
+    const demo = await openDemoDatabase(directory);
+    const created = await bootstrapSafeDemo(demo.db);
+    await demo.db
+      .update(schema.clubMembership)
+      .set({ role: 'coach' })
+      .where(sql`club_id = 1 and user_id = ${created.userId}`);
+    await demo.client.close();
+
+    const failure = await run(process.execPath, ['bin/demo.ts'], {
+      cwd: path.resolve(import.meta.dirname, '../..'),
+      env: { ...process.env, DATABASE_URL: directory },
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(failure).not.toBeNull();
+    expect(commandFailureText(failure)).toContain('Refusing to seed a populated database');
+
+    const reopened = new PGlite(directory);
+    expect(
+      await reopened.query<{ role: string; revoked_at: Date | null }>(
+        'select role, revoked_at from club_membership where club_id = 1 and user_id = $1',
+        [created.userId],
+      ),
+    ).toMatchObject({ rows: [{ role: 'coach', revoked_at: null }] });
+    await reopened.close();
   }, 60_000);
 
   it('keeps a synthetic current season and reporting reads intact across reopen and rerun', async () => {
@@ -283,7 +465,7 @@ describe('bootstrapSafeDemo', () => {
       },
     ]);
 
-    const report = await loadRaceDetail(reopened.db, 'demo-2026-round-1', created.userId);
+    const report = await loadRaceDetail(reopened.db, 'demo-2026-round-1', 1, created.userId);
     expect(report?.squads.map((squad) => squad.name)).toEqual(['Cedar', 'Summit']);
     expect(report?.starters).toBe(5);
     await reopened.client.close();

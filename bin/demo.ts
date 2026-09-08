@@ -10,6 +10,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import {
   assertSafeDemoMigrationPreflight,
   bootstrapSafeDemo,
+  finalizeKnownDemoMigration,
   resolveDemoDatabaseUrl,
 } from '../src/lib/demo.ts';
 import { createDb } from '../src/lib/db/index.ts';
@@ -28,6 +29,7 @@ const db = createDb(databaseUrl);
 try {
   await assertSafeDemoMigrationPreflight(db);
   await migrate(db, { migrationsFolder: './src/lib/db/migrations' });
+  await finalizeKnownDemoMigration(db);
   const result = await bootstrapSafeDemo(db);
 
   console.log(

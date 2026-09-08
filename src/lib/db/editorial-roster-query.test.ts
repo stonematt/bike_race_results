@@ -206,3 +206,34 @@ it('rejects an unknown explicit checkpoint instead of showing a different roster
     }),
   ).resolves.toBeNull();
 });
+
+it('retains an archived exact-club Squad as read-only current membership without inventing historical riders', async () => {
+  const db = await createTestDb();
+  await db.insert(schema.season).values({ id: 1, year: 2052 });
+  await db.insert(schema.club).values([
+    { id: 1, name: 'Home Club' },
+    { id: 2, name: 'Other Club' },
+  ]);
+  await db.insert(schema.squad).values({
+    id: 1,
+    clubId: 1,
+    seasonId: 1,
+    name: 'Cedar',
+    slug: 'cedar',
+    archivedAt: new Date('2052-01-01'),
+  });
+  await db.insert(schema.rider).values([
+    { id: 1, displayName: '«CURRENT MEMBER»' },
+    { id: 2, displayName: '«UNASSIGNED MEMBER»' },
+  ]);
+  await db.insert(schema.clubMember).values([
+    { clubId: 1, seasonId: 1, riderId: 1 },
+    { clubId: 1, seasonId: 1, riderId: 2 },
+  ]);
+  await db.insert(schema.squadMember).values({ squadId: 1, riderId: 1 });
+  expect(await loadEditorialRoster(db, { seasonId: 1, clubId: 1, squadId: 1 })).toMatchObject({
+    squad: { id: 1, slug: 'cedar', archived: true },
+    riders: [{ id: 1, name: '«CURRENT MEMBER»', results: [] }],
+  });
+  expect(await loadEditorialRoster(db, { seasonId: 1, clubId: 2, squadId: 1 })).toBeNull();
+});
