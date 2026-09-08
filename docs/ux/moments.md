@@ -1,3 +1,5 @@
+> Read the accepted [editorial direction](../design/editorial-direction.md) first. This earlier research retains useful coaching questions, but its exactly-one-write-path and implementation-status statements are historical. [ADR-0005](../adr/0005-persistent-club-administration.md) permits persistent club administration.
+
 # Moments and job stories
 
 Design context for the views. Not a spec — a spec covers one build, and this outlives all

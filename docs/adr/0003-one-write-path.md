@@ -1,3 +1,5 @@
+> Superseded 2026-09-07 by [ADR-0005](0005-persistent-club-administration.md) for persistent club administration. Retained as the rationale for the earlier exploration boundary. General athlete notes remain outside scope.
+
 # One write path: plate attach
 
 The product reads. The single thing it writes is the attachment of a plate to a Rider —

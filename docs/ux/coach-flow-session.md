@@ -1,3 +1,5 @@
+> Historical design session. The landing-page, write-path and administrative-role decisions are superseded by [editorial direction](../design/editorial-direction.md) and [ADR-0005](../adr/0005-persistent-club-administration.md), accepted 2026-09-07. Domain/source-truth findings remain useful.
+
 # Coach flow — design session
 
 **Destination:** `docs/ux/coach-flow-session.md`
