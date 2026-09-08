@@ -40,8 +40,8 @@ export const EMAIL_PROVIDER_ID = 'nodemailer';
  * provider says this session came through the shim, and `availableProviders`
  * says this process actually registered one. The second is what makes the
  * bypass impossible to reach in production — `NODE_ENV=production` turns it off
- * whatever a token claims — so a leaked or reused AUTH_SECRET cannot be replayed
- * into a hosted identity.
+ * for a retained token carrying the `dev` provider claim. That is not a remedy
+ * for a compromised `AUTH_SECRET`; rotate a compromised secret.
  */
 function isRegisteredDevProvider(provider: string | undefined, env: AdmissionEnv): boolean {
   return provider === DEV_PROVIDER_ID && availableProviders(env).dev;
