@@ -217,6 +217,67 @@ for (const [kind, location] of [
 }
 
 it.skipIf(!postgresLocation)(
+  'holds the native migration lock until work completes, then releases it for another runtime',
+  async () => {
+    const first = createDatabaseRuntime(postgresLocation!);
+    const second = createDatabaseRuntime(postgresLocation!);
+    if (first.kind !== 'postgres' || second.kind !== 'postgres') {
+      throw new Error('Expected native PostgreSQL runtimes');
+    }
+    let releaseFirst!: () => void;
+    const firstEntered = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let releaseWork!: () => void;
+    const firstWork = new Promise<void>((resolve) => {
+      releaseWork = resolve;
+    });
+    let secondEntered = false;
+    try {
+      const held = first.withMigrationLock(async () => {
+        releaseFirst();
+        await firstWork;
+      });
+      await firstEntered;
+      const waiting = second.withMigrationLock(async () => {
+        secondEntered = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(secondEntered).toBe(false);
+      releaseWork();
+      await held;
+      await waiting;
+      expect(secondEntered).toBe(true);
+    } finally {
+      await Promise.all([first.close(), second.close()]);
+    }
+  },
+  10000,
+);
+
+it.skipIf(!postgresLocation)(
+  'releases the native migration lock after failed work',
+  async () => {
+    const first = createDatabaseRuntime(postgresLocation!);
+    const second = createDatabaseRuntime(postgresLocation!);
+    if (first.kind !== 'postgres' || second.kind !== 'postgres') {
+      throw new Error('Expected native PostgreSQL runtimes');
+    }
+    try {
+      await expect(
+        first.withMigrationLock(async () => {
+          throw new Error('Synthetic migration failure');
+        }),
+      ).rejects.toThrow('Synthetic migration failure');
+      await expect(second.withMigrationLock(async () => undefined)).resolves.toBeUndefined();
+    } finally {
+      await Promise.all([first.close(), second.close()]);
+    }
+  },
+  10000,
+);
+
+it.skipIf(!postgresLocation)(
   'handles an idle backend loss with a sanitized error and recovers on the next query',
   async () => {
     const reported = vi.spyOn(console, 'error').mockImplementation(() => undefined);

@@ -16,7 +16,9 @@ const runtime = createDatabaseRuntime(url);
 
 try {
   if (runtime.kind === 'postgres') {
-    await migratePostgres(runtime.db, { migrationsFolder: './src/lib/db/migrations' });
+    await runtime.withMigrationLock(() =>
+      migratePostgres(runtime.db, { migrationsFolder: './src/lib/db/migrations' }),
+    );
   } else {
     await migratePglite(runtime.db, { migrationsFolder: './src/lib/db/migrations' });
   }

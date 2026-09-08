@@ -11,10 +11,27 @@ export type DatabaseRuntime =
       db: PgliteDatabase<typeof schema>;
       close(): Promise<void>;
     }
-  | { kind: 'postgres'; db: NodePgDatabase<typeof schema>; close(): Promise<void> };
+  | {
+      kind: 'postgres';
+      db: NodePgDatabase<typeof schema>;
+      /**
+       * Serialize schema changes across every process connected to this
+       * database. The lock belongs to one dedicated pg session, not a pooled
+       * query used by the migrator, and is released even when migration fails.
+       */
+      withMigrationLock<T>(work: () => Promise<T>): Promise<T>;
+      close(): Promise<void>;
+    };
 
 export type RuntimeDatabase = DatabaseRuntime['db'];
 export type RuntimeTransaction = Parameters<Parameters<RuntimeDatabase['transaction']>[0]>[0];
+
+const migrationLock = "select pg_advisory_lock(hashtext('descenders:drizzle-migrate'))";
+const migrationUnlock = "select pg_advisory_unlock(hashtext('descenders:drizzle-migrate'))";
+
+function errorForPool(error: unknown): Error {
+  return error instanceof Error ? error : new Error('Database migration lock failed.');
+}
 
 export function createDatabaseRuntime(url = resolveDatabaseUrl()): DatabaseRuntime {
   if (typeof url !== 'string' || url.trim() === '' || /[\u0000-\u001f\u007f]/u.test(url))
@@ -39,7 +56,39 @@ export function createDatabaseRuntime(url = resolveDatabaseUrl()): DatabaseRunti
     pool.on('error', () => {
       console.error('Database background connection failed.');
     });
-    return { kind: 'postgres', db: postgresDrizzle(pool, { schema }), close: () => pool.end() };
+    return {
+      kind: 'postgres',
+      db: postgresDrizzle(pool, { schema }),
+      async withMigrationLock<T>(work: () => Promise<T>): Promise<T> {
+        const client = await pool.connect();
+        let locked = false;
+        let failed = false;
+        let poolError: Error | undefined;
+        try {
+          await client.query(migrationLock);
+          locked = true;
+          return await work();
+        } catch (error) {
+          failed = true;
+          poolError = errorForPool(error);
+          throw error;
+        } finally {
+          if (locked) {
+            try {
+              await client.query(migrationUnlock);
+            } catch (error) {
+              const unlockError = errorForPool(error);
+              poolError ??= unlockError;
+              if (!failed) throw unlockError;
+            }
+          }
+          // Destroy a session that lost its lock/unlock command. Releasing it
+          // normally could retain a session-scoped advisory lock in the pool.
+          client.release(poolError);
+        }
+      },
+      close: () => pool.end(),
+    };
   }
   if (url !== 'memory://' && /^[a-z][a-z0-9+.-]*:/iu.test(url))
     throw new Error('Database location is invalid.');
