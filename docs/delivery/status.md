@@ -1,48 +1,77 @@
 # Delivery status
 
-Updated 2026-09-07. **Decision foundation prepared; application implementation has not started in this session.** No production deployment or active long-running goal has been created.
+Updated 2026-09-07 local date. **Goal active; foundation merged into dev; D1 reviews passed, final CI pending.** No token budget. No production deployment, paid resource, real invitation or external athlete-data transfer. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
-Branch: `docs/editorial-delivery-foundation`, based on `dev` at `db1298e`. Worktree was clean before these documentation changes. Owner: orchestrating agent. No running servers started.
+GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D5 security: #124. Epic children #123/#124/#125 are linked natively. Unrelated backlog is preserved.
 
-GitHub: [delivery epic #121](https://github.com/stonematt/bike_race_results/issues/121), linked as a child of map #1; [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). Existing implementation issues remain open.
+| Increment  | Current state                                                                                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | Merged through PR #122; cleanup verified below.                                                                                                                                          |
+| D1         | Implemented on `feat/local-delivery-foundation`; review corrections passed; final CI pending. Draft PR [#126](https://github.com/stonematt/bike_race_results/pull/126); not merge-ready. |
+| D2         | Art brief and concrete query/UI ownership plan prepared; #125 ready after D1. No implementation.                                                                                         |
+| D3         | Persistent membership/roles, invitations, preferences and safe squad editing remain unimplemented.                                                                                       |
+| D4         | Evidence-backed draft/review/publish remains unimplemented.                                                                                                                              |
+| D5         | Driver research and local Postgres binaries prepared; adapter, security upgrades, auth mailbox, CI and recovery runbook remain unimplemented.                                            |
 
-**Accepted**
+## Current work and resume point
 
-- Persistent squad definition/membership, invitations and administration are appropriate now, as the product prepares for production.
-- Accepted playground UX and Financial Times-style editorial storytelling lead experiential judgment over earlier engineering-led layouts.
-- Art direction and data analysis guide a coach's conversation about growth, consistency and participation. Source truth and privacy remain constraints.
-- Keep decisions, an audit trail and resumable state. Use Obsidian for progress summaries when available.
+Branch base `36ab935e7c5a8f79e88fa75dd2581499fa65060b`; latest integrated code `0b09ca3`. Astra orchestrates. `d1_demo` completed demo preflight and command tests; `d1_reporting` completed reporting validation and migration upgrade smoke. `foundation_standards` reviews Standards and reporting semantics; `foundation_spec` reviews Spec and supplies independent art planning. Preserve others' changes.
 
-**Prepared**
+Task-owned development server was stopped after acceptance; port 3100 is free. Synthetic database `/private/tmp/descenders-d1-accepted` remains for restart and later increments. Isolated Chrome: CDP 9224, profile `/private/tmp/descenders-d1-chrome`, session 59301. The new synthetic database has the final migration bytes and passed setup/login/navigation. Stop the app before rebuild/migrations. No mail delivery configured.
 
-Curated product/design guidance, ADR-0005, supersession pointers on historical UX documents, the delivery plan and this ledger. Recommended corpus home: application docs, with the local playground retained as a private research archive. No second repository initialized and no identifying artifacts copied.
+Next: record final-head CI and confirm review coverage; finalize D1 PR #126 into dev, verify checks, merge commit and clean task refs. Continue D2–D5 without another scope approval. Never mark the goal complete at D1.
 
-**Known implementation gaps from the preceding read-only audit**
+**Foundation delivery audit**
 
-Hosted database URLs throw. Auth uses an environment allowlist rather than invitations/roles. Squad seeding replaces configuration destructively. The complete rider-season experience and CI build/browser gates are missing. These findings are planning evidence, not newly reproduced runtime failures.
+- PR [#122](https://github.com/stonematt/bike_race_results/pull/122), base `dev` at `db1298edd7f6365e55e7ee48282251fc0adc58db`, reviewed head `d3a907230c24052fad9b3517aab8a9225f8bca3a` (the two original commits preserved).
+- Independent Standards reviewer `foundation_standards`: zero findings. Independent Spec reviewer `foundation_spec`: zero blockers; activation follow-ups are addressed by the accepted contract and current ledger. Review recorded in the PR body.
+- Local Prettier, whitespace and privacy guard passed (264 tracked files). CI run `34188391091` passed privacy, types, lint, formatting, public tests, migration drift and fresh PGlite migrations. Documentation validation does not establish runtime product acceptance.
+- Merged into dev with merge commit `36ab935e7c5a8f79e88fa75dd2581499fa65060b` on 2026-09-07 local date. Local dev fast-forwarded; task tip ancestry verified; task branch removed locally and at origin; fetch/prune and both local/remote ref checks confirmed absence. No task worktrees existed to remove.
+- Epic #121 and map #1 reconciled in place; milestone 7 remains open. Existing backlog/milestones preserved, no implementation issues closed. Obsidian `tyee/2a/scd/Descenders race reporting.md` updated through CLI.
 
-**Acceptance ledger**
+## D1 implementation and evidence
 
-| Check                              | Status and scope                                                                                                                        |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Product/code reconciliation        | Read-only inspection completed; no runtime claim.                                                                                       |
-| Art-direction review               | Separate agent identified six obsolete assumptions; incorporated into editorial guidance. No visual/browser review ran.                 |
-| Documentation formatting/links     | Passed: Prettier check for all changed docs, new local links and git whitespace checks.                                                 |
-| Privacy guard                      | Passed on staged documentation: privacy guard clean across 262 tracked files. Manual prose review found no identifying athlete records. |
-| App tests/build/browser/migrations | Not run; no application code changed.                                                                                                   |
-| Production/Neon/Vercel             | Not configured or deployed.                                                                                                             |
+- `15cf1d3`: accepted product defaults/public TDD seams activated in canonical docs.
+- `32607f2`: auth and reporting share persistent identity; lazy auth configuration avoids build-time PGlite startup. Adapter identity and initialization regressions were observed red, then green.
+- `85ec60d`: reproduced #100 equivalent absolute hooksPath failure; installed hook now verified by rejecting a forced synthetic payload. Personal Git configuration unchanged.
+- `6c67746`: synthetic demo command with 2026 current season, 2025 checkpoint and two squads; no private corpus/config/name-map input. Reopen/rerun tests passed. Independent review subsequently found migration occurred before unrelated-database refusal; corrected in `0b09ca3` with refusal before migration, recognized older-demo upgrade, and command-level legacy/public/custom-schema regressions. Only the exact Drizzle migration metadata table is exempt.
+- `6ec5a89`: conference-specific denominators, combined State Champs field and exact source revision binding; ADR-0006 records provenance. Merely archiving a later/hidden alternative cannot reclassify normalized rows; legacy missing provenance fails closed until normalization.
+- `f57ba67`: matching browser/AUTH_URL guidance and explicit application build-tracing root.
+- `080564c`: production rejects a development-provider token even when its email is allowlisted. Browser smoke reproduced the defect; the regression was run red before the fix. Email-provider allowlist behavior remains valid.
+- `c9ce385`: sole selected hidden TT source follows the bound-source contract. Public archive → normalize → reporting regression ran red (place instead of 10% back), then green. Independent analyst re-review passed with zero findings; unselected archives remain inert.
 
-**Decision and action trail**
+| Check                     | Evidence and limits                                                                                                                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public suite              | 62 files / 900 tests passed after c9ce385 and the initial preflight correction. The final additional Drizzle-schema refusal regression and demo/URL lane passed (12 tests); final-head CI pending.                               |
+| Protected local corpus    | Full configured local lane passed: eight files / 85 tests after c9ce385. No refetch or identifying output published.                                                                                                             |
+| Types/lint/format/privacy | Final correction typecheck passed. Integrated lint, formatting, whitespace and privacy passed (277 tracked files).                                                                                                               |
+| Brand                     | All 15 tokens matched; check was not skipped. D1 adds no visual redesign.                                                                                                                                                        |
+| Production build          | Passed after080564c, without earlier eager-PGlite aborts.                                                                                                                                                                        |
+| Production browser        | Retained original development cookie rejected after080564c; anonymous redirect, provider disabled despite AUTH_DEV_LOGIN=1, and no-referrer passed.                                                                              |
+| Development browser       | Fresh final-migration database: synthetic login → Cedar → Summit → Race 1 → direct category → Back passed. Opened 1440px desktop and 390px mobile captures with no overflow. Existing D1 UI only, not D2 editorial acceptance.   |
+| Migrations                | Fresh migrations and non-mutating drift check passed after c9ce385. Disposable 0000–0004 → 0006 upgrade/reopen preserved identity, current season, squad and reporting on the final migration bytes. Owner's database untouched. |
 
-- 2026-09-07: Owner requested recipe first; read-only audit and proposed execution recipe prepared in the playground.
-- 2026-09-07: Owner accepted persistent operations and clarified editorial precedence. Persisted this accepted scope without treating every proposed permission detail as accepted.
-- 2026-09-07: Created a documentation branch and curated public-safe guidance into the application. Historical documents retained with replacement pointers.
-- 2026-09-07: Obsidian was reachable after scoped CLI escalation. Progress note placement uses the existing tyee vault's SCD area.
+TDD limits: conference denominator, missing-layout percentage, auth persistence/startup and dev-token regressions ran red first. Initial source-binding tests followed implementation after an independent failing analyst reproduction; do not claim strict red-first development for that portion. Subsequent sole-hidden-source correction did run red first.
 
-- 2026-09-07: Created delivery epic #121 and milestone 7; linked epic beneath map #1. Created the requested Obsidian progress summary using the CLI in the existing SCD area. Documentation only; no implementation issues closed.
+## Review audit
 
-- 2026-09-07: Owner confirmed the dev → task branch → reviewed PR → dev → separate release to main lifecycle, Conventional Commits, no-fast-forward PR merges and verified branch cleanup. Persisted in global Codex instructions and repository AGENTS.md/development-lifecycle.md. Shared skills were inspected but not modified. No PR merge or production release was requested by this workflow-setup instruction.
+- Independent Standards and Spec reviewed base 36ab935 through 080564c. Both found the demo migration-before-refusal defect; Spec also found sole-hidden-TT mismatch. Do not treat these reviews as unconditional approval.
+- Analyst re-review passed the c9ce385 correction. Independent Standards reviewer passed exact c9ce385...0b09ca3342934b55689c72f9ae992251cae65456 demo delta with zero remaining Standards/Spec findings.
+- Spec reviewer authored the earlier hook correction 85ec60d; separate Standards reviewer independently checked that commit against #100 and passed with zero findings. The remaining Spec review was independent.
+- No human GitHub approval is replaced by these agent reviews. Current diff/head, review state, findings and checks must be rechecked before merge.
 
-**Next handoff**
+## Decisions and readiness investigations
 
-Review the documented role/invitation lifecycle and confirm the proposed public TDD seams, then activate the delivery objective and begin D1. This is the outstanding recipe approval boundary, not a blocker on persisting the decisions already accepted. Actual production release remains a distinct action after implementation and verification. Reconcile GitHub state before claiming work.
+The owner activated delivery on 2026-09-07, approving product defaults/public seams subject to later decisions. Persistent administration and reviewed editorial writes narrowly supersede the historical plate-attachment-only rule; no private behavioral notes or discussion logs are authorized. Art direction and data analysis govern reporting acceptance. See [readiness notes](readiness-notes.md) for D2 composition and D5 transport research.
+
+Browser diagnosis preserved privacy headers: programmatic requestSubmit produced Origin:null; trusted post-hydration mouse submission succeeds. The actual sign-in cookie bounce came from mismatched AUTH_URL/browser hosts. Use one matching origin. Production smoke then exposed the separate dev-token replay defect fixed above.
+
+Registry audit history: initial network escalation was rejected because dependency metadata transfer to npm lacked destination-specific authorization. New read-only evidence proved the repository public and the local lockfile identical to public dev (Git blob e4d767df6bb306dd5bd1123ac9e09259bed6d518). The same audit was subsequently approved and completed; no alternate transfer or bypass was used. The initial approval blocker is resolved.
+
+Audit reports 13 advisory findings (3 critical, 5 high, 5 moderate), not proof of exploitation. Auth.js, Drizzle and PostCSS targeted compatibility/security updates are required under #124 before readiness. Local evidence: `/private/tmp/descenders-prod-audit.json`. No athlete data or secrets transferred.
+
+PostgreSQL 17.11 installed via Homebrew for disposable synthetic parity. Homebrew initialized its empty default cluster at `/opt/homebrew/var/postgresql@17`; no service started. Use a separate task-owned temporary cluster, not that default. Standard node-postgres pool/Drizzle transport is the proposed implementation; no hosted provider is verified.
+
+Obsidian journal: `tyee/2a/scd/Descenders race reporting.md`, maintained exclusively through the CLI. Updated at 080564c checkpoint with foundation merge, D1 evidence, auth discovery, advisory work and remaining increments. Refresh after D1 merge. Canonical implementation state stays in this repository.
+
+Documentation accuracy/scope review by `foundation_spec` passed after correcting final migration status and advisory terminology; final PR/CI facts are recorded in #126 before merge.

@@ -96,6 +96,8 @@ function toResultRow(row: Row): RaceResultRow {
   return {
     plate: str(row.plate),
     category: str(row.category),
+    conference:
+      row.conference === null || row.conference === undefined ? null : str(row.conference),
     place: str(row.place),
     status: row.status === 'dnf' ? 'dnf' : 'finished',
     timeRaw: str(row.time_raw),

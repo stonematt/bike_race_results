@@ -41,12 +41,12 @@ const LISTED = 'coach@example.org';
 const STRANGER = 'anyone@example.test';
 
 /** next-auth types these callbacks loosely; both only read what is named here. */
-const signIn = authOptions.callbacks.signIn as (arg: {
+const signIn = authOptions().callbacks.signIn as (arg: {
   user: { email?: string | null };
   account: { provider?: string } | null;
 }) => boolean;
 
-const jwt = authOptions.callbacks.jwt as (arg: {
+const jwt = authOptions().callbacks.jwt as (arg: {
   token: Record<string, unknown>;
   account: { provider?: string } | null;
 }) => Record<string, unknown>;

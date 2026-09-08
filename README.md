@@ -96,6 +96,19 @@ The `bin/` scripts read `.env.local` themselves, whether you run them as `pnpm s
 
 `seed.ts` is idempotent, and it refuses any address that isn't on `AUTH_ALLOWED_EMAILS` — the allowlist gates seeding too, not just sign-in.
 
+## Safe synthetic demo
+
+For a repeatable local walkthrough without the private fixture corpus, use the synthetic demo. It migrates a dedicated PGlite database and creates only pseudonymous riders (`«RIDER-A»` through `«RIDER-E»`), a synthetic coach, a current 2026 race, and a small 2025 checkpoint. It never reads the names map, club config, or `fixtures/`.
+
+```bash
+DATABASE_URL=./.pglite-demo pnpm demo
+DATABASE_URL=./.pglite-demo AUTH_URL=http://localhost:3000 AUTH_DEV_LOGIN=1 pnpm dev
+```
+
+Use the dependency installation and `AUTH_SECRET` setup above, then open `http://localhost:3000` and sign in through the local development form as `demo.coach@example.test`. The browser origin and `AUTH_URL` must match, including hostname and port; do not mix `localhost` and `127.0.0.1`, because cookies belong to one host. For a custom port, change both `AUTH_URL` and the `pnpm dev --port` argument. `AUTH_DEV_LOGIN=1` is development-only and the server remains bound to loopback. The demo's default is `./.pglite-demo`, deliberately separate from the ordinary `./.pglite` database. For safety, `pnpm demo` ignores a `DATABASE_URL` supplied only by `.env.local`; set it on the command when choosing a demo location, then use that same explicit path when starting the app.
+
+To use another disposable location, set `DATABASE_URL` to an empty local PGlite directory for both commands. A rerun recognizes its exact synthetic database and makes no changes. Any other populated database is refused before writes, so the command cannot replace an existing local installation.
+
 `pnpm dev` binds `127.0.0.1` rather than every interface, and that is load-bearing rather than tidy — see Auth. Don't drop the `--hostname` flag from the script.
 
 ## Auth
@@ -134,6 +147,7 @@ Schema lives in `src/lib/db/schema.ts`; migrations in `src/lib/db/migrations/`. 
 | `pnpm brand:check`                  | Diff the vendored brand tokens against source                      |
 | `pnpm db:generate`                  | Generate a migration from the schema                               |
 | `pnpm db:migrate`                   | Apply migrations                                                   |
+| `pnpm demo`                         | Migrate and safely create the repeatable synthetic local demo      |
 | `pnpm db:studio`                    | Drizzle Studio                                                     |
 | `pnpm seed`                         | Seed the club config and the first admin                           |
 | `pnpm fetch`                        | Pull from RaceResult — live network, read `docs/fixtures.md` first |

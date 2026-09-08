@@ -25,17 +25,12 @@
  *   - `loadSquadRiderIds` — the caller's own Squad, for flagging squad-mates
  *     in the field without the caller doing that join itself.
  *
- * An open question this lane found and did not resolve: `v_race_result`'s
- * `pct_back`, `category_laps` and `winner_seconds` are windowed over
- * `(event_id, category)`, and `category` is always Conference-stripped
- * (`src/lib/ingest/category.ts`). At the Prologue — one Event carrying 28
- * Conference-scoped contests for 14 Categories — that partition mixes North
- * and South into one winner and one lap count for the same Category. This
- * module corrects field size itself (below) because ADR-0001 allows field
- * size as computed description, but `pct_back` is arithmetic this lane is not
- * permitted to recompute, so a North rider's `pctBack` at the Prologue may be
- * measured against a South winner today. Flagged for the ticket owner, not
- * fixed here — and not the same gap as issue #98.
+ * `v_race_result` partitions its derived values by Event, canonical Category,
+ * and Conference. That preserves the two contests inside a combined Event
+ * while keeping State Champs league-wide because every one of its Conference
+ * values is null. This query still counts the rows it returns for its
+ * `fieldSize`, so that public result stays directly tied to the field it
+ * hands to the caller.
  */
 
 import { sql } from 'drizzle-orm';
@@ -192,13 +187,9 @@ export async function loadCategoryField(
     loadSquadRiderIds(db, squadId),
   ]);
 
-  // Field size as the count of the Conference-scoped rows just read, not
-  // `v_race_result`'s own `field_size` column — that column is keyed on
-  // `(event_id, category)` alone, which is right at a single-Conference Event
-  // and wrong at a combined one where this read already applies the
-  // Conference filter `field_size` does not. ADR-0001 lists field size as
-  // description we are allowed to compute; this is that computation, done
-  // once, over exactly the rows returned below.
+  // Field size is the count of exactly the Conference-scoped rows returned.
+  // It agrees with the view's contest partition, while leaving this public
+  // read self-contained and explicit about the field it hands to the caller.
   const fieldSize = rawRows.length;
   const rows: CategoryFieldRow[] = rawRows.map((row) => ({
     ...row,

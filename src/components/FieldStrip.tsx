@@ -41,8 +41,8 @@ const inset = (x: number) => `${(4 + x * 92).toFixed(3)}%`;
 /**
  * What stands in for the strip when the field has no axis.
  *
- * A time trial publishes no gap to the winner for anyone, so there is nothing
- * to plot and no scale to plot it against. The frame used to be drawn anyway,
+ * A field with no comparable gap to its winner has nothing to plot and no
+ * scale to plot it against. The frame used to be drawn anyway,
  * labelled with the axis floor, which read as riders missing from a chart
  * rather than a chart that does not apply (issue #60). Saying so is the honest
  * shape, and it keeps the card's own rhythm — a coach's eye still lands here.

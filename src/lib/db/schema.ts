@@ -18,6 +18,7 @@
 import { relations } from 'drizzle-orm';
 import {
   bigserial,
+  bigint,
   boolean,
   date,
   index,
@@ -126,6 +127,18 @@ export const rawFetch = pgTable(
   },
   (t) => [index('raw_fetch_lookup_idx').on(t.eventId, t.listId, t.fetchedAt)],
 );
+
+/** The exact source list revision that produced an Event's normalized spine. */
+export const eventResultSource = pgTable('event_result_source', {
+  eventId: integer('event_id')
+    .primaryKey()
+    .references(() => event.id),
+  rawFetchId: bigint('raw_fetch_id', { mode: 'number' })
+    .notNull()
+    .references(() => rawFetch.id),
+  listId: text('list_id').notNull(),
+  hidden: boolean('hidden').notNull(),
+});
 
 /* ============================================================================
  * Normalized layer — one table per source list family

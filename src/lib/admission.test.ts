@@ -52,9 +52,12 @@ describe('admits, through the dev shim', () => {
     // still cannot replay a 'dev' claim into a hosted deployment.
     const prod = { NODE_ENV: 'production', AUTH_DEV_LOGIN: '1', AUTH_ALLOWED_EMAILS: LISTED };
     expect(admits(DEV_PROVIDER_ID, { email: STRANGER }, prod)).toBe(false);
-    // Still only a bypass, never a grant: a listed address gets in on the
-    // allowlist's authority, not the shim's.
-    expect(admits(DEV_PROVIDER_ID, { email: LISTED }, prod)).toBe(true);
+    // A dev token never becomes a production identity merely because the
+    // typed address also appears on the production allowlist.
+    expect(admits(DEV_PROVIDER_ID, { email: LISTED }, prod)).toBe(false);
+    // A real magic-link session for that same allowlisted address remains
+    // valid; this rejection is about dev provenance, not the address itself.
+    expect(admits(MAIL, { email: LISTED }, prod)).toBe(true);
   });
 });
 

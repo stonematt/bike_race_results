@@ -14,3 +14,7 @@ Protected administrative mutations need server-enforced club permissions and a m
 The accepted editorial direction permits a small human-reviewed, evidence-backed story workflow. Its exact persistence and publishing contract remains to be specified. General athlete notes, private assessments, messaging and practice management are not introduced by this decision. The source truth and privacy constraints of ADR-0001 and the fixture policy continue to apply.
 
 This trades the simplicity of a read-only application for usable club operations. The cost is authorization, migration and recovery work, which is now part of deployment readiness rather than a reason to keep coach edits in seed files.
+
+## Activation, 2026-09-07
+
+The owner approved the recipe defaults and public TDD seams. The [accepted delivery contract](../delivery/accepted-contract.md) now specifies the role matrix, invitation and squad lifecycle, last-admin protection, and narrow editorial publishing boundary. These are accepted requirements; implementation evidence remains in the delivery ledger.

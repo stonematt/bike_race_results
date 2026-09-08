@@ -72,6 +72,10 @@ export function placeShapeList(file: ShapeListFile): PlacedList {
   checkExpressionsRecognized(where, layout, family);
 
   return {
+    // Shape files contain no raw payload revision. These values satisfy the
+    // shared reporting shape only; `placeShapeList` never normalizes or writes
+    // selected-source provenance.
+    rawFetchId: 0,
     season: file.shape.season,
     eventId: file.shape.eventId,
     listId: file.shape.listId,

@@ -104,8 +104,8 @@ export type FieldStripModel = {
    *
    * Null rather than a number the renderer is trusted to ignore. A ceiling
    * computed over no riders is the floor, and a floor drawn as an axis is a
-   * scale nothing was measured against: at a time trial that rendered a
-   * `+10%` axis with no marks on it, on every card (issue #60). Making the
+   * scale nothing was measured against: an all-null field rendered a `+10%`
+   * axis with no marks on it, on every card (issue #60). Making the
    * absence a type the renderer has to answer for is the same move the
    * invariant makes with a null `pct` — see the module header.
    */

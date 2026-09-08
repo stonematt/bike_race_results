@@ -20,12 +20,11 @@ import type { Provider } from 'next-auth/providers';
 import Credentials from 'next-auth/providers/credentials';
 import Nodemailer from 'next-auth/providers/nodemailer';
 import { authConfig } from './auth.config.ts';
-import { createDb, schema } from './lib/db/index.ts';
+import { schema } from './lib/db/index.ts';
+import { appDb } from './app/db.ts';
 import { admits, DEV_PROVIDER_ID } from './lib/admission.ts';
 import { availableProviders } from './lib/signin-providers.ts';
 import { findOrCreateUser } from './lib/db/users.ts';
-
-const db = createDb();
 
 export function providers(): Provider[] {
   const list: Provider[] = [];
@@ -67,7 +66,7 @@ export function providers(): Provider[] {
           // `findOrCreateUser` (`src/lib/db/users.ts`) is the same
           // lookup-or-create `seedAdmin` uses for its own `--email`, keyed on
           // this same normalised address.
-          const id = await findOrCreateUser(db, claimed);
+          const id = await findOrCreateUser(appDb(), claimed);
           return { id, email: claimed, name: claimed };
         },
       }),
@@ -78,32 +77,36 @@ export function providers(): Provider[] {
 }
 
 /**
- * Exported so the callbacks can be tested against the real object rather than a
- * copy of it. The wiring is the load-bearing part — `signIn` forwarding
+ * Request-time configuration keeps build imports from opening PGlite. Auth
+ * and reporting share appDb(), so both observe the same persisted identity.
+ * Exported so callbacks can be tested against the real configuration rather
+ * than a copy of it. The wiring is the load-bearing part — `signIn` forwarding
  * `account` is what makes the shim's branch reachable at all, and a test that
  * only exercises src/lib/admission.ts stays green when that wire is cut.
  */
-export const authOptions = {
-  ...authConfig,
-  adapter: DrizzleAdapter(db, {
-    usersTable: schema.users,
-    accountsTable: schema.accounts,
-    sessionsTable: schema.sessions,
-    verificationTokensTable: schema.verificationTokens,
-  }),
-  providers: providers(),
-  callbacks: {
-    ...authConfig.callbacks,
-    /**
-     * Last line of defence: a provider can prove an address, only this admits
-     * it — with exactly one branch, the development shim, which is admitted on
-     * the provider's identity instead. Every other provider runs the allowlist.
-     */
-    signIn({ user, account }) {
-      return admits(account?.provider, user);
+export function authOptions() {
+  return {
+    ...authConfig,
+    adapter: DrizzleAdapter(appDb(), {
+      usersTable: schema.users,
+      accountsTable: schema.accounts,
+      sessionsTable: schema.sessions,
+      verificationTokensTable: schema.verificationTokens,
+    }),
+    providers: providers(),
+    callbacks: {
+      ...authConfig.callbacks,
+      /**
+       * Last line of defence: a provider can prove an address, only this admits
+       * it — with exactly one branch, the development shim, which is admitted on
+       * the provider's identity instead. Every other provider runs the allowlist.
+       */
+      signIn({ user, account }) {
+        return admits(account?.provider, user);
+      },
     },
-  },
-} satisfies NextAuthConfig;
+  } satisfies NextAuthConfig;
+}
 
 const { handlers, auth: uncachedAuth, signIn, signOut } = NextAuth(authOptions);
 

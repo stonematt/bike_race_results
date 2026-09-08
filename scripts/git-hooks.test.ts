@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync, statSync, symlinkSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CORPUS_DIRNAME, repoRoot } from '../src/lib/fixtures.ts';
 
@@ -295,12 +295,23 @@ describe('hook installation', () => {
     }
   });
 
-  it('is installed in this very checkout', () => {
-    // `pnpm install` ran the installer; if this fails the developer is working
-    // without the block.
-    const configured = git(repoRoot(), 'config', '--get', 'core.hooksPath').stdout.trim();
-    expect(configured).toBe(HOOKS_PATH);
-    expect(existsSync(HOOK)).toBe(true);
+  it('is installed in this very checkout', async () => {
+    // Git accepts relative and absolute paths. Check the hook they identify,
+    // then prove this checkout's installed hook rejects a synthetic payload
+    // using a throwaway index, without changing the developer's configuration.
+    const configured = git(repoRoot(), 'config', '--get', 'core.hooksPath');
+    expect(configured.status).toBe(0);
+    const hooksDir = resolve(repoRoot(), configured.stdout.trim());
+    expect(join(hooksDir, 'pre-commit')).toBe(HOOK);
+    expect(existsSync(join(hooksDir, 'pre-commit'))).toBe(true);
+
+    const dir = await scratchRepo();
+    git(dir, 'add', '-f', PAYLOAD);
+    const commit = git(dir, '-c', `core.hooksPath=${hooksDir}`, 'commit', '-m', 'add a payload');
+
+    expect(commit.status).not.toBe(0);
+    expect(commit.stderr).toContain('BLOCKED');
+    expect(git(dir, 'log', '--oneline').stdout.trim().split('\n')).toHaveLength(1);
   });
 
   it('points a fresh clone at the checked-in hooks', async () => {
