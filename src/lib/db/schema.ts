@@ -15,11 +15,13 @@
  * that is where every decision belongs — revisable without a re-ingest.
  */
 
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   bigserial,
   bigint,
   boolean,
+  check,
+  type AnyPgColumn,
   date,
   index,
   integer,
@@ -745,6 +747,65 @@ export const userSquadPreference = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.clubId, t.seasonId] })],
 );
 
+export const storySurface = pgEnum('story_surface', ['season-dispatch', 'race-review']);
+export const storyState = pgEnum('story_state', ['draft', 'reviewed', 'published', 'superseded']);
+export const editorialStory = pgTable(
+  'editorial_story',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id),
+    checkpointOrdinal: integer('checkpoint_ordinal').notNull(),
+    eventId: integer('event_id')
+      .notNull()
+      .references(() => event.id),
+    surface: storySurface('surface').notNull(),
+    template: text('template').notNull().default('club-starts-at-event'),
+    sourceRawFetchId: bigint('source_raw_fetch_id', { mode: 'number' })
+      .notNull()
+      .references(() => rawFetch.id),
+    sourceContentHash: text('source_content_hash').notNull(),
+    sourceListId: text('source_list_id').notNull(),
+    sourceHidden: boolean('source_hidden').notNull(),
+    evidenceFingerprint: text('evidence_fingerprint').notNull(),
+    state: storyState('state').notNull().default('draft'),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+    reviewedByUserId: text('reviewed_by_user_id').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { mode: 'date' }),
+    reviewedRevision: integer('reviewed_revision'),
+    approvedCount: integer('approved_count'),
+    publishedByUserId: text('published_by_user_id').references(() => users.id),
+    publishedAt: timestamp('published_at', { mode: 'date' }),
+    supersededByStoryId: integer('superseded_by_story_id').references(
+      (): AnyPgColumn => editorialStory.id,
+    ),
+  },
+  (t) => [
+    check('editorial_story_template_check', sql`${t.template} = 'club-starts-at-event'`),
+    check('editorial_story_checkpoint_check', sql`${t.checkpointOrdinal} >= 0`),
+    check('editorial_story_revision_check', sql`${t.revision} > 0`),
+    check('editorial_story_count_check', sql`${t.approvedCount} is null or ${t.approvedCount} > 0`),
+    uniqueIndex('editorial_story_dispatch_published_idx')
+      .on(t.clubId, t.seasonId, t.checkpointOrdinal)
+      .where(sql`${t.state} = 'published' and ${t.surface} = 'season-dispatch'`),
+    uniqueIndex('editorial_story_race_published_idx')
+      .on(t.clubId, t.seasonId, t.checkpointOrdinal, t.eventId)
+      .where(sql`${t.state} = 'published' and ${t.surface} = 'race-review'`),
+  ],
+);
+
 /** Minimal operational evidence; no free-text payload or athlete notes. */
 export const clubAuditEvent = pgTable(
   'club_audit_event',
@@ -758,6 +819,7 @@ export const clubAuditEvent = pgTable(
     subjectUserId: text('subject_user_id').references(() => users.id),
     squadId: integer('squad_id').references(() => squad.id),
     invitationId: integer('invitation_id').references(() => clubInvitation.id),
+    storyId: integer('story_id').references(() => editorialStory.id),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   },
   (t) => [index('club_audit_event_club_created_idx').on(t.clubId, t.createdAt)],

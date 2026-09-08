@@ -1,3 +1,5 @@
+import { ReviewedObservation } from './ReviewedObservation.tsx';
+import type { PublishedStory } from '@/lib/editorial-publication.ts';
 import Link from 'next/link';
 import { FieldStrip } from './FieldStrip.tsx';
 import type { RaceCategories } from '../lib/db/editorial-query.ts';
@@ -11,6 +13,7 @@ export type RaceReviewProps = {
   through: number;
   /** Only split Rounds need an Event heading above their distinct fields. */
   showEventHeading?: boolean;
+  story?: PublishedStory | null;
 };
 
 function riderHref(year: number, riderId: number, through: number, sourceEventId: string): string {
@@ -55,7 +58,7 @@ function callout(result: RaceResultRow, fieldSize: number): string {
  * this component only places the supplied evidence and links the current rider
  * identities that accompany it.
  */
-export function RaceReview({ review, through, showEventHeading = false }: RaceReviewProps) {
+export function RaceReview({ review, through, showEventHeading = false, story }: RaceReviewProps) {
   const { race } = review;
 
   return (
@@ -65,6 +68,9 @@ export function RaceReview({ review, through, showEventHeading = false }: RaceRe
           <h2 className="font-display text-3xl tracking-wide uppercase">{race.name}</h2>
         </header>
       ) : null}
+
+      {story ? <ReviewedObservation story={story} /> : null}
+      {!story ? <p className="mt-3 text-sm">What would you like to try at the next race?</p> : null}
 
       <nav aria-label="Choose a field" className={showEventHeading ? 'mt-4' : 'mt-2'}>
         <ul className="flex list-none flex-wrap gap-x-4 gap-y-2 p-0 text-sm font-bold">

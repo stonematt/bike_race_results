@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
 import { requireClubContext } from '@/app/club-context.ts';
@@ -39,12 +40,22 @@ export default async function OperationsPage({
       ? `Access revoked for ${revokedAccount.name || revokedAccount.email}.`
       : undefined;
   return (
-    <ClubOperations
-      year={season.year}
-      clubName={context.clubName}
-      model={model}
-      action={saveOperation.bind(null, year, context.clubId)}
-      notice={notice}
-    />
+    <>
+      <nav className="mx-auto max-w-4xl px-6 pt-8" aria-label="Club operations navigation">
+        <Link
+          href={`/${season.year}/stories`}
+          className="text-fg text-sm font-bold underline underline-offset-4 hover:text-accent"
+        >
+          Stories
+        </Link>
+      </nav>
+      <ClubOperations
+        year={season.year}
+        clubName={context.clubName}
+        model={model}
+        action={saveOperation.bind(null, year, context.clubId)}
+        notice={notice}
+      />
+    </>
   );
 }

@@ -7,6 +7,7 @@
  */
 
 import { sql } from 'drizzle-orm';
+import { contentHash } from './ingest/raw.ts';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import * as schema from './db/schema.ts';
 
@@ -21,6 +22,45 @@ const DEMO_CLUB = 'Demo Descenders';
 const DEMO_CLUB_SLUG = 'demo-descenders';
 const DEMO_SCORING_TEAM = 'Demo Composite';
 const DEMO_EVENTS = ['demo-2025-checkpoint', 'demo-2026-round-1'] as const;
+const DEMO_2026_SOURCE_LIST_ID = 'demo-2026-individual-results';
+const DEMO_2026_SOURCE_LIST_NAME = 'Synthetic | Individual Results';
+const DEMO_2026_SOURCE_URL = 'synthetic://demo-2026-round-1/individual-results';
+const DEMO_2026_SOURCE_PAYLOAD = {
+  list: {
+    ListName: DEMO_2026_SOURCE_LIST_NAME,
+    ListFooterText: '5 finishers',
+    Fields: [],
+  },
+  DataFields: [
+    'BIB',
+    'ID',
+    'ucase([DisplayName])',
+    'CLUB',
+    'if([STATUS]=3;"*";[CategoryRank])',
+    'PointsMatrix',
+    'WithStatus([TotalTime])',
+    'NumberOfLaps',
+    'if([Lap01]=0;"-";[Lap01])',
+    'if([Lap02.SECTOR]=0;"-";[Lap02.SECTOR])',
+    'DisplayLapTime(3)',
+  ],
+  data: {
+    '#1_HS2 Boys - North': [1, 2, 3, 4, 5].map((riderId) => [
+      `D${riderId}`,
+      String(riderId),
+      `«RIDER-${String.fromCharCode(64 + riderId)}»`,
+      DEMO_SCORING_TEAM,
+      String(riderId),
+      String(500 - riderId * 10),
+      `0:4${riderId}:00.00`,
+      '3',
+      '13:20.00',
+      '13:20.00',
+      '13:20.00',
+    ]),
+  },
+};
+const DEMO_2026_SOURCE_HASH = contentHash(DEMO_2026_SOURCE_PAYLOAD);
 const DEMO_DATA_TABLES = [
   'season',
   'round',
@@ -37,6 +77,7 @@ const DEMO_DATA_TABLES = [
   'squad_coach',
   'squad_member',
 ] as const;
+const DEMO_SOURCE_TABLES = ['raw_fetch', 'event_result_source'] as const;
 
 export class UnsafeDemoDatabaseError extends Error {
   constructor() {
@@ -114,24 +155,35 @@ export async function assertSafeDemoMigrationPreflight(db: Db): Promise<void> {
     ({ schemaname, tablename }) =>
       schemaname === 'public' &&
       (DEMO_DATA_TABLES.includes(tablename as (typeof DEMO_DATA_TABLES)[number]) ||
+        DEMO_SOURCE_TABLES.includes(tablename as (typeof DEMO_SOURCE_TABLES)[number]) ||
         tablename === 'club_membership'),
   );
   if (!hasAllDemoDataTables || !hasOnlyKnownDemoTables) throw new UnsafeDemoDatabaseError();
 
   const userId = await knownDemoUserId(db);
-  if (userId !== null && (await hasExpectedDemoMembership(db, userId))) return;
+  if (
+    userId !== null &&
+    (await hasExpectedDemoMembership(db, userId)) &&
+    (await demoSourceEvidenceState(db)) !== 'custom'
+  ) {
+    return;
+  }
   throw new UnsafeDemoDatabaseError();
 }
 
 /**
- * Add the synthetic demo only to a fresh database. A recognized prior run is
- * a no-op; every other populated database is refused before any write.
+ * Add the synthetic demo only to a fresh database. A recognized prior run
+ * preserves configuration and establishes missing synthetic source evidence;
+ * every other populated database is refused before any write.
  */
 export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
   const knownUserId = await knownDemoUserId(db);
   if (knownUserId !== null) {
     if (!(await hasExpectedDemoMembership(db, knownUserId))) throw new UnsafeDemoDatabaseError();
-    await db.transaction((tx) => alignDemoSerialSequences(tx));
+    await db.transaction(async (tx) => {
+      await ensureDemoSourceEvidence(tx);
+      await alignDemoSerialSequences(tx);
+    });
     return { status: 'already-seeded', coachEmail: DEMO_COACH_EMAIL, userId: knownUserId };
   }
   if (await hasApplicationData(db)) throw new UnsafeDemoDatabaseError();
@@ -242,12 +294,13 @@ export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
         [1, 2, 3, 4, 5].map((riderId) => ({
           eventId,
           plate: `D${riderId}`,
+          sourceRowId: String(riderId),
           displayName: `«RIDER-${String.fromCharCode(64 + riderId)}»`,
           scoringTeam: DEMO_SCORING_TEAM,
-          categoryRaw: 'HS2 Open - North',
-          categoryLevel: 'HS2 Open',
+          categoryRaw: 'HS2 Boys - North',
+          categoryLevel: 'HS2',
           categoryGradeBand: 'HS2',
-          categoryGender: 'Open',
+          categoryGender: 'Boys',
           conference: 'North',
           place: String(riderId),
           status: 'finished',
@@ -261,6 +314,7 @@ export async function bootstrapSafeDemo(db: Db): Promise<DemoBootstrapResult> {
         })),
       ),
     );
+    await ensureDemoSourceEvidence(tx);
     await alignDemoSerialSequences(tx);
   });
 
@@ -335,13 +389,103 @@ export async function finalizeKnownDemoMigration(db: Db): Promise<void> {
 
   await db.transaction(async (tx) => {
     const state = await demoMembershipState(tx, userId);
-    if (state === 'legacy' || state === 'admin') return;
-    if (state !== 'upgrade-coach') throw new UnsafeDemoDatabaseError();
+    if (state === 'upgrade-coach') {
+      await tx
+        .update(schema.clubMembership)
+        .set({ role: 'admin', updatedAt: new Date() })
+        .where(sql`club_id = 1 and user_id = ${userId} and role = 'coach' and revoked_at is null`);
+    } else if (state !== 'legacy' && state !== 'admin') {
+      throw new UnsafeDemoDatabaseError();
+    }
+    await ensureDemoSourceEvidence(tx);
+  });
+}
 
-    await tx
-      .update(schema.clubMembership)
-      .set({ role: 'admin', updatedAt: new Date() })
-      .where(sql`club_id = 1 and user_id = ${userId} and role = 'coach' and revoked_at is null`);
+type DemoSourceEvidenceState = 'unavailable' | 'absent' | 'current' | 'custom';
+
+async function hasEventResultSourceTable(db: DemoExecutor): Promise<boolean> {
+  const table = rowsOf(
+    await db.execute(sql`select to_regclass('public.event_result_source') as relation`),
+  )[0];
+  return table?.relation !== null;
+}
+
+/**
+ * A pre-provenance demo has no binding and can make the one safe synthetic
+ * transition. Any other archived source state is managed source data and stays
+ * refused, just like changed membership or roster data.
+ */
+async function demoSourceEvidenceState(db: DemoExecutor): Promise<DemoSourceEvidenceState> {
+  if (!(await hasEventResultSourceTable(db))) {
+    const rawFetches = await db.select({ id: schema.rawFetch.id }).from(schema.rawFetch);
+    return rawFetches.length === 0 ? 'unavailable' : 'custom';
+  }
+
+  const rawFetches = await db
+    .select({
+      id: schema.rawFetch.id,
+      season: schema.rawFetch.season,
+      eventId: schema.rawFetch.eventId,
+      listId: schema.rawFetch.listId,
+      listName: schema.rawFetch.listName,
+      url: schema.rawFetch.url,
+      httpStatus: schema.rawFetch.httpStatus,
+      contentHash: schema.rawFetch.contentHash,
+    })
+    .from(schema.rawFetch);
+  const bindings = await db
+    .select({
+      eventId: schema.eventResultSource.eventId,
+      rawFetchId: schema.eventResultSource.rawFetchId,
+      listId: schema.eventResultSource.listId,
+      hidden: schema.eventResultSource.hidden,
+    })
+    .from(schema.eventResultSource);
+  if (rawFetches.length === 0 && bindings.length === 0) return 'absent';
+  if (rawFetches.length !== 1 || bindings.length !== 1) return 'custom';
+
+  const [rawFetch] = rawFetches;
+  const [binding] = bindings;
+  return rawFetch !== undefined &&
+    binding !== undefined &&
+    rawFetch.season === 2026 &&
+    rawFetch.eventId === DEMO_EVENTS[1] &&
+    rawFetch.listId === DEMO_2026_SOURCE_LIST_ID &&
+    rawFetch.listName === DEMO_2026_SOURCE_LIST_NAME &&
+    rawFetch.url === DEMO_2026_SOURCE_URL &&
+    rawFetch.httpStatus === 200 &&
+    rawFetch.contentHash === DEMO_2026_SOURCE_HASH &&
+    binding.eventId === 2 &&
+    binding.rawFetchId === rawFetch.id &&
+    binding.listId === DEMO_2026_SOURCE_LIST_ID &&
+    binding.hidden === false
+    ? 'current'
+    : 'custom';
+}
+
+async function ensureDemoSourceEvidence(db: DemoExecutor): Promise<void> {
+  const state = await demoSourceEvidenceState(db);
+  if (state === 'unavailable' || state === 'current') return;
+  if (state === 'custom') throw new UnsafeDemoDatabaseError();
+
+  const [rawFetch] = await db
+    .insert(schema.rawFetch)
+    .values({
+      season: 2026,
+      eventId: DEMO_EVENTS[1],
+      listId: DEMO_2026_SOURCE_LIST_ID,
+      listName: DEMO_2026_SOURCE_LIST_NAME,
+      url: DEMO_2026_SOURCE_URL,
+      httpStatus: 200,
+      payload: DEMO_2026_SOURCE_PAYLOAD,
+      contentHash: DEMO_2026_SOURCE_HASH,
+    })
+    .returning({ id: schema.rawFetch.id });
+  await db.insert(schema.eventResultSource).values({
+    eventId: 2,
+    rawFetchId: rawFetch!.id,
+    listId: DEMO_2026_SOURCE_LIST_ID,
+    hidden: false,
   });
 }
 
