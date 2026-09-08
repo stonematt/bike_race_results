@@ -19,6 +19,22 @@ const DEMO_CLUB = 'Demo Descenders';
 const DEMO_CLUB_SLUG = 'demo-descenders';
 const DEMO_SCORING_TEAM = 'Demo Composite';
 const DEMO_EVENTS = ['demo-2025-checkpoint', 'demo-2026-round-1'] as const;
+const DEMO_DATA_TABLES = [
+  'season',
+  'round',
+  'event',
+  'individual_result',
+  'club',
+  'rider',
+  'user',
+  'coach',
+  'club_scoring_team',
+  'club_member',
+  'rider_plate',
+  'squad',
+  'squad_coach',
+  'squad_member',
+] as const;
 
 export class UnsafeDemoDatabaseError extends Error {
   constructor() {
@@ -35,6 +51,7 @@ export type DemoBootstrapResult =
   | { status: 'already-seeded'; coachEmail: typeof DEMO_COACH_EMAIL; userId: string };
 
 type Row = Record<string, unknown>;
+type TableName = { schemaname: string; tablename: string };
 
 const rowsOf = (result: { rows: unknown[] }): Row[] => result.rows as Row[];
 const numberOf = (row: Row, key: string): number => Number(row[key]);
@@ -54,6 +71,50 @@ export function resolveDemoDatabaseUrl(
     throw new Error('pnpm demo only supports a local PGlite directory.');
   }
   return configured;
+}
+
+/**
+ * Refuse existing data before the migrator can change an ordinary database.
+ * A fully recognizable prior demo is allowed to receive later migrations.
+ */
+export async function assertSafeDemoMigrationPreflight(db: Db): Promise<void> {
+  const tables = rowsOf(
+    await db.execute(sql`
+      select schemaname, tablename
+      from pg_tables
+      where schemaname <> 'information_schema'
+        and schemaname not like 'pg\\_%' escape '\\'
+        and not (schemaname = 'drizzle' and tablename = '__drizzle_migrations')
+      order by schemaname, tablename`),
+  );
+  const populatedTables: TableName[] = [];
+  for (const { schemaname, tablename } of tables) {
+    const schemaName = String(schemaname);
+    const tableName = String(tablename);
+    const result = rowsOf(
+      await db.execute(
+        sql`select exists (
+          select 1 from ${sql.identifier(schemaName)}.${sql.identifier(tableName)} limit 1
+        ) as populated`,
+      ),
+    );
+    if (result[0]?.populated === true) {
+      populatedTables.push({ schemaname: schemaName, tablename: tableName });
+    }
+  }
+  if (populatedTables.length === 0) return;
+  if (
+    populatedTables.length === DEMO_DATA_TABLES.length &&
+    DEMO_DATA_TABLES.every((table) =>
+      populatedTables.some(
+        ({ schemaname, tablename }) => schemaname === 'public' && tablename === table,
+      ),
+    ) &&
+    (await knownDemoUserId(db)) !== null
+  ) {
+    return;
+  }
+  throw new UnsafeDemoDatabaseError();
 }
 
 /**

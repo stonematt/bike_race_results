@@ -7,7 +7,11 @@
  */
 
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { bootstrapSafeDemo, resolveDemoDatabaseUrl } from '../src/lib/demo.ts';
+import {
+  assertSafeDemoMigrationPreflight,
+  bootstrapSafeDemo,
+  resolveDemoDatabaseUrl,
+} from '../src/lib/demo.ts';
 import { createDb } from '../src/lib/db/index.ts';
 import { loadEnvLocal } from './env.ts';
 
@@ -22,6 +26,7 @@ const databaseUrl = resolveDemoDatabaseUrl({ DATABASE_URL: explicitDatabaseUrl }
 const db = createDb(databaseUrl);
 
 try {
+  await assertSafeDemoMigrationPreflight(db);
   await migrate(db, { migrationsFolder: './src/lib/db/migrations' });
   const result = await bootstrapSafeDemo(db);
 
