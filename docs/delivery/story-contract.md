@@ -64,9 +64,10 @@ decoded and normalized, has an exact provenance binding, and the rows used by
 the claim agree with that bound selected list. Reuse the established decoder
 and normalization semantics to validate this agreement; the existence of one
 reporting row or a binding alone does not prove coverage. In particular, the
-current normalizer upserts rows: a correction that omits an old row must not
-leave that row eligible for an approved count. Reject inconsistent coverage
-until normalization/evidence reconciliation resolves it. Do not infer real-world
+earlier normalizer upserted rows without removing omitted plates. The source-
+correction prerequisite now reconciles the selected Event set atomically, but
+existing databases still need re-normalization to remove older retained rows.
+Reject inconsistent coverage until normalization/evidence reconciliation resolves it. Do not infer real-world
 completeness beyond the published source, or add a new league scoring rule.
 
 A missing sibling conference Event makes Round coverage incomplete, but does

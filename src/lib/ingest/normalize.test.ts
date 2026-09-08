@@ -9,6 +9,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import * as schema from '../db/schema.ts';
 import { createTestDb, type TestDatabase } from '../db/testing.ts';
+import { loadRaceCategories } from '../db/editorial-query.ts';
 import { CONFIG_LIST_NAME, archive } from './raw.ts';
 import { countRows } from './rows.ts';
 import { normalize, NormalizeError } from './normalize.ts';
@@ -193,6 +194,117 @@ describe('normalize', () => {
     expect(result!.place).toBe('2');
     // Both payloads are still archived — raw only ever appends.
     expect(await db.select().from(schema.rawFetch)).toHaveLength(3);
+  });
+
+  it('removes a corrected-away finisher from the public event field', async () => {
+    await seed([
+      configRecord('359478', config('359478', [{ ID: 'AAA111', Name: 'flat' }])),
+      listRecord(
+        '359478',
+        'AAA111',
+        listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [row('101', '1'), row('102', '2')] }),
+      ),
+      configRecord('359479', config('359479', [{ ID: 'BBB222', Name: 'other flat' }])),
+      listRecord(
+        '359479',
+        'BBB222',
+        listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [row('201', '1')] }),
+      ),
+    ]);
+    await normalize(db);
+
+    const [season] = await db.select().from(schema.season);
+    if (season === undefined) throw new Error('Synthetic normalization did not create a season.');
+    await db.insert(schema.club).values({ id: 1, name: 'Synthetic Club' });
+    await db.insert(schema.rider).values([
+      { id: 1, displayName: 'Rider One' },
+      { id: 2, displayName: 'Rider Two' },
+    ]);
+    await db.insert(schema.riderPlate).values([
+      { riderId: 1, seasonId: season.id, plate: '101' },
+      { riderId: 2, seasonId: season.id, plate: '102' },
+    ]);
+    await db.insert(schema.clubMember).values([
+      { clubId: 1, seasonId: season.id, riderId: 1 },
+      { clubId: 1, seasonId: season.id, riderId: 2 },
+    ]);
+
+    // The corrected list no longer publishes Rider Two. Archiving is append-only;
+    // only re-normalization may change the event field callers observe.
+    await seed([
+      listRecord(
+        '359478',
+        'AAA111',
+        listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [row('101', '1')] }),
+      ),
+    ]);
+    await normalize(db);
+
+    const corrected = await loadRaceCategories(db, { sourceEventId: '359478', clubId: 1 });
+    expect(corrected).toMatchObject({
+      categories: [
+        {
+          fieldSize: 1,
+          clubRiders: [{ riderId: 1, name: 'Rider One' }],
+        },
+      ],
+    });
+    expect(await loadRaceCategories(db, { sourceEventId: '359479', clubId: 1 })).toMatchObject({
+      categories: [{ fieldSize: 1 }],
+    });
+
+    await normalize(db);
+    expect(await loadRaceCategories(db, { sourceEventId: '359478', clubId: 1 })).toEqual(corrected);
+  });
+
+  it('keeps the prior public field and source binding when a correction cannot decode', async () => {
+    await seed([
+      configRecord('359478', config('359478', [{ ID: 'AAA111', Name: 'flat' }])),
+      listRecord(
+        '359478',
+        'AAA111',
+        listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [row('101', '1'), row('102', '2')] }),
+      ),
+    ]);
+    await normalize(db);
+    const [before] = await db.select().from(schema.eventResultSource);
+
+    await seed([
+      listRecord(
+        '359478',
+        'AAA111',
+        listPayload([...FLAT_FIELDS, 'UnknownCorrectionColumn'], {
+          '#1_HS1 Boys - North': [[...row('101', '1'), 'x']],
+        }),
+      ),
+    ]);
+    await expect(normalize(db)).rejects.toThrow(/UnknownCorrectionColumn/);
+
+    expect(await loadRaceCategories(db, { sourceEventId: '359478', clubId: 1 })).toMatchObject({
+      categories: [{ fieldSize: 2 }],
+    });
+    expect(await db.select().from(schema.eventResultSource)).toEqual([before]);
+  });
+
+  it('removes the event field when a decodable correction publishes an empty selected list', async () => {
+    await seed([
+      configRecord('359478', config('359478', [{ ID: 'AAA111', Name: 'flat' }])),
+      listRecord(
+        '359478',
+        'AAA111',
+        listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [row('101', '1')] }),
+      ),
+    ]);
+    await normalize(db);
+
+    // A category group with no rows retains the valid flat-list layout; its
+    // selected result set is therefore empty rather than undecodable.
+    await seed([
+      listRecord('359478', 'AAA111', listPayload(FLAT_FIELDS, { '#1_HS1 Boys - North': [] })),
+    ]);
+    await normalize(db);
+
+    expect(await loadRaceCategories(db, { sourceEventId: '359478', clubId: 1 })).toBeNull();
   });
 
   it('decodes the By-Team sidecar into its own table, not into the spine', async () => {
