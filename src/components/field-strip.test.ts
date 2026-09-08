@@ -68,7 +68,7 @@ describe('a field with nobody on the axis', () => {
   it('says why there is no axis instead of reading out a ceiling', () => {
     const model = buildFieldStrip(timeTrial);
 
-    expect(model.description).toContain('no gap to the winner');
+    expect(model.description).toContain('no comparable gap to the winner');
     // The floor must not reach a reader as though something were measured.
     expect(model.description).not.toContain('%');
   });

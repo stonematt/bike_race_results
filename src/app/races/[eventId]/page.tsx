@@ -1,75 +1,48 @@
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
-import { Banner } from '@/components/Banner.tsx';
-import { SignOutButton } from '@/components/SignOutButton.tsx';
-import { SquadSection, UnmappedWarning } from '@/components/RaceDetail.tsx';
-import { loadRaceDetail } from './query.ts';
+import { resolveSeasonByYear } from '@/app/[season]/query.ts';
+import { resolveRound } from '@/app/[season]/round/[ordinal]/query.ts';
+import { loadRaceCategories } from '@/lib/db/editorial-query.ts';
+import { checkpointFromSearch, roundHref } from '@/lib/reporting-navigation.ts';
+import { resolveClub } from './query.ts';
 
-/**
- * One race, read out of the database.
- *
- * The tracer bullet closes here: auth, config, raw, normalize, view and UI on
- * one path for a real archived race. Everything after this widens the path
- * rather than extending it.
- *
- * Behind auth like everything else — `src/middleware.ts` refuses an anonymous
- * request before this file runs, and the session read below is for display and
- * for resolving which coach is asking, not a second gate.
- *
- * `force-dynamic` because the page reads a database and a session: rendered
- * once at build time it would either fail with no `DATABASE_URL` or, worse,
- * bake one coach's view of minors' names into a static file. `next.config.ts`
- * separately sends `Cache-Control: no-store` so nothing in front of the app
- * stores the response either (issue #3).
- */
 export const dynamic = 'force-dynamic';
 
-export default async function RacePage({ params }: { params: Promise<{ eventId: string }> }) {
+/**
+ * Historic Event URLs remain usable, but Race review lives at its Round so a
+ * split conference weekend never hides its sibling Event. The fragment keeps
+ * the originally selected source Event in view after the redirect.
+ */
+export default async function RacePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ through?: string | string[] }>;
+}) {
   const { eventId } = await params;
+  const db = appDb();
   const session = await auth();
-  const detail = await loadRaceDetail(appDb(), eventId, session?.user?.id ?? null);
+  const club = await resolveClub(db, session?.user?.id ?? null);
+  if (club === null) notFound();
 
-  if (detail === null) notFound();
+  const review = await loadRaceCategories(db, { sourceEventId: eventId, clubId: club.id });
+  if (review === null) notFound();
 
-  const raced = detail.squads.reduce((n, squad) => n + squad.riders.length, 0);
+  const season = await resolveSeasonByYear(db, String(review.race.seasonYear));
+  if (season === null) notFound();
+  const selectedRound = await resolveRound(db, season.id, String(review.race.roundOrdinal));
+  if (selectedRound === null) notFound();
 
-  return (
-    <>
-      <Banner>
-        {session?.user?.email ? <span>{session.user.email}</span> : null}
-        <SignOutButton />
-      </Banner>
+  const { through: throughSearch } = await searchParams;
+  const requested = checkpointFromSearch(throughSearch);
+  if (requested === null) notFound();
+  const through = requested ?? selectedRound.ordinal;
+  const checkpoint = await resolveRound(db, season.id, String(through));
+  if (checkpoint === null || checkpoint.ordinal < selectedRound.ordinal) notFound();
 
-      <main className="mx-auto max-w-4xl px-6 py-8">
-        <p className="text-muted text-xs font-bold tracking-wider uppercase">
-          <Link href="/races" className="hover:text-accent underline">
-            Races
-          </Link>{' '}
-          · {detail.race.seasonYear} · round {detail.race.roundOrdinal}
-        </p>
-        <h1 className="font-display mt-1 text-4xl tracking-wide uppercase">{detail.race.name}</h1>
-        <p className="text-muted mt-1 text-sm">
-          {detail.starters} started · {raced} from {detail.club?.name ?? 'the club'}
-        </p>
-
-        <UnmappedWarning riders={detail.unmapped} />
-
-        {detail.club === null ? (
-          <p className="border-border bg-surface text-muted mt-8 rounded-lg border p-5 text-sm">
-            Your account is not linked to a club, and there is more than one to choose from. Add a
-            coach profile for this address and reload.
-          </p>
-        ) : detail.squads.length === 0 ? (
-          <p className="border-border bg-surface text-muted mt-8 rounded-lg border p-5 text-sm">
-            No squads are configured for {detail.club.name}. Squads come from{' '}
-            <code>config/club-seed.json</code> and land with <code>pnpm seed</code>.
-          </p>
-        ) : (
-          detail.squads.map((squad) => <SquadSection key={squad.name} squad={squad} />)
-        )}
-      </main>
-    </>
+  redirect(
+    roundHref(season.year, selectedRound.ordinal, checkpoint.ordinal, review.race.sourceEventId),
   );
 }

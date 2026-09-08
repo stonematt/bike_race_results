@@ -254,6 +254,15 @@ describe('the field strip', () => {
     expect(markup).toContain('role="img"');
     expect(markup).toContain('«RIDER-A» at +19.6% back');
   });
+
+  it('does not turn a one-rider field into an invented percent-back spread', () => {
+    const markup = renderToStaticMarkup(
+      <FieldStrip marks={[{ pct: 0, ours: true, place: '1', label: '«ONLY RIDER»' }]} />,
+    );
+
+    expect(markup).toContain('One published rider; no field spread to compare.');
+    expect(markup).not.toContain('<svg');
+  });
 });
 
 describe('the squad frame', () => {

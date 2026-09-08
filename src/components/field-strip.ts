@@ -223,7 +223,7 @@ export function buildFieldStrip(
  * asserting on a phrase would keep passing while they did.
  */
 export const NO_AXIS_REASON =
-  'This race published no gap to the winner, so there is no axis to place riders on.';
+  'The published results provide no comparable gap to the winner, so this field has no spread to compare.';
 
 /**
  * The text a screen reader gets.
