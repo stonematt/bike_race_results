@@ -1,0 +1,180 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
+import { migrate as migratePostgres } from 'drizzle-orm/node-postgres/migrator';
+import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
+import { describe, expect, it } from 'vitest';
+import { loadCategoryField } from './category-query.ts';
+import { createDatabaseRuntime, type DatabaseRuntime } from './runtime.ts';
+import { loadRaceDetail } from '../../app/races/[eventId]/query.ts';
+import { migrationsFolder } from './testing.ts';
+
+const postgresLocation = process.env.D5_TEST_DATABASE_URL;
+
+if (postgresLocation) {
+  const location = new URL(postgresLocation);
+  if (
+    location.hostname !== '127.0.0.1' ||
+    location.port !== '55432' ||
+    location.pathname !== '/d5_runtime_tracer' ||
+    location.username !== 'd5_runtime'
+  ) {
+    throw new Error('D5 parity requires the dedicated loopback tracer cluster.');
+  }
+}
+
+async function migrate(runtime: DatabaseRuntime): Promise<void> {
+  if (runtime.kind === 'postgres') await migratePostgres(runtime.db, { migrationsFolder });
+  else await migratePglite(runtime.db, { migrationsFolder });
+}
+
+async function withRuntime<T>(
+  kind: 'pglite' | 'postgres',
+  work: (runtime: DatabaseRuntime) => Promise<T>,
+): Promise<T> {
+  const directory = kind === 'pglite' ? await mkdtemp(join(tmpdir(), 'descenders-parity-')) : null;
+  const runtime = createDatabaseRuntime(directory ?? postgresLocation!);
+  try {
+    await migrate(runtime);
+    return await work(runtime);
+  } finally {
+    await runtime.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+}
+
+type RaceProjection = {
+  north: { fieldSize: number; pctBack: number | null; place: string; headline: unknown };
+  south: { fieldSize: number; pctBack: number | null; place: string };
+  state: { fieldSize: number; headline: unknown };
+  deficit: { headline: unknown; field: (number | null)[] };
+  dnf: { headline: unknown; points: string | undefined };
+};
+
+/**
+ * Public output only: generated ids, dates and driver result metadata stay out
+ * of this projection. The fixture deliberately combines conference fields,
+ * an unsuffixed state field, a short-lap row and a DNF.
+ */
+async function raceProjection(runtime: DatabaseRuntime, suffix: string): Promise<RaceProjection> {
+  const db = runtime.db;
+  const season = await db.execute(
+    sql`insert into season (year) values (${3000 + Number(suffix.slice(0, 3))}) returning id`,
+  );
+  const seasonId = Number(season.rows[0]?.id);
+  const rounds = await db.execute(sql`
+    insert into round (season_id, ordinal, name)
+    values (${seasonId}, 1, 'Combined'), (${seasonId}, 2, 'State') returning id`);
+  const combinedRoundId = Number(rounds.rows[0]?.id);
+  const stateRoundId = Number(rounds.rows[1]?.id);
+  const events = await db.execute(sql`
+    insert into event (round_id, source_event_id, name)
+    values (${combinedRoundId}, ${'parity-combined-' + suffix}, 'Combined'),
+           (${stateRoundId}, ${'parity-state-' + suffix}, 'State') returning id`);
+  const combinedEventId = Number(events.rows[0]?.id);
+  const stateEventId = Number(events.rows[1]?.id);
+  const club = await db.execute(
+    sql`insert into club (name, slug) values (${`Parity Club ${suffix}`}, ${'parity-' + suffix}) returning id`,
+  );
+  const clubId = Number(club.rows[0]?.id);
+  const squad = await db.execute(sql`
+    insert into squad (club_id, season_id, name, slug)
+    values (${clubId}, ${seasonId}, 'Parity', ${'parity-squad-' + suffix}) returning id`);
+  const squadId = Number(squad.rows[0]?.id);
+  const riders = await db.execute(sql`
+    insert into rider (display_name) values ('NORTH'), ('SOUTH'), ('SHORT'), ('DNF'), ('STATE') returning id`);
+  const riderIds = riders.rows.map((row) => Number((row as { id: unknown }).id));
+  const plates = ['north', 'south', 'short', 'dnf', 'state'].map((plate) => `${plate}-${suffix}`);
+  for (let index = 0; index < riderIds.length; index++) {
+    await db.execute(sql`insert into rider_plate (rider_id, season_id, plate)
+      values (${riderIds[index]}, ${seasonId}, ${plates[index]})`);
+    await db.execute(
+      sql`insert into squad_member (squad_id, rider_id) values (${squadId}, ${riderIds[index]})`,
+    );
+  }
+  const result = async (
+    eventId: number,
+    plate: string,
+    category: string,
+    place: string,
+    seconds: string | null,
+    laps: number | null,
+    status: 'finished' | 'dnf' = 'finished',
+    points: number | null = null,
+  ) =>
+    db.execute(sql`
+      insert into individual_result
+        (event_id, plate, display_name, scoring_team, category_raw, place, status, time_raw, time_seconds, laps, points)
+      values (${eventId}, ${plate}, ${plate}, 'Parity School', ${category}, ${place}, ${status},
+              ${seconds ?? 'DNF'}, ${seconds}, ${laps}, ${points})`);
+  await result(combinedEventId, `north-winner-${suffix}`, 'HS2 Girls - North', '1', '1000', 3);
+  await result(combinedEventId, plates[0]!, 'HS2 Girls - North', '2', '1100', 3);
+  await result(combinedEventId, `north-fill-${suffix}`, 'HS2 Girls - North', '3', '1200', 3);
+  await result(combinedEventId, `south-winner-${suffix}`, 'HS2 Girls - South', '1', '900', 2);
+  await result(combinedEventId, plates[1]!, 'HS2 Girls - South', '2', '990', 2);
+  await result(combinedEventId, plates[2]!, 'HS2 Girls - North', '4', '950', 2);
+  await result(combinedEventId, plates[3]!, 'HS2 Girls - North', 'DNF', null, 1, 'dnf', 100);
+  await result(stateEventId, `state-winner-${suffix}`, 'HS2 Girls', '1', '1200', 3);
+  await result(stateEventId, plates[4]!, 'HS2 Girls', '2', '1320', 3);
+
+  const [northField, northDetail, southField, stateDetail] = await Promise.all([
+    loadCategoryField(db, riderIds[0]!, combinedRoundId, squadId),
+    loadRaceDetail(db, `parity-combined-${suffix}`, clubId),
+    loadCategoryField(db, riderIds[1]!, combinedRoundId, squadId),
+    loadRaceDetail(db, `parity-state-${suffix}`, clubId),
+  ]);
+  const find = (detail: NonNullable<typeof northDetail>, plate: string) =>
+    detail.squads[0]!.riders.find((rider) => rider.card.plate === plate)!;
+  const north = find(northDetail!, plates[0]!);
+  const south = find(northDetail!, plates[1]!);
+  const short = find(northDetail!, plates[2]!);
+  const dnf = find(northDetail!, plates[3]!);
+  const state = find(stateDetail!, plates[4]!);
+  return {
+    north: {
+      fieldSize: northField!.fieldSize,
+      pctBack: northField!.rows.find((row) => row.plate === plates[0])!.pctBack,
+      place: north.card.stats.find((stat) => stat.label === 'Place')!.value,
+      headline: north.card.headline,
+    },
+    south: {
+      fieldSize: southField!.fieldSize,
+      pctBack: southField!.rows.find((row) => row.plate === plates[1])!.pctBack,
+      place: south.card.stats.find((stat) => stat.label === 'Place')!.value,
+    },
+    state: { fieldSize: state.field.length, headline: state.card.headline },
+    deficit: { headline: short.card.headline, field: short.field.map((mark) => mark.pct) },
+    dnf: {
+      headline: dnf.card.headline,
+      points: dnf.card.stats.find((stat) => stat.label === 'Points')?.value,
+    },
+  };
+}
+
+describe('public race reporting transport parity', () => {
+  it('keeps conference, null-conference, deficit and DNF projections identical', async () => {
+    const suffix = String(Date.now()).slice(-6);
+    const pglite = await withRuntime('pglite', (runtime) => raceProjection(runtime, suffix));
+    expect(pglite).toMatchObject({
+      north: { fieldSize: 5, pctBack: 10, place: '2 / 5' },
+      south: { fieldSize: 2, pctBack: 10, place: '2 / 2' },
+      state: { fieldSize: 2, headline: { kind: 'pct-back', value: '10%', caption: 'back' } },
+      deficit: { headline: { kind: 'place-deficit', value: '4', caption: 'of 5 · −1 lap' } },
+      dnf: { headline: { kind: 'dnf' }, points: '100' },
+    });
+    if (postgresLocation) {
+      await expect(
+        withRuntime('postgres', (runtime) => raceProjection(runtime, suffix + 'p')),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          north: pglite.north,
+          south: pglite.south,
+          state: pglite.state,
+          deficit: pglite.deficit,
+          dnf: pglite.dnf,
+        }),
+      );
+    }
+  }, 30000);
+});
