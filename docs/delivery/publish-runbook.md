@@ -54,7 +54,7 @@ Owner column: **operator** is the human with provider and registrar access;
 | 4   | Club config, first admin, corpus load               | operator + agent | done        |
 | 5   | Mail sender and its DNS records                     | operator         | not started |
 | 6   | Host project, environment variables, build settings | operator         | done        |
-| 7   | Domain and TLS                                      | operator         | not started |
+| 7   | Domain and TLS                                      | operator + agent | done        |
 | 8   | Verification pass                                   | agent            | not started |
 | 9   | Ledger entry and issue close-out                    | agent            | in progress |
 
@@ -238,3 +238,29 @@ Append one line per completed step: date, what was done, and the evidence.
   a push to `main`, or a redeploy of a commit already there. `.gitignore` covers
   `.vercel/`; there is no `.vercelignore`, and adding one would not make a
   working-tree upload safe.
+- 2026-09-09. **Phase 7 done. `results.scdescenders.com` is live over TLS.** The
+  domain was added to the project by CLI, which reported _Invalid Configuration_
+  and recommended an apex-shaped `A` record to `76.76.21.21`. A `CNAME` to
+  `cname.vercel-dns.com` was published at Squarespace instead — the documented
+  record for a subdomain, and it survives a renumbering of that address. Host
+  entered as the bare prefix `results`, because Squarespace appends the zone.
+  Vercel also offered to take over the nameservers for `scdescenders.com`; that
+  was declined and must stay declined, since the zone carries the club's website
+  and will carry the phase 5 mail records. `vercel domains inspect` still shows
+  every nameserver as mismatched for exactly that reason — it is reporting on the
+  zone, not on this record, and is not a fault to chase.
+  Certificate issued roughly two minutes after the record resolved. Verified
+  signed out: `/`, `/races`, `/clubs` and `/2026` all answer `307` to
+  `/signin?callbackUrl=…`; `strict-transport-security` and
+  `x-robots-tag: noindex, nofollow, noarchive` are present; `/robots.txt` is
+  `Disallow: /`; `/api/auth/session` is `null`; and `/api/auth/providers` is
+  `{}`, which is the conditional provider registration confirmed in production —
+  no provider exists until `AUTH_EMAIL_SERVER` is set.
+  This exercises the posture recorded under phase 6: Standard Protection exempts
+  custom production domains, so on this origin the app's own session check is the
+  only thing in front of minors' names. The probe above is the evidence that it
+  holds. Re-run it after any change to middleware or to Deployment Protection.
+- 2026-09-09. Adding the domain by CLI was refused by the agent's auto-mode
+  classifier — an origin change, the same gate that refuses `vercel env add`.
+  The operator ran it. Read-only verification (`dig`, `curl`, `vercel domains
+inspect`) was not gated, so the whole confirmation pass stayed with the agent.
