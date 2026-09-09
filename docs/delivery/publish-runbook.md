@@ -53,7 +53,7 @@ Owner column: **operator** is the human with provider and registrar access;
 | 3   | Schema migration against the hosted database        | operator + agent | done        |
 | 4   | Club config, first admin, corpus load               | operator + agent | done        |
 | 5   | Mail sender and its DNS records                     | operator         | not started |
-| 6   | Host project, environment variables, build settings | operator         | not started |
+| 6   | Host project, environment variables, build settings | operator         | paused      |
 | 7   | Domain and TLS                                      | operator         | not started |
 | 8   | Verification pass                                   | agent            | not started |
 | 9   | Ledger entry and issue close-out                    | agent            | not started |
@@ -134,3 +134,31 @@ Append one line per completed step: date, what was done, and the evidence.
   decoded and 14 recognized and not written, giving 3,068 individual results and
   641 season standings. Verified after load: views resolve, one club membership,
   no unmapped riders. No deployment, real invitation, or public URL yet.
+- 2026-09-09. Phase 6 opened, then **paused mid-flight by the operator**. Vercel
+  CLI authenticated against the personal Hobby account; project
+  `bike-race-results` created in the personal scope. It is **not connected to
+  the repository**, so nothing deploys and no public URL exists. The link used
+  for CLI work lives in a session scratch directory rather than the worktree, so
+  no `.vercel` directory entered the checkout — but `.gitignore` still needs a
+  `.vercel` line before anyone runs `vercel` from the repository itself.
+  `CURRENT_SEASON` was set in the Production scope. `DATABASE_URL`,
+  `AUTH_SECRET` and `AUTH_URL` are **not yet set**; the pooled URL was derived
+  from the direct one — the endpoint host with a `-pooler` suffix, `sslmode`
+  already `verify-full` — and never printed.
+- 2026-09-09. Open question closed: `admin@scdescenders.com` is a **real
+  mailbox**, not a forwarding alias. It can receive magic-link mail, so the
+  bootstrapped admin is sufficient for the phase 8 sign-in test and no second
+  address needs seeding.
+- 2026-09-09. **Blocker found: `main` is 228 commits behind `dev`**
+  (`origin/main` at `7079fe4`, `origin/dev` at `b93f5c9`). The standing decision
+  that the host's production branch is `main`, not the repository default `dev`,
+  is what keeps unreviewed work off an origin that serves minors' names — so it
+  stands. But `main` today would deploy a months-old application against a schema
+  migrated from current code. The operator is landing a large merge into `dev`
+  and will release it to `main`; the host wiring waits for that release.
+  Sequence when it resumes, and the order matters: set the production branch and
+  Deployment Protection **before** connecting the repository, because connecting
+  triggers an immediate production deployment.
+- 2026-09-09. Re-check before deploying: the pending merge may move the schema.
+  If it does, migrate the Neon `production` branch again and re-verify the view
+  and membership counts before the first deployment serves a request.
