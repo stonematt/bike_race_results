@@ -123,20 +123,24 @@ graduated or transferred stays in the seasons they actually rode. A Squad is lik
 constituted per Season. A Rider may be on two Clubs' Rosters in one Season — that is a
 mid-season transfer, and both Clubs need to read it.
 
-Roster membership is inherited, not declared. A result row carries a Scoring Team; the
-Club that Scoring Team maps to in that Season is the Club the Rider joins. The mapping
-is season-keyed and one-to-many because the composite-subdivision rule keeps the strings
-moving (ADR-0002), so it is read live and never materialised onto a result. Loading a
-race is therefore what grows the Roster: the Scoring Team puts the row in a Club's
-scope, and attaching its Plate to a Rider puts that Rider on the Roster. Seeding a
-roster from config is a bootstrap, not the mechanism.
+Roster membership is meant to be inherited, not declared. A result row carries a Scoring
+Team, and the Club that Scoring Team belongs to in that Season is the Club the Rider
+joins. A Club spans one or more Scoring Teams and which ones changes per Season, because
+the composite-subdivision rule keeps the strings moving (ADR-0002) — so the mapping is
+season-keyed, read live, and never materialised onto a result. Growing the Roster is then
+what loading a race does: the Scoring Team puts the row in a Club's scope, and attaching
+its Plate to a Rider puts that Rider on the Roster. Seeding a roster from config is a
+bootstrap, not the mechanism. **Not yet true of the code** — nothing writes the roster
+table today (#153), and a Rider has no key that survives a Season boundary (#152).
 
 **Plate**:
 The number a Rider races under, issued per Season out of blocks keyed to wave and
 category. It says where they start, not who they are, and the blocks are redrawn every
 year — so a Plate never carries across Seasons and a match between two Seasons is
-coincidence, not identity. Within a Season it does identify a Rider, bounded by Round
-where a Plate changed hands. See ADR-0009.
+coincidence, not identity. Within a Season it does identify a Rider, bounded by Round in
+both directions: a Rider who changed Plates mid-season holds two bounded Plates, and a
+Plate reissued to a second person belongs to each of them over disjoint Rounds. See
+ADR-0009.
 _Avoid_: Number, bib, rider id.
 
 **Prior Name**:

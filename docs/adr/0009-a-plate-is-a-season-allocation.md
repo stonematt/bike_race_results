@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-09-09
+---
+
 # A plate is a season allocation
 
 A plate number is issued per Season out of blocks keyed to wave and category. It encodes
