@@ -24,9 +24,9 @@ const authorized = authConfig.callbacks.authorized as (arg: {
 // Two-step cast: next-auth's session callback declares an adapter-shaped
 // argument this one never reads, so the narrow shape is not directly comparable.
 const session = authConfig.callbacks.session as unknown as (arg: {
-  session: { provider?: string };
+  session: { provider?: string; user?: { id?: string } };
   token: Record<string, unknown>;
-}) => { provider?: string };
+}) => { provider?: string; user?: { id?: string } };
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -40,23 +40,26 @@ describe('authorized', () => {
     expect(authorized({ auth: { user: {} } })).toBe(false);
   });
 
-  it('re-checks the allowlist on every request, not just at sign-in', () => {
-    // The revocation case. Under `strategy: 'jwt'` there is no session row to
-    // delete, so if this callback trusted the token alone, striking an address
-    // from AUTH_ALLOWED_EMAILS would leave its holder reading rider names until
-    // the token expired — up to 30 days.
-    const signedIn = { auth: { user: { email: 'coach@example.org' } } };
+  it('re-checks configured provider provenance on every request', () => {
+    const signedIn = { auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } };
 
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'coach@example.org');
     expect(authorized(signedIn)).toBe(true);
 
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'someone-else@example.org');
+    expect(authorized(signedIn)).toBe(true);
+
+    vi.stubEnv('AUTH_EMAIL_SERVER', '');
     expect(authorized(signedIn)).toBe(false);
   });
 
-  it('fails closed when the allowlist is empty', () => {
+  it('does not use an allowlist as Edge authority', () => {
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', '');
-    expect(authorized({ auth: { user: { email: 'coach@example.org' } } })).toBe(false);
+    expect(
+      authorized({ auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } }),
+    ).toBe(true);
   });
 });
 
@@ -70,6 +73,7 @@ describe('authorized, with the development shim switched on', () => {
   const shimOn = () => {
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('AUTH_DEV_LOGIN', '1');
+    vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
     vi.stubEnv('AUTH_ALLOWED_EMAILS', 'coach@example.org');
   };
 
@@ -80,14 +84,11 @@ describe('authorized, with the development shim switched on', () => {
     );
   });
 
-  it('still allowlists a magic-link session in the same process', () => {
-    // The bug this locks down: branching on the shim being AVAILABLE rather
-    // than on the session having come through it dropped the allowlist for
-    // every session at once, revocation included.
+  it('keeps a configured magic-link session distinct from the local shim', () => {
     shimOn();
     expect(
       authorized({ auth: { user: { email: 'anyone@example.test' }, provider: 'nodemailer' } }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       authorized({ auth: { user: { email: 'coach@example.org' }, provider: 'nodemailer' } }),
     ).toBe(true);
@@ -116,6 +117,20 @@ describe('the session callback', () => {
     // checked. A non-string here must not reach the gate as one.
     expect(session({ session: {}, token: { provider: 42 } }).provider).toBeUndefined();
     expect(session({ session: {}, token: {} }).provider).toBeUndefined();
+  });
+
+  it('carries the signed-in id onto the session', () => {
+    // Under the jwt strategy nothing does this for us, and without it every
+    // query keyed on a coach receives null instead of an id.
+    const out = session({ session: { user: {} }, token: { sub: 'coach-1' } });
+    expect(out.user?.id).toBe('coach-1');
+  });
+
+  it('leaves the id alone when the token carries none, or is not a string', () => {
+    expect(session({ session: { user: {} }, token: {} }).user?.id).toBeUndefined();
+    expect(session({ session: { user: {} }, token: { sub: 7 } }).user?.id).toBeUndefined();
+    // A session with no user at all must not throw on the way through.
+    expect(() => session({ session: {}, token: { sub: 'coach-1' } })).not.toThrow();
   });
 });
 
@@ -151,6 +166,13 @@ describe('the middleware matcher', () => {
     // so gating it would leave the one public page without one.
     expect(gated('/icon.svg')).toBe(false);
     expect(gated('/robots.txt')).toBe(false);
+    // Local-only UAT artwork is ignored from source control and deliberately
+    // has no application route; it must remain reachable to the anonymous
+    // sign-in surface when an owner opts into the local asset directory.
+    expect(gated('/local-brand/milo-lockup-orange.png')).toBe(false);
+    expect(gated('/local-brand/jersey-mountains.png')).toBe(false);
+    expect(gated('/local-brand/arbitrary.png')).toBe(true);
+    expect(gated('/local-brand/milo-lockup-orange.png/extra')).toBe(true);
   });
 
   it('does not let a prefix of an exempt path escape the gate', () => {

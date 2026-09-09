@@ -1,0 +1,294 @@
+/**
+ * The race-detail page against the published corpus.
+ *
+ * **Local lane.** This reads `fixtures/` — minors' full names, schools, grades,
+ * plates and finish times — so it runs on a developer's machine with a human
+ * present and never in CI (docs/fixtures.md, issue #29). It also reads the club
+ * config, whose display names live outside the tree; with that file absent every
+ * rider takes their `«RIDER-A»` pseudonym, which is what runs here.
+ *
+ * Every assertion below is a count, a null check, or a string the page itself
+ * composes. Nothing asserts on, or can print, a rider's name.
+ *
+ * `query.test.ts` pins the same guards on synthetic rows and runs in CI. This
+ * suite exists for what synthetic rows cannot prove: that the guards fire on
+ * the published results they were written for, in the numbers those results
+ * actually produce. The counts are written down so a change that quietly moves
+ * a rider from one guard to another has to say so.
+ */
+
+import { renderToStaticMarkup } from 'react-dom/server';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { loadClubConfig } from '../../../lib/club-config.ts';
+import { createTestDb, type TestDatabase } from '../../../lib/db/testing.ts';
+import { GENDERS, GRADE_BANDS } from '../../../lib/ingest/category.ts';
+import { loadCorpus } from '../../../lib/ingest/corpus.ts';
+import { normalize } from '../../../lib/ingest/normalize.ts';
+import { seedClubConfig } from '../../../lib/seed.ts';
+import { listRaces, loadRaceDetail, type RaceDetail } from './query.ts';
+import { NO_AXIS_REASON } from '../../../components/field-strip.ts';
+import { RiderCardView } from '../../../components/RaceDetail.tsx';
+import type { PlacedRider } from '../../../components/race-detail.ts';
+
+/** 2025 Race 4 North — where a naive percent-back inverts the HS1 Boys field. */
+const RACE_4_NORTH = '363499';
+/** 2025 Race 1 — the prologue time trial, whose finishers share a winner clock. */
+const PROLOGUE = '357242';
+/** The 2026 opener. A 2025 config maps no plates into it, and must not try. */
+const OPENER_2026 = '418436';
+
+let db: TestDatabase;
+let raceFour: RaceDetail;
+let prologue: RaceDetail;
+
+beforeAll(async () => {
+  db = await createTestDb();
+  await loadCorpus(db);
+  await normalize(db);
+  await seedClubConfig(db, loadClubConfig());
+
+  raceFour = (await loadRaceDetail(db, RACE_4_NORTH, 1))!;
+  prologue = (await loadRaceDetail(db, PROLOGUE, 1))!;
+}, 180_000);
+
+const cards = (detail: RaceDetail): PlacedRider[] => detail.squads.flatMap((squad) => squad.riders);
+
+const tally = <T extends string>(values: readonly T[]): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const value of values) out[value] = (out[value] ?? 0) + 1;
+  return out;
+};
+
+const fieldCell = (rider: PlacedRider) =>
+  rider.card.stats.find((stat) => stat.label === 'Field')!.value;
+
+/**
+ * The fourteen published categories, in the order the cards should run.
+ *
+ * Built from the ingest vocabulary rather than from the builder's own ordering.
+ * A test that reuses the ordering it is checking proves only that the code
+ * agrees with itself.
+ */
+const LEAGUE_ORDER: readonly string[] = GRADE_BANDS.flatMap((band) =>
+  GENDERS.map((gender) => `${band} ${gender}`),
+);
+
+/** The published place off the card's own Place cell. `—` is a rider unplaced. */
+const placeOf = (rider: PlacedRider): number => {
+  const published = /^(\d+) \//.exec(
+    rider.card.stats.find((stat) => stat.label === 'Place')!.value,
+  );
+  return published === null ? Number.POSITIVE_INFINITY : Number(published[1]);
+};
+
+const ascending = (a: number, b: number) => (a === b ? 0 : a < b ? -1 : 1);
+
+describe('the page opens a real archived race', () => {
+  it('offers every archived event', async () => {
+    expect(await listRaces(db)).toHaveLength(9);
+  });
+
+  it('reads the club and its squads out of the checked-in config', () => {
+    const config = loadClubConfig();
+    expect(raceFour.club?.name).toBe(config.club);
+    expect(raceFour.squads.map((squad) => squad.name).sort()).toEqual(
+      config.squads.map((squad) => squad.name).sort(),
+    );
+  });
+
+  it('cards the club riders who started, and only them', () => {
+    expect(cards(raceFour)).toHaveLength(21);
+    expect(raceFour.starters).toBe(267);
+  });
+
+  it('cards nobody in a season the config does not map', async () => {
+    // `rider_plate` is season-scoped by decision (issue #1): the same plate is a
+    // different person a season later. A 2025 roster must produce no cards at a
+    // 2026 event rather than guessing.
+    const opener = (await loadRaceDetail(db, OPENER_2026, 1))!;
+    expect(opener.starters).toBe(604);
+    expect(cards(opener)).toHaveLength(0);
+  });
+});
+
+describe('guard 1 — the short-lap riders at Race 4 North', () => {
+  it('renders eight of them with their published place, a lap-deficit caption, and never a percentage', () => {
+    const lapped = cards(raceFour).filter((rider) => rider.card.headline.kind === 'place-deficit');
+    expect(lapped).toHaveLength(8);
+
+    for (const rider of lapped) {
+      expect(rider.card.headline.value).toBe(rider.card.mark.place);
+      expect(rider.card.headline.caption).toMatch(/^of \d+ · −\d+ laps?$/);
+      expect(rider.card.mark.pct).toBeNull();
+      expect(rider.card.outside?.kind).toBe('lap-deficit');
+    }
+  });
+
+  it('leaves no rider anywhere in the drawn fields with a negative percentage', () => {
+    // The inversion this guards against: at this event five 2-lap HS1 Boys have
+    // a FASTER clock time than the 3-lap winner. Placed on the axis they would
+    // sit left of zero — ahead of a rider they were a lap behind.
+    const placed = cards(raceFour)
+      .flatMap((rider) => rider.field)
+      .filter((mark) => mark.pct !== null);
+    expect(placed.length).toBeGreaterThan(0);
+    expect(placed.filter((mark) => (mark.pct as number) < 0)).toEqual([]);
+  });
+});
+
+describe('guards 2 and 3 — the percentile', () => {
+  it('splits the field cell three ways, and each way for its own reason', () => {
+    const kinds = cards(raceFour).map((rider) => {
+      const cell = fieldCell(rider);
+      if (/^\d+ started, too few to rank$/.test(cell)) return 'too-few';
+      if (/^top \d+%$/.test(cell)) return 'percentile';
+      if (cell === '—') return 'dnf';
+      return 'place';
+    });
+    // Three riders sat in a category under ten — HS2 Girls fielded 7 here.
+    expect(tally(kinds)).toEqual({ 'too-few': 3, percentile: 5, place: 10, dnf: 3 });
+  });
+
+  it('never prints a percentile below the median or for a field under ten', () => {
+    for (const rider of cards(raceFour)) {
+      const cell = fieldCell(rider);
+      const percentile = /^top (\d+)%$/.exec(cell);
+      if (percentile !== null) {
+        expect(Number(percentile[1])).toBeLessThanOrEqual(50);
+        continue;
+      }
+      const refused = /^(\d+) started, too few to rank$/.exec(cell);
+      if (refused !== null) expect(Number(refused[1])).toBeLessThan(10);
+    }
+  });
+});
+
+describe('guard 4 — a DNF as the source marks it', () => {
+  it('imputes no time and no place for the three of them, and keeps the points', () => {
+    const dnfs = cards(raceFour).filter((rider) => rider.card.headline.kind === 'dnf');
+    expect(dnfs).toHaveLength(3);
+
+    for (const rider of dnfs) {
+      const cells = Object.fromEntries(rider.card.stats.map((stat) => [stat.label, stat.value]));
+      expect(cells.Place).toBe('—');
+      expect(cells.Time).toBe('—');
+      expect(cells.Field).toBe('—');
+      // Points are published for a DNF and are not ours to blank.
+      expect(cells.Points).toMatch(/^\d+$/);
+      expect(rider.card.mark.pct).toBeNull();
+    }
+  });
+});
+
+describe('guard 5 — the unmapped-rider warning', () => {
+  it('finds nothing to warn about, because every club plate here is mapped', () => {
+    // The count that matters is zero *today*: the checked-in config covers every
+    // Descenders plate at this event. Drop a mapping and this test says so,
+    // which is the regression the warning exists to catch.
+    expect(raceFour.unmapped).toEqual([]);
+  });
+
+  it('keeps the warning and the cards disjoint', () => {
+    const carded = new Set(cards(raceFour).map((rider) => rider.card.plate));
+    for (const rider of raceFour.unmapped) expect(carded.has(rider.plate)).toBe(false);
+  });
+});
+
+describe('lap splits, as the lists actually publish them', () => {
+  it('draws bars where there are several and a value where there is one', () => {
+    // Fourteen riders have two or more splits; six have exactly one, which
+    // renders as the time rather than as a lone full-width bar. One rider's
+    // list published no splits at all.
+    expect(tally(cards(raceFour).map((rider) => rider.card.laps.kind))).toEqual({
+      bars: 14,
+      value: 6,
+      none: 1,
+    });
+  });
+});
+
+describe('the prologue time-trial field', () => {
+  it('renders percent back where the category publishes a usable winner', () => {
+    const riders = cards(prologue);
+    expect(riders).toHaveLength(25);
+    expect(tally(riders.map((rider) => rider.card.headline.kind))).toEqual({
+      'pct-back': 20,
+      place: 5,
+    });
+
+    expect(tally(riders.map((rider) => (rider.card.mark.pct === null ? 'no-gap' : 'gap')))).toEqual(
+      {
+        gap: 20,
+        'no-gap': 5,
+      },
+    );
+  });
+
+  it('still ranks the field, because a percentile needs places and not laps', () => {
+    expect(
+      tally(cards(prologue).map((rider) => (/^top /.test(fieldCell(rider)) ? 'top' : 'place'))),
+    ).toEqual({ top: 12, place: 13 });
+  });
+
+  it('draws no lap chart, because the list published no splits', () => {
+    expect(tally(cards(prologue).map((rider) => rider.card.laps.kind))).toEqual({ none: 25 });
+  });
+
+  it('renders a strip only where the field has a comparable winner', () => {
+    /*
+     * The other half of the seam. Everything above stops at the model, and the
+     * model was already right: a green suite and a clean typecheck both missed
+     * #60 because nothing here asked what a coach is actually shown. The bug
+     * was a render — 25 cards drew an axis labelled with the floor.
+     *
+     * A tally rather than a per-card assertion, because a failing `toContain`
+     * prints the received markup — and the received markup is a rider card.
+     */
+    const rendered = cards(prologue).map((rider) =>
+      renderToStaticMarkup(<RiderCardView card={rider.card} field={rider.field} />),
+    );
+
+    expect(
+      tally(rendered.map((markup) => (markup.includes('<svg') ? 'strip' : 'no strip'))),
+    ).toEqual({ strip: 20, 'no strip': 5 });
+    expect(
+      tally(rendered.map((markup) => (markup.includes(NO_AXIS_REASON) ? 'said why' : 'silent'))),
+    ).toEqual({ silent: 20, 'said why': 5 });
+  });
+});
+
+describe('card order at a real event (issue #61)', () => {
+  it('runs each squad category by category, in the order the league ranks them', () => {
+    // The symptom: at this event the HS1 Boys came back 67th, 20th, 63rd, 65th,
+    // in whatever order the query plan happened to produce.
+    for (const squad of raceFour.squads) {
+      const categories = squad.riders.map((rider) => rider.card.category);
+      const runs = categories.filter((category, i) => category !== categories[i - 1]);
+
+      expect(runs.filter((category) => !LEAGUE_ORDER.includes(category))).toEqual([]);
+      // One run per category: nobody is stranded away from their peers.
+      expect(runs).toEqual([...new Set(categories)]);
+      expect(runs).toEqual(
+        [...runs].sort((a, b) => ascending(LEAGUE_ORDER.indexOf(a), LEAGUE_ORDER.indexOf(b))),
+      );
+    }
+  });
+
+  it('ascends by published place inside a category, the unplaced last', () => {
+    for (const squad of raceFour.squads) {
+      for (const category of new Set(squad.riders.map((rider) => rider.card.category))) {
+        const places = squad.riders
+          .filter((rider) => rider.card.category === category)
+          .map(placeOf);
+        expect(places).toEqual([...places].sort(ascending));
+      }
+    }
+  });
+
+  it('renders the same order on a second read of the same event', async () => {
+    const again = (await loadRaceDetail(db, RACE_4_NORTH, 1))!;
+    expect(cards(again).map((rider) => rider.card.plate)).toEqual(
+      cards(raceFour).map((rider) => rider.card.plate),
+    );
+  });
+});

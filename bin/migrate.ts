@@ -3,12 +3,26 @@
  * stripping — `node bin/migrate.ts`, no build step.
  */
 
-import { migrate } from 'drizzle-orm/pglite/migrator';
-import { createDb } from '../src/lib/db/index.ts';
+import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
+import { migrate as migratePostgres } from 'drizzle-orm/node-postgres/migrator';
+import { createDatabaseRuntime } from '../src/lib/db/runtime.ts';
+import { resolveDatabaseUrl } from '../src/lib/db/url.ts';
+import { loadEnvLocal } from './env.ts';
 
-const url = process.env.DATABASE_URL ?? './.pglite';
-const db = createDb(url);
+loadEnvLocal();
 
-await migrate(db, { migrationsFolder: './src/lib/db/migrations' });
-console.log(`migrated ${url}`);
-process.exit(0);
+const url = resolveDatabaseUrl();
+const runtime = createDatabaseRuntime(url);
+
+try {
+  if (runtime.kind === 'postgres') {
+    await runtime.withMigrationLock((db) =>
+      migratePostgres(db, { migrationsFolder: './src/lib/db/migrations' }),
+    );
+  } else {
+    await migratePglite(runtime.db, { migrationsFolder: './src/lib/db/migrations' });
+  }
+  console.log('migrated database');
+} finally {
+  await runtime.close();
+}

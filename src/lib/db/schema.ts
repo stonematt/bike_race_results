@@ -15,15 +15,19 @@
  * that is where every decision belongs — revisable without a re-ingest.
  */
 
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   bigserial,
+  bigint,
   boolean,
+  check,
+  type AnyPgColumn,
   date,
   index,
   integer,
   jsonb,
   numeric,
+  pgEnum,
   pgTable,
   primaryKey,
   serial,
@@ -127,6 +131,18 @@ export const rawFetch = pgTable(
   (t) => [index('raw_fetch_lookup_idx').on(t.eventId, t.listId, t.fetchedAt)],
 );
 
+/** The exact source list revision that produced an Event's normalized spine. */
+export const eventResultSource = pgTable('event_result_source', {
+  eventId: integer('event_id')
+    .primaryKey()
+    .references(() => event.id),
+  rawFetchId: bigint('raw_fetch_id', { mode: 'number' })
+    .notNull()
+    .references(() => rawFetch.id),
+  listId: text('list_id').notNull(),
+  hidden: boolean('hidden').notNull(),
+});
+
 /* ============================================================================
  * Normalized layer — one table per source list family
  *
@@ -169,14 +185,30 @@ export const individualResult = pgTable(
     /** The category string exactly as published, spelling defects included
      *  ("HS2 Boys- South", "HS2 Girl - South"). Never key on this. */
     categoryRaw: text('category_raw').notNull(),
-    /** Normalized triple, plus conference split out. Key on these. */
+    /**
+     * The whole canonical category ("HS2 Girls"), not a level token —
+     * `v_individual_result` coalesces this column as the canonical `category`
+     * every other view reads. Writing a bare level here ("HS2") would
+     * collapse HS1/HS2/HS3 into one bucket everywhere that category is used.
+     */
     categoryLevel: text('category_level'),
+    /** Grade band and gender, normalized. Key on these plus categoryLevel. */
     categoryGradeBand: text('category_grade_band'),
     categoryGender: text('category_gender'),
+    /** North | South, split out of the raw category's suffix ("HS2 Boys-
+     *  South"). Null where the category carries no conference. */
     conference: text('conference'),
     /** Place as published: an integer, or "*" for a DNF. Verbatim. */
     place: text('place').notNull(),
-    /** finished | lapped | dnf. No DQ, no DNS — zero of each in a full season. */
+    /**
+     * finished | dnf — the only values ingest ever writes. No DQ, no DNS —
+     * zero of each in a full season. A short lap count is not a value of this
+     * column and never became one: it needs the category's leading lap count,
+     * which no single row carries, so `v_race_result` derives `laps_down`
+     * alongside rather than adding a third status here. That it is not a
+     * status is the whole of ADR-0004 — a rider who rode fewer laps still
+     * holds the place NICA published, and the deficit only annotates it.
+     */
     status: text('status').notNull(),
     /** "[H:]MM:SS.cc", or "DNF". Verbatim. */
     timeRaw: text('time_raw').notNull(),
@@ -369,14 +401,27 @@ export const seasonTeamStanding = pgTable(
  * Config layer — hand-maintained. Normalize never writes here.
  * ========================================================================= */
 
-/** The organisation a coach runs, e.g. Salem Composite Descenders. Ours. */
+/**
+ * The organisation a coach runs, e.g. Salem Composite Descenders. Ours.
+ *
+ * `slug` is globally unique and carries no season — ADR-0002 keeps `club`
+ * deliberately season-independent, so a club's address in a URL identifies it
+ * across every season, not one year of it (issue #114). `$defaultFn` is a
+ * fallback for a row inserted with no opinion about its slug (test fixtures,
+ * mainly); every real write goes through `upsertClub` (`src/lib/seed.ts`),
+ * which always resolves a real one — an explicit config value, or one derived
+ * from the name — before it ever reaches here.
+ */
 export const club = pgTable(
   'club',
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull(),
+    slug: text('slug')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
   },
-  (t) => [uniqueIndex('club_name_key').on(t.name)],
+  (t) => [uniqueIndex('club_name_key').on(t.name), uniqueIndex('club_slug_key').on(t.slug)],
 );
 
 /**
@@ -412,6 +457,59 @@ export const rider = pgTable('rider', {
   displayName: text('display_name').notNull(),
   notes: text('notes'),
 });
+
+/**
+ * The season-keyed club roster: which riders were this club's in a given year.
+ * The parallel to `club_scoring_team`, on the other side of the join — that one
+ * season-keys the league's name for us, this one season-keys who we were.
+ *
+ * Membership has to carry a season or a club has no history. Resolved through
+ * `squad_member` alone it would be current-state only, so "how did we do in
+ * 2022" would answer with today's roster: a rider who has since graduated
+ * vanishes from their own seasons, and a rider who joined this year appears in
+ * races they never rode.
+ *
+ * Two reads off one table, and a transfer needs both. The club a rider left
+ * reads by (club, season) and still sees them in the years they rode; the club
+ * they joined reads by rider and gets their whole career. So a rider may hold
+ * rows for two clubs in one season — a mid-season transfer is exactly that —
+ * and the key deliberately permits it.
+ *
+ * Also the only way a non-start is countable. A missed round is the *absence*
+ * of a result row, not a value in one, so it is legible solely by crossing this
+ * roster against the season's rounds (ADR-0001, `docs/ux/moments.md`).
+ *
+ * Stands alone and requires no result, for the same reason `rider` does: a
+ * roster includes kids who practise, join late, or get injured in week one.
+ * Deliberately not derived from `squad_member` — squadding is a coaching lens
+ * over the roster, and a rider can be on the roster and in no squad.
+ *
+ * No mid-season bounds, unlike `rider_plate`. That table needed them because
+ * the source data forced them; here the season is the grain we chose (#81).
+ *
+ * Nothing writes this table yet — the coach's reconcile action is #79 and the
+ * reads that need it are #82 and #18. It lands ahead of them because every
+ * cross-season club number is silently wrong without it.
+ */
+export const clubMember = pgTable(
+  'club_member',
+  {
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id),
+    riderId: integer('rider_id')
+      .notNull()
+      .references(() => rider.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clubId, t.seasonId, t.riderId] }),
+    /** The by-rider read: a rider's club history, including across a transfer. */
+    index('club_member_rider_idx').on(t.riderId),
+  ],
+);
 
 /**
  * Rider identity, with race bounds. (season, plate) alone is unsafe: in 2025,
@@ -459,13 +557,50 @@ export const coach = pgTable('coach', {
   displayName: text('display_name').notNull(),
 });
 
-export const squad = pgTable('squad', {
-  id: serial('id').primaryKey(),
-  clubId: integer('club_id')
-    .notNull()
-    .references(() => club.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-});
+/**
+ * A squad is constituted for a season. "JV" in 2025 and "JV" in 2026 are two
+ * squads that share a name, not one squad with a history — which is why the
+ * who/when matrix gives squad no across-seasons cell at all
+ * (`docs/ux/moments.md`).
+ *
+ * This does not walk back the map's standing decision that squads carry no
+ * history. That decision is about the mid-season shuffle: a coach regroups at
+ * will and we record where a rider ended up, never the churn. What is
+ * season-keyed is the squad itself (#81).
+ */
+/**
+ * `slug` is unique on `(club_id, season_id)`, not globally — squads are
+ * season-keyed, so two clubs may each hold a `descenders` in the same season,
+ * and scoping to the club lets one squad keep the same slug year over year so
+ * a bookmark survives a season rollover (issue #114). `$defaultFn` is the
+ * same fixture-only fallback `club.slug` carries; `upsertSquad`
+ * (`src/lib/seed.ts`) always resolves a real value first.
+ */
+export const squad = pgTable(
+  'squad',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id),
+    name: text('name').notNull(),
+    slug: text('slug')
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
+    /** Null for pre-D3 squads whose creator was never recorded. */
+    createdByUserId: text('created_by_user_id').references(() => users.id),
+    /** Archive retains the stable squad id and reserved club/season slug. */
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+    archivedByUserId: text('archived_by_user_id').references(() => users.id),
+  },
+  (t) => [
+    uniqueIndex('squad_club_season_name_key').on(t.clubId, t.seasonId, t.name),
+    uniqueIndex('squad_club_season_slug_key').on(t.clubId, t.seasonId, t.slug),
+  ],
+);
 
 /** ~20 coaches across ~6 squads is roughly three apiece. Many-to-many. */
 export const squadCoach = pgTable(
@@ -480,9 +615,24 @@ export const squadCoach = pgTable(
 );
 
 /**
- * Current state only — no validity range, per the map's standing decision that
- * squads carry no history. Deliberately unlike rider_plate, which needs bounds
- * because the source data forced them.
+ * Deliberately still a bare pair: the season is `squad.season_id`, so a
+ * membership row is already season-scoped through its squad and a column here
+ * would only restate it.
+ *
+ * Within a season this is current state only — no validity range, per the map's
+ * standing decision that a squad's mid-season shuffle carries no history.
+ * Unlike rider_plate, which needs bounds because the source data forced them.
+ *
+ * Not constrained to `club_member` in the database. "You may only squad a rider
+ * on that season's roster" needs the season restated here to be a foreign key,
+ * and a redundant column buys nothing else.
+ *
+ * What stands in for it today is narrower than that, and worth saying plainly
+ * rather than leaving a reader to assume the rule is enforced somewhere. On the
+ * seeded path, `parseSquads` checks a squad's members against the rider list in
+ * the same config file — not against `club_member`, which nothing writes yet.
+ * So the rule holds for config-seeded data and nowhere else. Whoever builds the
+ * write surface (#79) owns making it hold there too.
  */
 export const squadMember = pgTable(
   'squad_member',
@@ -512,6 +662,168 @@ export const users = pgTable('user', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
 });
+
+/** Request-time club authority. Roles are separate from legacy coach profiles. */
+export const clubRole = pgEnum('club_role', ['member', 'coach', 'admin']);
+
+export const clubMembership = pgTable(
+  'club_membership',
+  {
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: clubRole('role').notNull(),
+    /** Revocation takes effect at the next protected request. */
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clubId, t.userId] }),
+    index('club_membership_active_user_idx').on(t.userId, t.revokedAt),
+  ],
+);
+
+/** A single-use, club-scoped invitation. The link token itself is never stored. */
+export const clubInvitation = pgTable(
+  'club_invitation',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    /** Trimmed and case-folded, without provider-specific rewriting. */
+    emailNormalized: text('email_normalized').notNull(),
+    role: clubRole('role').notNull(),
+    squadId: integer('squad_id').references(() => squad.id),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    acceptedAt: timestamp('accepted_at', { mode: 'date' }),
+    acceptedByUserId: text('accepted_by_user_id').references(() => users.id),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('club_invitation_token_hash_key').on(t.tokenHash),
+    index('club_invitation_club_email_idx').on(t.clubId, t.emailNormalized),
+  ],
+);
+
+/** Saved active-club choice; it never grants access. */
+export const userClubPreference = pgTable('user_club_preference', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  clubId: integer('club_id')
+    .notNull()
+    .references(() => club.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+});
+
+/** Saved navigation choice within an active club and season; never a permission. */
+export const userSquadPreference = pgTable(
+  'user_squad_preference',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id, { onDelete: 'cascade' }),
+    squadId: integer('squad_id')
+      .notNull()
+      .references(() => squad.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.clubId, t.seasonId] })],
+);
+
+export const storySurface = pgEnum('story_surface', ['season-dispatch', 'race-review']);
+export const storyState = pgEnum('story_state', ['draft', 'reviewed', 'published', 'superseded']);
+export const editorialStory = pgTable(
+  'editorial_story',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => season.id),
+    checkpointOrdinal: integer('checkpoint_ordinal').notNull(),
+    eventId: integer('event_id')
+      .notNull()
+      .references(() => event.id),
+    surface: storySurface('surface').notNull(),
+    template: text('template').notNull().default('club-starts-at-event'),
+    sourceRawFetchId: bigint('source_raw_fetch_id', { mode: 'number' })
+      .notNull()
+      .references(() => rawFetch.id),
+    sourceContentHash: text('source_content_hash').notNull(),
+    sourceListId: text('source_list_id').notNull(),
+    sourceHidden: boolean('source_hidden').notNull(),
+    evidenceFingerprint: text('evidence_fingerprint').notNull(),
+    state: storyState('state').notNull().default('draft'),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+    reviewedByUserId: text('reviewed_by_user_id').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { mode: 'date' }),
+    reviewedRevision: integer('reviewed_revision'),
+    approvedCount: integer('approved_count'),
+    publishedByUserId: text('published_by_user_id').references(() => users.id),
+    publishedAt: timestamp('published_at', { mode: 'date' }),
+    supersededByStoryId: integer('superseded_by_story_id').references(
+      (): AnyPgColumn => editorialStory.id,
+    ),
+  },
+  (t) => [
+    check('editorial_story_template_check', sql`${t.template} = 'club-starts-at-event'`),
+    check('editorial_story_checkpoint_check', sql`${t.checkpointOrdinal} >= 0`),
+    check('editorial_story_revision_check', sql`${t.revision} > 0`),
+    check('editorial_story_count_check', sql`${t.approvedCount} is null or ${t.approvedCount} > 0`),
+    uniqueIndex('editorial_story_dispatch_published_idx')
+      .on(t.clubId, t.seasonId, t.checkpointOrdinal)
+      .where(sql`${t.state} = 'published' and ${t.surface} = 'season-dispatch'`),
+    uniqueIndex('editorial_story_race_published_idx')
+      .on(t.clubId, t.seasonId, t.checkpointOrdinal, t.eventId)
+      .where(sql`${t.state} = 'published' and ${t.surface} = 'race-review'`),
+  ],
+);
+
+/** Minimal operational evidence; no free-text payload or athlete notes. */
+export const clubAuditEvent = pgTable(
+  'club_audit_event',
+  {
+    id: serial('id').primaryKey(),
+    clubId: integer('club_id')
+      .notNull()
+      .references(() => club.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').references(() => users.id),
+    action: text('action').notNull(),
+    subjectUserId: text('subject_user_id').references(() => users.id),
+    squadId: integer('squad_id').references(() => squad.id),
+    invitationId: integer('invitation_id').references(() => clubInvitation.id),
+    storyId: integer('story_id').references(() => editorialStory.id),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [index('club_audit_event_club_created_idx').on(t.clubId, t.createdAt)],
+);
 
 export const accounts = pgTable(
   'account',
@@ -576,9 +888,11 @@ export const individualResultRelations = relations(individualResult, ({ one }) =
 export const clubRelations = relations(club, ({ many }) => ({
   scoringTeams: many(clubScoringTeam),
   squads: many(squad),
+  members: many(clubMember),
 }));
 
 export const riderRelations = relations(rider, ({ many }) => ({
   plates: many(riderPlate),
   squadMemberships: many(squadMember),
+  clubSeasons: many(clubMember),
 }));

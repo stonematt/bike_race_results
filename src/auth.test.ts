@@ -7,36 +7,44 @@
  * while the shim admits nobody. Same for the credentials provider quietly
  * regaining an allowlist check. Both are one-token edits to a security gate.
  *
- * The database is mocked because importing this module constructs one at load:
- * `createDb()` boots a WASM Postgres, and the adapter it feeds is never touched
- * by a callback test.
+ * The adapter itself is still mocked — it validates its constructor argument
+ * and neither it nor which driver backs `createDb()` participates in a
+ * callback decision. `appDb()` is not: the dev provider's `authorize` now
+ * resolves (or creates) a real `user` row (#107), so this needs a database
+ * that can actually hold one. `createTestDb()` gives it a real in-memory
+ * Postgres, migrated once and reused for the whole file — the tests that
+ * touch it never depend on running against a shared row from an earlier test,
+ * since each address they use is its own.
  */
 
+import { eq } from 'drizzle-orm';
 import type { Provider } from 'next-auth/providers';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createTestDb } from './lib/db/testing.ts';
 
 // The adapter validates its db argument on construction, and neither it nor
 // the database participates in a callback decision.
 vi.mock('@auth/drizzle-adapter', () => ({ DrizzleAdapter: () => ({}) }));
 
-vi.mock('./lib/db/index.ts', () => ({
-  createDb: () => ({}),
-  schema: { users: {}, accounts: {}, sessions: {}, verificationTokens: {} },
-}));
+const testDb = await createTestDb();
+
+vi.mock('./app/db.ts', () => ({ appDb: () => testDb }));
 
 const { authOptions, providers } = await import('./auth.ts');
 const { DEV_PROVIDER_ID } = await import('./lib/admission.ts');
+const schema = await import('./lib/db/schema.ts');
 
 const LISTED = 'coach@example.org';
 const STRANGER = 'anyone@example.test';
+const MEMBER = 'member@example.test';
 
 /** next-auth types these callbacks loosely; both only read what is named here. */
-const signIn = authOptions.callbacks.signIn as (arg: {
+const signIn = authOptions().callbacks.signIn as (arg: {
   user: { email?: string | null };
   account: { provider?: string } | null;
-}) => boolean;
+}) => Promise<boolean>;
 
-const jwt = authOptions.callbacks.jwt as (arg: {
+const jwt = authOptions().callbacks.jwt as (arg: {
   token: Record<string, unknown>;
   account: { provider?: string } | null;
 }) => Record<string, unknown>;
@@ -44,8 +52,19 @@ const jwt = authOptions.callbacks.jwt as (arg: {
 function devEnv() {
   vi.stubEnv('NODE_ENV', 'development');
   vi.stubEnv('AUTH_DEV_LOGIN', '1');
-  vi.stubEnv('AUTH_ALLOWED_EMAILS', LISTED);
+  vi.stubEnv('AUTH_EMAIL_SERVER', 'smtp://localhost:1025');
+  vi.stubEnv('AUTH_ALLOWED_EMAILS', `${LISTED},${MEMBER}`);
 }
+
+beforeAll(async () => {
+  await testDb.insert(schema.club).values({ id: 900, name: 'Auth Club', slug: 'auth-club' });
+  await testDb.insert(schema.users).values({ id: 'active-member', email: MEMBER });
+  await testDb.insert(schema.clubMembership).values({
+    clubId: 900,
+    userId: 'active-member',
+    role: 'member',
+  });
+});
 
 /**
  * The dev shim's own config, dug out of the registered provider.
@@ -60,7 +79,7 @@ function devEnv() {
  */
 interface DevShim {
   id?: string;
-  authorize: (credentials: Record<string, unknown>) => unknown;
+  authorize: (credentials: Record<string, unknown>) => Promise<unknown>;
 }
 
 function findDevShim(): DevShim | undefined {
@@ -82,20 +101,27 @@ afterEach(() => {
 });
 
 describe('the signIn callback', () => {
-  it('forwards the provider, so the shim branch is actually reachable', () => {
+  it('forwards the provider, so the shim branch is actually reachable', async () => {
     devEnv();
     // Cut `account` out of the destructure and this is the assertion that goes
     // red. STRANGER is not on the allowlist, so only the provider can admit it.
-    expect(signIn({ user: { email: STRANGER }, account: { provider: DEV_PROVIDER_ID } })).toBe(
-      true,
-    );
+    await expect(
+      signIn({ user: { email: STRANGER }, account: { provider: DEV_PROVIDER_ID } }),
+    ).resolves.toBe(true);
   });
 
-  it('still runs the allowlist for every other provider', () => {
+  it('requires an active membership after the Edge allowlist check for email sign-in', async () => {
     devEnv();
-    expect(signIn({ user: { email: STRANGER }, account: { provider: 'nodemailer' } })).toBe(false);
-    expect(signIn({ user: { email: LISTED }, account: { provider: 'nodemailer' } })).toBe(true);
-    expect(signIn({ user: { email: STRANGER }, account: null })).toBe(false);
+    await expect(
+      signIn({ user: { email: STRANGER }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(false);
+    await expect(
+      signIn({ user: { email: LISTED }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(false);
+    await expect(
+      signIn({ user: { email: MEMBER }, account: { provider: 'nodemailer' } }),
+    ).resolves.toBe(true);
+    await expect(signIn({ user: { email: STRANGER }, account: null })).resolves.toBe(false);
   });
 });
 
@@ -114,25 +140,50 @@ describe('the jwt callback', () => {
 });
 
 describe('the dev credentials provider', () => {
-  it('admits an address that is not on the allowlist', () => {
+  it('admits an address that is not on the allowlist, with a real user row id', async () => {
     devEnv();
-    expect(devProvider().authorize({ email: STRANGER })).toMatchObject({ email: STRANGER });
+    const result = (await devProvider().authorize({ email: STRANGER })) as {
+      id?: string;
+      email?: string;
+    };
+    expect(result).toMatchObject({ email: STRANGER });
+    // The whole point of #107: `id` is the `user` row's id, not the address —
+    // a Credentials provider does not persist through the adapter, so this is
+    // the one chance to make it identity-shaped like a real sign-in.
+    expect(result.id).not.toBe(STRANGER);
+
+    const rows = await testDb.select().from(schema.users).where(eq(schema.users.email, STRANGER));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(result.id);
   });
 
-  it('normalises the address it hands back', () => {
+  it('normalises the address, so two casings resolve to one user row', async () => {
     devEnv();
-    // Two casings would otherwise leave two user rows behind the adapter.
-    expect(devProvider().authorize({ email: '  Coach@Example.ORG ' })).toMatchObject({
-      email: LISTED,
-      id: LISTED,
-    });
+    const first = (await devProvider().authorize({ email: '  Coach2@Example.ORG ' })) as {
+      id?: string;
+      email?: string;
+    };
+    const second = (await devProvider().authorize({ email: 'coach2@example.org' })) as {
+      id?: string;
+      email?: string;
+    };
+
+    expect(first.email).toBe('coach2@example.org');
+    // Two casings, one id — otherwise sign-in leaves two user rows behind.
+    expect(second.id).toBe(first.id);
+
+    const rows = await testDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'coach2@example.org'));
+    expect(rows).toHaveLength(1);
   });
 
-  it('refuses an empty or non-string address', () => {
+  it('refuses an empty or non-string address', async () => {
     devEnv();
-    expect(devProvider().authorize({ email: '   ' })).toBeNull();
-    expect(devProvider().authorize({ email: undefined })).toBeNull();
-    expect(devProvider().authorize({})).toBeNull();
+    expect(await devProvider().authorize({ email: '   ' })).toBeNull();
+    expect(await devProvider().authorize({ email: undefined })).toBeNull();
+    expect(await devProvider().authorize({})).toBeNull();
   });
 
   it('is not registered at all unless both gates are set', () => {

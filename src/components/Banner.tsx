@@ -12,7 +12,9 @@ export function Banner({ children }: { children?: React.ReactNode }) {
           Descenders
         </span>
         <span className="font-body text-sm text-white/80">Race Dashboard</span>
-        <div className="ml-auto flex items-baseline gap-4 text-sm text-white/80">{children}</div>
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-baseline gap-x-4 gap-y-2 text-sm text-white/80">
+          {children}
+        </div>
       </div>
     </header>
   );

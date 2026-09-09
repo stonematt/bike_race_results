@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
+  // This application is its own workspace, even when a parent has a lockfile.
+  outputFileTracingRoot: process.cwd(),
   /*
    * PGlite ships a WASM build and reads its own files with `fs` and a `URL`.
    * Bundled by Next, that read throws ERR_INVALID_ARG_TYPE the moment the

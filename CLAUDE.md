@@ -1,10 +1,10 @@
-# nica_race_dashboard
+# bike_race_results
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues live as GitHub issues on `stonematt/nica_race_dashboard`, via the `gh` CLI. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues on `stonematt/bike_race_results`, via the `gh` CLI. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -23,3 +23,11 @@ The source design system is `stonematt/scd-brand` (`DESIGN.md`, status APPROVED)
 ## Wayfinder
 
 Planning for this project is charted as a wayfinder map on the issue tracker: `gh issue list --label "wayfinder:map"`. Read the map before starting work; it holds the destination, domain vocabulary, and standing decisions.
+
+## Product and delivery authority
+
+Read `PRODUCT.md`, `docs/design/editorial-direction.md` and `docs/delivery/status.md` before implementation. Accepted playground UX and editorial storytelling lead product judgment over historical engineering layouts. Source semantics and privacy remain binding. ADR-0005 permits persistent club administration. Keep completed work and verification distinct from decisions in the delivery ledger.
+
+## Development lifecycle
+
+Follow `docs/agents/development-lifecycle.md`: use stone-commit and stone-merge, require review of the current diff, merge PRs with no-fast-forward merge commits, and verify task-branch/worktree cleanup. These owner-confirmed rules override conflicting skill defaults. Codex also reads the root `AGENTS.md`.
