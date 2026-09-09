@@ -90,7 +90,7 @@ export async function withIsolatedPostgres<T>(
   try {
     // Narrowed, never cast: the migrator takes the native handle, and the two
     // drivers are not interchangeable behind a shared type.
-    if (runtime.kind !== 'postgres') throw new Error('The tracer cluster is not a PGlite runtime.');
+    if (runtime.kind !== 'postgres') throw new Error('The tracer cluster is not a PostgreSQL runtime.');
     await migratePostgres(runtime.db, { migrationsFolder });
     return await work(runtime);
   } finally {
