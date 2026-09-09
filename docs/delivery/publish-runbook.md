@@ -85,7 +85,7 @@ Names and origins only.
 | `DATABASE_URL`        | pooled hosted URL for the app; direct URL for migrations | host env, and the operator's shell for CLI runs |
 | `AUTH_SECRET`         | `npx auth secret`                                        | host env                                        |
 | `AUTH_URL`            | the canonical `https://` origin                          | host env                                        |
-| `AUTH_EMAIL_SERVER`   | SMTP URL for the sender                                  | host env                                        |
+| `AUTH_EMAIL_SERVER`   | `smtps://<user>:<key>@<host>:465` — the scheme, not the port, sets TLS | host env                          |
 | `AUTH_EMAIL_FROM`     | the sending address                                      | host env                                        |
 | `AUTH_ALLOWED_EMAILS` | bootstrap admin address                                  | operator's shell at seed time only              |
 | `CURRENT_SEASON`      | four-digit year, optional                                | host env                                        |
@@ -334,15 +334,18 @@ inspect`) was not gated, so the whole confirmation pass stayed with the agent.
   read-only, was not refused by the classifier, and carried the actual exception
   where the browser showed only `error=Configuration`.
   Local parity could not have caught this. `docs/delivery/dependency-readiness.md`
-  records the Nodemailer path exercised only against a plaintext loopback capture
-  on `127.0.0.1:2525`; implicit TLS was never on that path, so `smtp://` was
-  right locally and wrong hosted. This is the class of gap phase 8 exists for.
+  records the Nodemailer path exercised only against a loopback capture, and
+  `docs/delivery/status.md` gives that capture's address as `127.0.0.1:2525`;
+  implicit TLS was never on that path, so `smtp://` was right locally and wrong
+  hosted. This is the class of gap phase 8 exists for.
   Corrected to `smtps://` and redeployed. The first hosted magic link then sent:
   the browser reached `/api/auth/verify-request` with "Check your email", and
   Resend's Emails list shows one message to `admin@scdescenders.com`, subject
   "Sign in to results.scdescenders.com", status **Delivered**. That proves the
-  whole path — hosted app, Resend SMTP over implicit TLS, and Enforced-TLS
-  delivery into the club's Google Workspace mailbox.
+  hosted app reached Resend over implicit TLS and Resend's handoff was accepted
+  by Google. It does not prove the message reached a mailbox, and it does not
+  itself observe the receiving TLS hop — `Delivered` is Resend's report of
+  acceptance. Where the message actually landed is the next entry.
 - 2026-09-09. **The first magic link landed in spam**, and this is expected to
   repeat for every coach's first sign-in. Resend reported `Delivered`, so Google
   accepted the message; the filtering happened after acceptance. Authentication
