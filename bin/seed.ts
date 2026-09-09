@@ -12,6 +12,10 @@
  * on AUTH_ALLOWED_EMAILS or this refuses: seeding does not bypass the gate. See
  * src/lib/seed.ts for why.
  *
+ * Runs against whatever `DATABASE_URL` names — the local PGlite directory, or a
+ * hosted PostgreSQL database. Success lines name the database and its host and
+ * never the URL, which on a hosted database carries the password.
+ *
  * `--club-config` seeds the club, its scoring teams, the roster, the plate
  * mappings, the squads and the coach↔squad assignments from
  * config/club-seed.json, or from the file named after the flag. Rider display
@@ -38,8 +42,8 @@
  */
 
 import { ClubConfigError, loadClubConfig, loadCoachEmails } from '../src/lib/club-config.ts';
-import { createDb } from '../src/lib/db/index.ts';
-import { resolveDatabaseUrl } from '../src/lib/db/url.ts';
+import { createDatabaseRuntime } from '../src/lib/db/runtime.ts';
+import { describeDatabaseLocation, resolveDatabaseUrl } from '../src/lib/db/url.ts';
 import {
   ClubMismatchError,
   NotAllowlistedError,
@@ -74,7 +78,15 @@ if (!seedClub && !email) {
 }
 
 const url = resolveDatabaseUrl();
-const db = createDb(url);
+const location = describeDatabaseLocation(url);
+
+// A hosted run owns a connection pool. `process.exit()` inside the work below
+// would skip the `finally` that closes it, and simply falling off the end would
+// leave node waiting on its sockets — so every path leaves through the bottom of
+// the try, carrying `exitCode`, and the process ends after the pool is closed.
+const runtime = createDatabaseRuntime(url);
+const db = runtime.db;
+let exitCode = 0;
 
 try {
   // Read even for an admin-only run: the config is where the club's name lives,
@@ -89,7 +101,7 @@ try {
       coachEmails: loadCoachEmails(flag('coach-emails')),
     });
     console.log(
-      `seeded ${config.club} for ${config.season} in ${url}: ` +
+      `seeded ${config.club} for ${config.season} in ${location}: ` +
         `${result.scoringTeams} scoring teams, ${result.riders} riders ` +
         `(${result.ridersCreated} new), ${result.plates} plate mappings, ` +
         `${result.squads} squads, ${result.squadMembers} squad members, ` +
@@ -106,7 +118,7 @@ try {
 
     if (result.created) {
       console.log(
-        `seeded ${result.email} as "${result.displayName}" on ${result.clubName} in ${url}`,
+        `seeded ${result.email} as "${result.displayName}" on ${result.clubName} in ${location}`,
       );
     } else if (result.requestedClubName) {
       // The bug this replaced printed "nothing to do" naming the club it had
@@ -118,22 +130,25 @@ try {
           `  The roster seeds onto ${config.club}, so a coach on any other club sees an empty app. ` +
           `Move the coach row onto ${result.requestedClubName}, or seed a fresh database.`,
       );
-      process.exit(1);
+      exitCode = 1;
     } else {
       console.log(
-        `${result.email} is already seeded on ${result.clubName} in ${url} — nothing to do`,
+        `${result.email} is already seeded on ${result.clubName} in ${location} — nothing to do`,
       );
     }
   }
-
-  process.exit(0);
 } catch (error) {
   // Everything the operator can put right themselves: say what is wrong and
   // stop, rather than showing them a stack trace for their own typo.
   const refusals = [NotAllowlistedError, ClubConfigError, ClubMismatchError, StrandedCoachError];
   if (refusals.some((refusal) => error instanceof refusal)) {
     console.error(`refused: ${(error as Error).message}`);
-    process.exit(1);
+    exitCode = 1;
+  } else {
+    throw error;
   }
-  throw error;
+} finally {
+  await runtime.close();
 }
+
+process.exit(exitCode);

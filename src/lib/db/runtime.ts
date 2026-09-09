@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { drizzle as postgresDrizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import * as schema from './schema.ts';
-import { resolveDatabaseUrl } from './url.ts';
+import { isHostedUrl, resolveDatabaseUrl } from './url.ts';
 
 export type DatabaseRuntime =
   | {
@@ -36,7 +36,7 @@ function errorForPool(error: unknown): Error {
 export function createDatabaseRuntime(url = resolveDatabaseUrl()): DatabaseRuntime {
   if (typeof url !== 'string' || url.trim() === '' || /[\u0000-\u001f\u007f]/u.test(url))
     throw new Error('Database location is invalid.');
-  if (url.startsWith('postgres://') || url.startsWith('postgresql://')) {
+  if (isHostedUrl(url)) {
     try {
       const parsed = new URL(url);
       if (!parsed.hostname || parsed.pathname.length <= 1 || parsed.hash || url.trim() !== url)

@@ -146,7 +146,7 @@ The middleware must stay at `src/middleware.ts`. Move it to the repo root and Ne
 
 ## Database
 
-PGlite locally — a WASM Postgres that writes to a `.pglite/` **directory**, not a file, and is gitignored. `DATABASE_URL` defaults to `./.pglite`. Neon is the intended hosted target, but that path isn't wired up yet: `createDb()` currently throws on a `postgres://` URL.
+PGlite locally — a WASM Postgres that writes to a `.pglite/` **directory**, not a file, and is gitignored. `DATABASE_URL` defaults to `./.pglite`. A `postgres://` URL opens a bounded node-postgres pool instead, and the app, `db:migrate`, `seed` and `normalize` all run against either. `fetch` stays local-only on purpose: it fills the archive on a laptop, and `normalize` is what carries the archive to a hosted database.
 
 Schema lives in `src/lib/db/schema.ts`; migrations in `src/lib/db/migrations/`. The five domain views — `v_individual_result`, `v_race_result`, `v_rider_result`, `v_club_result`, and `v_unmapped_rider` — are hand-written SQL in `0001_domain_views.sql`. Drizzle generates the tables, but the views are maintained by hand, so edit that file directly rather than expecting `db:generate` to produce them.
 

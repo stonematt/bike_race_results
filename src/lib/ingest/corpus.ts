@@ -35,16 +35,15 @@
  * touch the disk.
  */
 
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from '../db/index.ts';
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import * as schema from '../db/schema.ts';
 import { CORPUS_SEASONS, requireCorpus } from '../fixtures.ts';
 import { configUrl, listIdForName, listUrl, readCatalog } from './catalog.ts';
 import { IngestError } from './errors.ts';
 import { archive, CONFIG_LIST_NAME, type RawFetchRecord } from './raw.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 
 /** A corpus file that is missing, malformed, or cannot be placed. */
 export class CorpusError extends IngestError {}

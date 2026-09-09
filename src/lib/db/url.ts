@@ -33,3 +33,37 @@ const DEFAULT_DATABASE_URL = './.pglite';
 export function resolveDatabaseUrl(env: Record<string, string | undefined> = process.env): string {
   return env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 }
+
+/**
+ * A `postgres://` URL means a hosted PostgreSQL server; anything else is a
+ * local PGlite directory.
+ *
+ * The same leaf-module argument as the default applies: `runtime.ts` dispatches
+ * on this, `index.ts` refuses on it, and the description below reads it, so one
+ * spelling keeps them from drifting apart.
+ */
+export function isHostedUrl(url: string): boolean {
+  return url.startsWith('postgres://') || url.startsWith('postgresql://');
+}
+
+/**
+ * Where a command wrote, in a form that is safe to print.
+ *
+ * A local directory is its own description — a path is not a secret, and naming
+ * it is how an operator notices they seeded the wrong one. A hosted URL is not:
+ * it carries the password, so the description keeps the database and host, which
+ * is what tells the operator whether they hit production, and drops the rest.
+ * When it cannot be parsed, it says nothing about it at all rather than falling
+ * back to the raw string.
+ */
+export function describeDatabaseLocation(url: string): string {
+  if (!isHostedUrl(url)) return url;
+  try {
+    const parsed = new URL(url);
+    const database = decodeURIComponent(parsed.pathname).replace(/^\//u, '');
+    if (!parsed.hostname || database === '') throw new Error();
+    return `the PostgreSQL database ${database} on ${parsed.hostname}`;
+  } catch {
+    return 'a PostgreSQL database';
+  }
+}

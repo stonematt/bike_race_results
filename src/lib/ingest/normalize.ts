@@ -25,7 +25,7 @@
 
 import { and, eq, notInArray } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from '../db/index.ts';
 import * as schema from '../db/schema.ts';
 import { readCatalog, type EventCatalog } from './catalog.ts';
 import { readEventIdentity, upsertEvent, type EventIdentity } from './calendar.ts';
@@ -57,7 +57,7 @@ import {
   type ListPayload,
 } from './rows.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 
 /** An event that cannot be assembled from what the archive holds. */
 export class NormalizeError extends IngestError {}
@@ -481,7 +481,7 @@ async function writeEvent(db: Db, decoded: DecodedEvent): Promise<Record<string,
             ],
             set: values,
           })
-          .returning({ id: schema.seasonIndividualStanding.id });
+          .returning();
 
         // Replaced rather than upserted. The block narrows across the season —
         // RACE1..RACE10 in a snapshot, RACE1..RACE4 at the end — so upserting

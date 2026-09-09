@@ -58,6 +58,26 @@ temporary demo directory when finished.
 The migrations are forward-only. Do not edit landed migration files or attempt
 to roll a schema backward in place.
 
+## Populating a hosted database
+
+Ingest stays a laptop activity. `bin/fetch.ts` refuses a hosted database on
+purpose — it talks to the timing vendor and appends to the local archive — while
+`pnpm seed` and `pnpm normalize` run against whatever `DATABASE_URL` names, so
+the archive built locally is what carries results to a hosted database.
+
+In order, with `DATABASE_URL` set to the **direct** (unpooled) URL:
+
+1. `pnpm db:migrate` — once, with the application stopped.
+2. `AUTH_ALLOWED_EMAILS=<address> pnpm seed --club-config --email <address>` —
+   the club, its roster and the first admin. Safe to re-run: a second pass
+   changes nothing and says so.
+3. `pnpm normalize --load-fixtures` then `pnpm normalize` — archive the local
+   corpus, then decode it. Both are idempotent.
+
+Success lines name the database and its host, never the URL. Keep it that way:
+a hosted URL carries the password, and these lines end up in scrollback and
+screenshots.
+
 ## Recovery and rollback
 
 If migration or startup fails, keep the failed database for diagnosis and stop
