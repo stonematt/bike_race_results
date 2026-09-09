@@ -113,6 +113,30 @@ To use another disposable location, set `DATABASE_URL` to an empty local PGlite 
 
 `pnpm dev` binds `127.0.0.1` rather than every interface, and that is load-bearing rather than tidy — see Auth. Don't drop the `--hostname` flag from the script.
 
+## Local real-data UAT
+
+`pnpm serverctl` prepares and runs the authenticated, loopback-only development
+server against the locally archived 2025 and 2026 RaceResult corpus. It never
+fetches, exports, or prints rider records. It creates an ignored
+`.pglite-real-uat/` database and, when needed, an ignored local link to the
+already-archived fixture corpus; neither can be committed.
+
+```bash
+pnpm serverctl up --email you@example.org
+```
+
+The address must already appear in `AUTH_ALLOWED_EMAILS` in `.env.local`; the
+controller also requires `AUTH_SECRET` and the out-of-tree rider-name map. Open
+the printed loopback URL and use the development sign-in form with that same
+address. `pnpm serverctl status` and `pnpm serverctl down` inspect and stop only
+the controller-owned server.
+
+The controller archives and normalizes both locally held seasons (the complete
+2025 season and the 2026 opener). The checked-in verified club roster is for
+2025, so `/2025` is the named-athlete UAT surface. Do not infer a 2026 club
+roster from published results: until a verified 2026 club configuration exists,
+the `/2026` reporting surface correctly has no club content.
+
 ## Auth
 
 `AUTH_ALLOWED_EMAILS` is a comma-separated, case-insensitive bootstrap

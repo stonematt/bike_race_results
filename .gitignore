@@ -10,6 +10,10 @@ coverage/
 # and grades the corpus does, and this repo is public.
 .pglite*/
 
+# Local loopback controller state. Its log can describe private page requests,
+# so it belongs with the derived PGlite database rather than in the repository.
+.serverctl/
+
 # The fixture corpus lives here, in the tree, and is never committed: the
 # payloads carry minors' full names, schools, grades and finish times, and this
 # repo is public. This line stops an ordinary `git add`; scripts/git-hooks/
