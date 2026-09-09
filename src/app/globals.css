@@ -58,3 +58,940 @@
     color: var(--color-fg);
   }
 }
+
+/* The Team Kit Pop and Season pulse surfaces. Local artwork is opt-in through
+   NEXT_PUBLIC_LOCAL_BRAND_ART=1 and is ignored under public/local-brand/. */
+:root {
+  --deep-navy: #151d33;
+}
+.signin-kit-pop {
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--deep-navy);
+  color: white;
+}
+.signin-masthead,
+.signin-entry,
+.signin-milo,
+.season-page {
+  max-width: 1140px;
+  margin: auto;
+}
+.signin-masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-height: 82px;
+  padding: 18px 28px;
+}
+.signin-masthead span,
+.signin-kit-pop h1,
+.signin-kit-pop h2,
+.season-page h1,
+.season-page h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.signin-masthead span {
+  color: var(--color-accent);
+  font-size: 2.7rem;
+  line-height: 0.9;
+}
+.signin-masthead small {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.signin-entry {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  padding: 30px 28px 0;
+  transform: skewY(-1deg);
+}
+.signin-entry > * {
+  transform: skewY(1deg);
+}
+.signin-story {
+  position: relative;
+  min-height: 490px;
+  overflow: hidden;
+  padding: 54px 56px;
+  background: var(--color-navy);
+}
+.has-local-brand-art .signin-story::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 0.16;
+  background: url('/local-brand/jersey-mountains.png') center/cover;
+  mix-blend-mode: screen;
+}
+.signin-story > * {
+  position: relative;
+}
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.signin-story h1 {
+  max-width: 10ch;
+  margin: 18px 0;
+  font-size: clamp(3.2rem, 5vw, 4.7rem);
+  line-height: 0.94;
+}
+.signin-story > p:not(.eyebrow) {
+  max-width: 35ch;
+  font-size: 1.12rem;
+}
+
+.signin-door {
+  z-index: 1;
+  margin-left: -26px;
+  padding: 48px 42px 34px 66px;
+  color: var(--color-fg);
+  background: var(--color-accent);
+  clip-path: polygon(7% 0, 100% 0, 100% 100%, 0 100%);
+}
+.signin-badge {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.signin-door h2 {
+  margin: 0 0 10px;
+  font-size: 2.85rem;
+  line-height: 0.95;
+}
+.signin-copy {
+  margin: 0 0 22px;
+  color: #352415;
+}
+.signin-form {
+  display: grid;
+  gap: 9px;
+}
+.signin-form label,
+.signin-dev label {
+  font-weight: 900;
+}
+.signin-input {
+  width: 100%;
+  min-height: 52px;
+  border: 2px solid var(--color-fg);
+  border-radius: 4px;
+  padding: 10px 13px;
+  color: var(--color-fg);
+  background: white;
+}
+.signin-submit,
+.signin-dev-submit {
+  min-height: 52px;
+  border: 2px solid var(--color-fg);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--deep-navy);
+  color: white;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.signin-dev {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #6a4110;
+}
+.signin-dev p {
+  color: #352415;
+  font-size: 0.8rem;
+}
+.signin-dev-submit {
+  width: 100%;
+  margin-top: 10px;
+  background: transparent;
+  color: var(--color-fg);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.signin-unavailable {
+  padding: 14px;
+  border-left: 3px solid var(--color-fg);
+  background: #fff6e9;
+}
+.signin-milo {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 20px;
+  padding: 20px 28px 34px;
+  border-top: 1px solid var(--color-accent);
+}
+.signin-milo img {
+  width: 72px;
+  height: 100px;
+  object-fit: contain;
+}
+.signin-milo h2 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+.signin-milo p {
+  margin: 4px 0 0;
+  font-weight: 800;
+}
+.season-page {
+  padding: 34px 28px 60px;
+}
+.season-lead {
+  max-width: 50rem;
+  padding: 26px 30px 38px;
+  color: white;
+  background: var(--color-navy);
+  clip-path: polygon(0 0, 100% 0, 96% 100%, 0 100%);
+}
+.season-lead h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(3rem, 5vw, 5rem);
+  line-height: 0.94;
+}
+.season-lead > p:last-child {
+  max-width: 41ch;
+  margin-bottom: 0;
+  font-size: 1.1rem;
+}
+.season-pulse {
+  margin-top: 24px;
+}
+.season-pulse-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  align-items: end;
+  margin: 0 0 14px;
+}
+.season-pulse-heading h2,
+.season-evidence h2,
+.season-milo h2 {
+  margin: 0;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.season-pulse-heading > p {
+  max-width: 29rem;
+  margin: 0;
+  color: var(--color-muted);
+}
+.season-pulse-scroll {
+  overflow-x: auto;
+  border: 2px solid var(--color-fg);
+  outline-offset: 4px;
+}
+.season-pulse-scroll:focus-visible {
+  outline: 3px solid var(--color-aqua);
+}
+.season-pulse table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+.season-pulse th,
+.season-pulse td {
+  border: 1px solid var(--color-border);
+}
+.season-pulse thead th {
+  padding: 9px 8px;
+  color: white;
+  background: var(--deep-navy);
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.pulse-rider-head {
+  width: 46px;
+  height: 138px;
+  vertical-align: bottom;
+}
+.pulse-rider-head span {
+  display: block;
+  width: 128px;
+  transform: rotate(-58deg) translate(-20px, 15px);
+  transform-origin: left bottom;
+  white-space: nowrap;
+}
+.pulse-race-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 122px;
+  padding: 9px 11px;
+  background: var(--color-bg);
+  text-align: left;
+}
+.season-pulse thead .pulse-race-head {
+  z-index: 4;
+  background: var(--deep-navy);
+}
+.pulse-race-head a {
+  display: grid;
+  gap: 1px;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 900;
+}
+.pulse-race-head a:hover {
+  color: var(--color-accent);
+}
+.pulse-race-head a span {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.season-pulse td {
+  width: 46px;
+  height: 55px;
+  text-align: center;
+}
+.pulse-mark,
+.legend-mark {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+.pulse-mark-empty,
+.legend-empty {
+  border: 2px solid #9aa0a4;
+  border-radius: 50%;
+  background: transparent;
+}
+.pulse-mark-start,
+.legend-start {
+  border-radius: 50%;
+  background: var(--color-navy);
+}
+.pulse-mark-continuity {
+  box-shadow:
+    0 -7px 0 -5px var(--color-accent),
+    0 7px 0 -5px var(--color-accent);
+}
+.pulse-mark-late {
+  outline: 3px solid var(--color-aqua);
+  outline-offset: 2px;
+}
+.pulse-mark-podium::after {
+  position: absolute;
+  inset: 3px;
+  content: '';
+  border: 2px solid var(--color-accent);
+  transform: rotate(45deg);
+}
+.season-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.season-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.legend-every-race {
+  width: 24px;
+  height: 4px;
+  background: var(--color-accent);
+}
+.season-evidence {
+  max-width: 44rem;
+  margin-top: 36px;
+  padding: 24px 0;
+  border-top: 1px solid var(--color-border);
+}
+.season-evidence p:last-child {
+  color: var(--color-muted);
+}
+.season-milo {
+  margin-top: 20px;
+  padding: 24px 28px;
+  color: white;
+  background: var(--deep-navy);
+}
+.season-milo p {
+  margin: 8px 0 0;
+  font-weight: 800;
+}
+.season-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 18px;
+  border: 2px solid var(--color-fg);
+}
+.season-ribbon a {
+  display: grid;
+  gap: 2px;
+  min-height: 104px;
+  padding: 14px;
+  color: var(--color-fg);
+  text-decoration: none;
+  border-right: 1px solid var(--color-fg);
+}
+.season-ribbon a:hover {
+  background: var(--color-aqua);
+}
+.season-ribbon strong {
+  font-family: var(--font-display);
+  font-size: 2.3rem;
+  line-height: 1;
+}
+.season-ribbon small,
+.season-muted {
+  color: var(--color-muted);
+}
+.season-spotlight {
+  max-width: 42rem;
+  margin-top: 36px;
+  padding: 24px 28px;
+  border-left: 8px solid var(--color-accent);
+  background: var(--color-bg);
+}
+.season-spotlight h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  text-transform: uppercase;
+}
+.season-spotlight p {
+  margin: 7px 0;
+}
+.season-evidence details {
+  margin-top: 14px;
+}
+.season-evidence summary {
+  font-weight: 900;
+  cursor: pointer;
+}
+.season-supporting {
+  margin-top: 20px;
+  padding: 25px 28px;
+  background: var(--color-navy);
+  color: white;
+}
+.season-supporting h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  text-transform: uppercase;
+}
+.season-supporting p:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 760px) {
+  .signin-masthead {
+    min-height: 72px;
+    padding: 15px 20px;
+  }
+  .signin-masthead span {
+    font-size: 2.2rem;
+  }
+  .signin-masthead small {
+    font-size: 0.68rem;
+  }
+  .signin-entry {
+    display: block;
+    padding: 16px 20px 0;
+    transform: none;
+  }
+  .signin-entry > * {
+    transform: none;
+  }
+  .signin-story {
+    min-height: 290px;
+    padding: 26px 22px 48px;
+    clip-path: polygon(0 0, 100% 0, 100% 95%, 0 100%);
+  }
+  .signin-story h1 {
+    margin: 12px 0;
+    font-size: 3.2rem;
+  }
+
+  .signin-door {
+    margin: -10px 0 0;
+    padding: 35px 22px 26px;
+    clip-path: polygon(0 3%, 100% 0, 100% 100%, 0 100%);
+  }
+  .signin-milo {
+    margin-top: 14px;
+    padding: 22px 20px 30px;
+  }
+  .signin-milo h2 {
+    font-size: 1.55rem;
+  }
+  .season-page {
+    padding: 20px 0 42px;
+  }
+  .season-lead {
+    padding: 26px 20px 36px;
+    clip-path: none;
+  }
+  .season-lead h1 {
+    font-size: 3.25rem;
+  }
+  .season-pulse-heading,
+  .season-evidence,
+  .season-milo {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+  .season-pulse-heading {
+    display: block;
+  }
+  .season-pulse-heading > p {
+    margin-top: 10px;
+  }
+  .season-pulse-scroll {
+    border-right: 0;
+    border-left: 0;
+  }
+  .pulse-race-head {
+    min-width: 110px;
+  }
+  .season-legend {
+    margin: 14px 20px;
+  }
+  .season-evidence {
+    padding-top: 22px;
+  }
+  .season-milo {
+    padding: 22px 20px;
+  }
+}
+
+/* Pulse wall geometry: one fixed 90px race column plus 32px rider columns. */
+.season-pulse-scroll {
+  overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+.season-pulse-scroll-note {
+  display: none;
+}
+.season-pulse table {
+  width: max-content;
+  table-layout: fixed;
+}
+.pulse-rider-head,
+.season-pulse td {
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+}
+.pulse-race-head {
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+}
+.pulse-rider-head {
+  height: 118px;
+  padding: 5px 0;
+}
+.pulse-rider-head span {
+  display: inline-block;
+  width: auto;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  transform-origin: center;
+  transform: rotate(180deg);
+  font-size: 0.64rem;
+}
+.season-pulse td {
+  height: 38px;
+  position: relative;
+  overflow: visible;
+}
+.pulse-mark {
+  position: relative;
+  z-index: 1;
+}
+
+.legend-late-first {
+  border-radius: 50%;
+  background: var(--color-navy);
+  outline: 2px solid var(--color-aqua);
+  outline-offset: 2px;
+}
+.legend-podium {
+  border-radius: 50%;
+  background: var(--color-navy);
+}
+.legend-podium::after {
+  position: absolute;
+  inset: 2px;
+  content: '';
+  border: 2px solid var(--color-accent);
+  transform: rotate(45deg);
+}
+@media (max-width: 760px) {
+  .season-pulse-scroll-note {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+  .pulse-race-head {
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
+  }
+  .pulse-rider-head,
+  .season-pulse td {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}
+
+/* Season composition: approved full-year reporting wall. */
+.season-page {
+  max-width: 1160px;
+  padding: 34px 28px 44px;
+  margin: auto;
+}
+.season-page .season-lead {
+  max-width: none;
+  clip-path: none;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  padding: 0;
+  margin: 0;
+  background: var(--color-navy);
+  color: white;
+  min-height: 0;
+  background-image: none;
+}
+.season-lead > div:first-child {
+  padding: 32px 38px;
+}
+.season-page .season-lead h1 {
+  max-width: 12ch;
+  font-size: clamp(3rem, 5.3vw, 5rem);
+  line-height: 0.96;
+  margin: 8px 0 20px;
+}
+.season-page .season-lead p {
+  max-width: 55ch;
+  margin: 0 0 10px;
+  color: white;
+}
+.has-local-brand-art .season-jersey {
+  background:
+    linear-gradient(#151d3366, #151d3366),
+    url('/local-brand/jersey-mountains.png') center/cover;
+}
+.season-page .season-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border: 0;
+  border-bottom: 1px solid #cbd4d8;
+  margin: 0 0 32px;
+}
+.season-page .season-ribbon a {
+  display: block;
+  padding: 16px;
+  border: 0;
+  border-right: 1px solid #cbd4d8;
+  background: white;
+  min-width: 0;
+}
+.season-page .season-ribbon-scheduled {
+  display: block;
+  padding: 16px;
+  border-right: 1px solid #cbd4d8;
+  background: #f5f7f7;
+  min-width: 0;
+}
+.season-ribbon-source {
+  margin: 18px 0 8px;
+  font-size: 0.82rem;
+  color: #52616a;
+}
+.season-ribbon-source a {
+  color: inherit;
+  font-weight: 800;
+}
+.season-page .season-ribbon strong {
+  display: block;
+  font:
+    800 1rem var(--font-body-face),
+    sans-serif;
+  margin: 0 0 5px;
+}
+.season-ribbon span,
+.season-ribbon small {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #52616a;
+}
+.season-ribbon-pending {
+  margin-top: 7px;
+  font-weight: 800;
+}
+.season-page .season-spotlight {
+  max-width: none;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 30px;
+  padding: 26px;
+  margin: 28px 0 34px;
+  background: #ff8000;
+  color: #151d33;
+}
+.season-spotlight h2 {
+  margin: 0;
+  font-size: 2.3rem;
+}
+.season-spotlight p {
+  margin: 12px 0 0;
+  max-width: 65ch;
+}
+.season-spotlight dl {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+.season-spotlight dl div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.season-spotlight dt {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.season-spotlight dd {
+  font-family: var(--font-display-face);
+  font-size: 2.7rem;
+  line-height: 1.1;
+  margin: 0;
+}
+.season-field,
+.season-stories {
+  padding: 28px 0;
+  border-top: 1px solid #cbd4d8;
+}
+.season-field h2,
+.season-stories h2 {
+  font-size: 2rem;
+  margin: 0 0 12px;
+}
+.season-field p {
+  max-width: 85ch;
+  font-size: 0.92rem;
+  margin: 8px 0;
+  color: #52616a;
+}
+.season-rank {
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  height: 44px;
+  margin-top: 20px;
+}
+.season-rank line {
+  stroke: #b8c4c9;
+  stroke-width: 2;
+}
+.season-rank circle {
+  fill: #b8c4c9;
+}
+.season-rank circle.is-club {
+  fill: #ff8000;
+  stroke: #151d33;
+  stroke-width: 2;
+}
+.season-rank-labels {
+  display: flex;
+  justify-content: space-between;
+  max-width: 760px;
+  font-size: 0.76rem;
+  color: #52616a;
+}
+.season-story-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+.season-story-grid article {
+  border-top: 1px solid #cbd4d8;
+  padding-top: 16px;
+}
+.season-story-grid h3 {
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+.season-story-grid p {
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+.season-page .season-milo {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  background: #151d33;
+  color: white;
+  margin: 24px 0 0;
+  padding: 22px 28px;
+}
+.season-milo img {
+  width: 90px;
+  height: 115px;
+  object-fit: contain;
+}
+.season-milo h2 {
+  font-size: 2rem;
+  margin: 0 0 8px;
+}
+.season-milo p {
+  margin: 6px 0;
+  font-weight: 700;
+}
+.season-page .season-evidence {
+  max-width: none;
+  padding: 22px 0;
+  margin: 0;
+  border-bottom: 1px solid #cbd4d8;
+}
+.season-evidence summary {
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 800;
+}
+.season-table-scroll {
+  overflow: auto;
+}
+.season-evidence table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.season-evidence td,
+.season-evidence th {
+  text-align: left;
+  padding: 9px 7px;
+  border-bottom: 1px solid #cbd4d8;
+  white-space: nowrap;
+}
+.season-evidence p {
+  max-width: 85ch;
+  font-size: 0.87rem;
+  margin: 18px 0;
+  color: #52616a;
+}
+@media (max-width: 900px) {
+  .season-page .season-ribbon {
+    display: flex;
+    overflow: auto;
+  }
+  .season-page .season-ribbon a,
+  .season-page .season-ribbon-scheduled {
+    flex: 0 0 156px;
+  }
+}
+@media (max-width: 760px) {
+  .season-page {
+    padding: 18px 20px 28px;
+  }
+  .season-page .season-lead {
+    grid-template-columns: 1fr;
+  }
+  .season-lead > div:first-child {
+    padding: 25px 22px;
+  }
+  .season-page .season-lead h1 {
+    font-size: 3rem;
+  }
+  .season-jersey {
+    height: 72px;
+  }
+  .season-page .season-spotlight {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 22px;
+  }
+  .season-story-grid {
+    grid-template-columns: 1fr;
+  }
+  .season-page .season-milo {
+    align-items: flex-start;
+    padding: 18px;
+    gap: 15px;
+  }
+  .season-milo img {
+    width: 65px;
+    height: 90px;
+  }
+  .season-milo h2 {
+    font-size: 1.6rem;
+  }
+  .season-milo p {
+    font-size: 0.85rem;
+  }
+}
+
+.season-pulse td.pulse-continuous::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: #ff8000;
+  z-index: 0;
+}
+
+/* The full category remains accessible; this compact token keeps the column
+   header readable without widening the pulse wall. */
+.pulse-rider-head {
+  position: relative;
+}
+.pulse-rider-head .pulse-rider-name {
+  padding-bottom: 23px;
+}
+.pulse-rider-category {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--color-aqua);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none;
+}

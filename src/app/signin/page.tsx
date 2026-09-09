@@ -1,5 +1,4 @@
 import { signIn } from '@/auth.ts';
-import { Banner } from '@/components/Banner.tsx';
 import { DEV_PROVIDER_ID } from '@/lib/admission.ts';
 import { availableProviders } from '@/lib/signin-providers.ts';
 
@@ -36,92 +35,97 @@ export default async function SignIn({
   const { error, callbackUrl } = await searchParams;
   const redirectTo = callbackUrl ?? '/';
   const { email, dev } = availableProviders();
+  const localArt = process.env.NEXT_PUBLIC_LOCAL_BRAND_ART === '1';
 
   return (
-    <>
-      <Banner />
-      <main className="mx-auto max-w-md px-6 py-12">
-        <h1 className="font-display text-3xl tracking-wide uppercase">Sign in</h1>
-        <p className="text-muted mt-3 text-sm">
-          Club members only. This app shows minors&rsquo; names, so there is no public view and no
-          shared password — access is per address.
-        </p>
+    <main className={`signin-kit-pop${localArt ? ' has-local-brand-art' : ''}`}>
+      <header className="signin-masthead">
+        <span>Descenders</span>
+        <small>Season reports</small>
+      </header>
+      <div className="signin-entry">
+        <section className="signin-story" aria-labelledby="signin-story-heading">
+          <p className="eyebrow">Race day, together</p>
+          <h1 id="signin-story-heading">Every result opens a conversation.</h1>
+          <p>Who was there? What can we learn? What comes next?</p>
+        </section>
+        <section className="signin-door" aria-labelledby="signin-heading">
+          <p className="signin-badge">Private team access</p>
+          <h2 id="signin-heading">Open the season</h2>
+          <p className="signin-copy">Use the email connected to your Descenders invitation.</p>
 
-        {error ? (
-          <p className="border-danger text-danger mt-6 rounded border-l bg-white px-4 py-3 text-sm">
-            {MESSAGES[error] ?? REFUSED}
-          </p>
-        ) : null}
-
-        {email ? (
-          <form
-            action={async (formData: FormData) => {
-              'use server';
-              await signIn('nodemailer', {
-                email: formData.get('email'),
-                redirectTo,
-              });
-            }}
-            className="mt-8"
-          >
-            <label htmlFor="email" className="block text-sm font-semibold">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="border-border bg-surface mt-2 w-full rounded border px-3 py-2"
-            />
-            <button
-              type="submit"
-              className="bg-accent on-accent font-display mt-4 w-full cursor-pointer rounded px-4 py-2 text-lg tracking-wide uppercase"
-            >
-              Email me a link
-            </button>
-          </form>
-        ) : null}
-
-        {dev ? (
-          <form
-            action={async (formData: FormData) => {
-              'use server';
-              await signIn(DEV_PROVIDER_ID, { email: formData.get('email'), redirectTo });
-            }}
-            className="border-border mt-8 border-t pt-8"
-          >
-            <label htmlFor="dev-email" className="block text-sm font-semibold">
-              Development sign-in
-            </label>
-            <p className="text-muted mt-1 text-xs">
-              Local development identity only. Active club membership is still required to open
-              reporting.
+          {error ? (
+            <p className="border-danger text-danger mt-6 rounded border-l bg-white px-4 py-3 text-sm">
+              {MESSAGES[error] ?? REFUSED}
             </p>
-            <input
-              id="dev-email"
-              name="email"
-              type="email"
-              required
-              className="border-border bg-surface mt-2 w-full rounded border px-3 py-2"
-            />
-            <button
-              type="submit"
-              className="border-navy text-navy mt-3 w-full cursor-pointer rounded border px-4 py-2 text-sm font-semibold"
-            >
-              Sign in
-            </button>
-          </form>
-        ) : null}
+          ) : null}
 
-        {!email && !dev ? (
-          <p className="border-warn mt-8 rounded border-l bg-white px-4 py-3 text-sm">
-            No sign-in method is configured. Set <code>AUTH_EMAIL_SERVER</code>, or{' '}
-            <code>AUTH_DEV_LOGIN=1</code> in development. See <code>.env.example</code>.
-          </p>
+          {email ? (
+            <form
+              action={async (formData: FormData) => {
+                'use server';
+                await signIn('nodemailer', {
+                  email: formData.get('email'),
+                  redirectTo,
+                });
+              }}
+              className="signin-form"
+            >
+              <label htmlFor="email">Email address</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                className="signin-input"
+              />
+              <button type="submit" className="signin-submit">
+                Email me a link
+              </button>
+            </form>
+          ) : null}
+
+          {dev ? (
+            <form
+              action={async (formData: FormData) => {
+                'use server';
+                await signIn(DEV_PROVIDER_ID, { email: formData.get('email'), redirectTo });
+              }}
+              className="signin-dev"
+            >
+              <label htmlFor="dev-email">Development sign-in</label>
+              <p className="text-muted mt-1 text-xs">
+                Local development identity only. Active club membership is still required to open
+                reporting.
+              </p>
+              <input id="dev-email" name="email" type="email" required className="signin-input" />
+              <button type="submit" className="signin-dev-submit">
+                Sign in
+              </button>
+            </form>
+          ) : null}
+
+          {!email && !dev ? (
+            <p className="signin-unavailable">
+              No sign-in method is configured. Set <code>AUTH_EMAIL_SERVER</code>, or{' '}
+              <code>AUTH_DEV_LOGIN=1</code> in development. See <code>.env.example</code>.
+            </p>
+          ) : null}
+        </section>
+      </div>
+      <section className="signin-milo" aria-labelledby="signin-milo-heading">
+        {localArt ? (
+          <img
+            src="/local-brand/milo-lockup-orange.png"
+            alt="Descenders Salem Composite logo featuring Milo"
+          />
         ) : null}
-      </main>
-    </>
+        <div>
+          <h2 id="signin-milo-heading">MILO rides with us.</h2>
+          <p>Make the effort · Include everyone · Learn by trying · Offer encouragement</p>
+        </div>
+      </section>
+    </main>
   );
 }

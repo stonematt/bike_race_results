@@ -57,6 +57,12 @@ it('a member reaches the reviewed season observation and its exact checkpointed 
   );
   expect(markup).toContain('5 club riders recorded a start at Demo Race 1 — Old Oak (North).');
   expect(markup).toContain('href="/2026/round/1?through=1#event-demo-2026-round-1"');
+  expect(markup).toContain('Old Oak Prologue');
+  expect(markup).toContain('North Sep 12 · South Sep 13');
+  expect(markup).toContain('State Champs: Butte Scoot Boogie');
+  expect(markup).toContain('Oregon League schedule');
+  expect(markup).toContain('href="/2026/round/1"');
+  expect(markup).not.toContain('href="/2026/round/2"');
 });
 
 it('a member finds the race publication beside its own Event while sibling results remain missing', async () => {
@@ -98,7 +104,7 @@ it('a member gets factual reporting after the approved roster evidence changes',
     }),
   );
   expect(markup).not.toContain('5 club riders recorded a start at Demo Race 1 — Old Oak (North).');
-  expect(markup).toContain('More from this weekend');
+  expect(markup).toContain('More from this season');
   expect(markup).toContain('4 club riders recorded a start at Race 1.');
 });
 
