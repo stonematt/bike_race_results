@@ -80,16 +80,16 @@ Order for a hosted database is recorded in the
 
 Names and origins only.
 
-| Name                  | Value shape                                              | Where it is set                                 |
-| --------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| `DATABASE_URL`        | pooled hosted URL for the app; direct URL for migrations | host env, and the operator's shell for CLI runs |
-| `AUTH_SECRET`         | `npx auth secret`                                        | host env                                        |
-| `AUTH_URL`            | the canonical `https://` origin                          | host env                                        |
-| `AUTH_EMAIL_SERVER`   | `smtps://<user>:<key>@<host>:465` — the scheme, not the port, sets TLS | host env                          |
-| `AUTH_EMAIL_FROM`     | the sending address                                      | host env                                        |
-| `AUTH_ALLOWED_EMAILS` | bootstrap admin address                                  | operator's shell at seed time only              |
-| `CURRENT_SEASON`      | four-digit year, optional                                | host env                                        |
-| `AUTH_DEV_LOGIN`      | absent                                                   | nowhere                                         |
+| Name                  | Value shape                                                            | Where it is set                                 |
+| --------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| `DATABASE_URL`        | pooled hosted URL for the app; direct URL for migrations               | host env, and the operator's shell for CLI runs |
+| `AUTH_SECRET`         | `npx auth secret`                                                      | host env                                        |
+| `AUTH_URL`            | the canonical `https://` origin                                        | host env                                        |
+| `AUTH_EMAIL_SERVER`   | `smtps://<user>:<key>@<host>:465` — the scheme, not the port, sets TLS | host env                                        |
+| `AUTH_EMAIL_FROM`     | the sending address                                                    | host env                                        |
+| `AUTH_ALLOWED_EMAILS` | bootstrap admin address                                                | operator's shell at seed time only              |
+| `CURRENT_SEASON`      | four-digit year, optional                                              | host env                                        |
+| `AUTH_DEV_LOGIN`      | absent                                                                 | nowhere                                         |
 
 Runtime authorization is the active `club_membership` row read on each protected
 request. `AUTH_ALLOWED_EMAILS` bootstraps the first admin and nothing else; it
