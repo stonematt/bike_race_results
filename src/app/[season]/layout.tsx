@@ -2,9 +2,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/auth.ts';
 import { appDb } from '@/app/db.ts';
-import { Banner } from '@/components/Banner.tsx';
 import { SignOutButton } from '@/components/SignOutButton.tsx';
 import { SeasonSelector } from '@/components/SeasonSelector.tsx';
+import { TopNav } from '@/components/TopNav.tsx';
 import { readActiveMemberships } from '@/lib/authz/access.ts';
 import { requireClubContext } from '../club-context.ts';
 import { listSeasonYears, resolveSeasonByYear } from './query.ts';
@@ -44,24 +44,30 @@ export default async function SeasonLayout({
 
   return (
     <>
-      <Banner>
-        <SeasonSelector currentYear={season.year} seasonYears={seasonYears} />
-        {memberships.length > 1 ? (
-          <Link className="text-sm font-bold text-white underline underline-offset-4" href="/clubs">
-            Switch club
-          </Link>
-        ) : null}
-        <Link
-          className="text-sm font-bold text-white underline underline-offset-4"
-          href={`/${season.year}/operations`}
-        >
-          Club operations
-        </Link>
-        {session?.user?.email ? (
-          <span className="min-w-0 break-all">{session.user.email}</span>
-        ) : null}
-        <SignOutButton />
-      </Banner>
+      <TopNav
+        seasonControls={<SeasonSelector currentYear={season.year} seasonYears={seasonYears} />}
+        qaPanel={
+          <>
+            {memberships.length > 1 ? (
+              <Link className="top-nav-link" href="/clubs">
+                Switch club
+              </Link>
+            ) : null}
+            <Link className="top-nav-link" href={`/${season.year}/operations`}>
+              Club operations
+            </Link>
+          </>
+        }
+        seasonHref={`/${season.year}`}
+        utilityControls={
+          <>
+            {session?.user?.email ? (
+              <span className="top-nav-account">{session.user.email}</span>
+            ) : null}
+            <SignOutButton />
+          </>
+        }
+      />
       {children}
     </>
   );

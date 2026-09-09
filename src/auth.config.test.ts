@@ -166,6 +166,13 @@ describe('the middleware matcher', () => {
     // so gating it would leave the one public page without one.
     expect(gated('/icon.svg')).toBe(false);
     expect(gated('/robots.txt')).toBe(false);
+    // Local-only UAT artwork is ignored from source control and deliberately
+    // has no application route; it must remain reachable to the anonymous
+    // sign-in surface when an owner opts into the local asset directory.
+    expect(gated('/local-brand/milo-lockup-orange.png')).toBe(false);
+    expect(gated('/local-brand/jersey-mountains.png')).toBe(false);
+    expect(gated('/local-brand/arbitrary.png')).toBe(true);
+    expect(gated('/local-brand/milo-lockup-orange.png/extra')).toBe(true);
   });
 
   it('does not let a prefix of an exempt path escape the gate', () => {

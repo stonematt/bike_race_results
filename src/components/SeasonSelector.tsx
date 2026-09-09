@@ -28,7 +28,7 @@ export function SeasonSelector({
       <select
         value={String(currentYear)}
         onChange={(event) => router.push(rewriteSeasonSegment(pathname, event.target.value))}
-        className="border-border bg-surface text-fg rounded border px-2 py-1 font-semibold"
+        className="min-h-11 border-border bg-surface text-fg rounded border px-2 py-1 font-semibold"
       >
         {seasonYears.map((year) => (
           <option key={year} value={year}>
