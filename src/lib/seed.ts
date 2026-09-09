@@ -34,7 +34,7 @@
  */
 
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from './db/index.ts';
 import { isAllowed, type AllowlistEnv } from './allowlist.ts';
 import {
   ClubConfigError,
@@ -48,7 +48,7 @@ import * as schema from './db/schema.ts';
 import { findOrCreateUser } from './db/users.ts';
 import { slugify } from './slug.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 /**
  * The handle drizzle hands a `db.transaction` callback. Named by unwrapping the
  * method's own signature rather than importing it, so a drizzle upgrade that
@@ -502,7 +502,7 @@ async function replaceRiders(
       const [row] = await tx
         .insert(schema.rider)
         .values({ displayName: rider.displayName })
-        .returning({ id: schema.rider.id });
+        .returning();
       riderId = row!.id;
       ridersCreated += 1;
     } else {
@@ -613,7 +613,7 @@ async function ridersInClubSquads(tx: Tx, clubId: number, seasonId: number): Pro
 async function upsertSeason(tx: Tx, year: number): Promise<number> {
   const existing = await tx.select().from(schema.season).where(eq(schema.season.year, year));
   if (existing[0]) return existing[0].id;
-  const [row] = await tx.insert(schema.season).values({ year }).returning({ id: schema.season.id });
+  const [row] = await tx.insert(schema.season).values({ year }).returning();
   return row!.id;
 }
 
@@ -654,7 +654,7 @@ async function upsertClub(executor: Executor, name: string, slug?: string): Prom
   const [row] = await executor
     .insert(schema.club)
     .values({ name, slug: slug ?? slugify(name) })
-    .returning({ id: schema.club.id });
+    .returning();
   return row!.id;
 }
 
@@ -680,7 +680,7 @@ async function upsertSquad(
   const [row] = await tx
     .insert(schema.squad)
     .values({ clubId, seasonId, name, slug: slug ?? slugify(name) })
-    .returning({ id: schema.squad.id });
+    .returning();
   return row!.id;
 }
 

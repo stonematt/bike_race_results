@@ -40,3 +40,6 @@ next-env.d.ts
 
 # Agent worktrees and local session state.
 .claude/worktrees/
+
+# Vercel CLI link state; created by any `vercel` run in the checkout.
+.vercel/

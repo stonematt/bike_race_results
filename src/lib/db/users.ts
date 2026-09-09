@@ -41,10 +41,10 @@
  */
 
 import { eq } from 'drizzle-orm';
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from './index.ts';
 import * as schema from './schema.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 /** The handle drizzle hands a `db.transaction` callback. */
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 /** Either handle — this is called inside a seeding transaction and outside one. */
@@ -61,6 +61,6 @@ export async function findOrCreateUser(
   const [user] = await executor
     .insert(schema.users)
     .values({ email, name: displayName })
-    .returning({ id: schema.users.id });
+    .returning();
   return user!.id;
 }

@@ -24,12 +24,12 @@
  */
 
 import { eq, and } from 'drizzle-orm';
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from '../db/index.ts';
 import * as schema from '../db/schema.ts';
 import type { Conference } from './category.ts';
 import { IngestError } from './errors.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 /**
  * A database or a transaction on one. Derived from Drizzle's own callback
  * signature so the calendar can be built inside the event's transaction — which

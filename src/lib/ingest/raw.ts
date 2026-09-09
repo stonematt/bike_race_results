@@ -20,11 +20,11 @@
  */
 
 import { desc } from 'drizzle-orm';
-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+import type { Database } from '../db/index.ts';
 import { createHash } from 'node:crypto';
 import * as schema from '../db/schema.ts';
 
-type Db = PgliteDatabase<typeof schema>;
+type Db = Database;
 
 /** One payload, ready to append. `fetchedAt` and `contentHash` are added here. */
 export interface RawFetchRecord {
