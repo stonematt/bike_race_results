@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 type TopNavProps = {
   qaPanel: React.ReactNode;
   qaPanelEnabled?: boolean;
+  seasonControls: React.ReactNode;
   seasonHref: string;
   utilityControls: React.ReactNode;
 };
@@ -14,13 +15,13 @@ type TopNavProps = {
 /**
  * Temporary navigation shell for the first reporting increment.
  *
- * The QA panel intentionally owns no product-only control. `qaPanel` is also
- * rendered in the masthead when the panel is disabled, so removing this
- * temporary surface cannot strand season or account navigation.
+ * Season and account controls outlive the temporary QA destinations. When
+ * QA is disabled, only those durable controls remain in the masthead.
  */
 export function TopNav({
   qaPanel,
   qaPanelEnabled = true,
+  seasonControls,
   seasonHref,
   utilityControls,
 }: TopNavProps) {
@@ -84,7 +85,7 @@ export function TopNav({
         </nav>
         {qaPanelEnabled ? null : (
           <div className="top-nav-utility top-nav-utility-expanded">
-            {qaPanel}
+            {seasonControls}
             {utilityControls}
           </div>
         )}
@@ -108,6 +109,7 @@ export function TopNav({
         >
           <p>Season and account</p>
           <div className="top-nav-panel-controls">
+            {seasonControls}
             {qaPanel}
             {utilityControls}
           </div>

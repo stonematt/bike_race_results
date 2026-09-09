@@ -16,7 +16,8 @@ afterEach(() => {
 it('opens the temporary QA navigation and returns focus to its toggle when dismissed', () => {
   render(
     <TopNav
-      qaPanel={<Link href="/2055">2055 season</Link>}
+      qaPanel={<Link href="/2055/operations">Club operations</Link>}
+      seasonControls={<Link href="/2055">2055 season</Link>}
       seasonHref="/2055"
       utilityControls={<button>Sign out</button>}
     />,
@@ -45,7 +46,8 @@ it('opens the temporary QA navigation and returns focus to its toggle when dismi
 it('keeps required utility controls in the masthead when the removable QA panel is disabled', () => {
   render(
     <TopNav
-      qaPanel={<Link href="/2055">2055 season</Link>}
+      qaPanel={<Link href="/2055/operations">Club operations</Link>}
+      seasonControls={<Link href="/2055">2055 season</Link>}
       qaPanelEnabled={false}
       seasonHref="/2055"
       utilityControls={<button>Sign out</button>}
@@ -56,13 +58,15 @@ it('keeps required utility controls in the masthead when the removable QA panel 
   expect(screen.queryByRole('navigation', { name: 'Temporary QA navigation' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Sign out' })).toBeVisible();
   expect(screen.getByRole('link', { name: '2055 season' })).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Club operations' })).toBeNull();
 });
 
 it('marks Season current only on the season wall', () => {
   navigation.pathname = '/2055/operations';
   render(
     <TopNav
-      qaPanel={<Link href="/2055">2055 season</Link>}
+      qaPanel={<Link href="/2055/operations">Club operations</Link>}
+      seasonControls={<Link href="/2055">2055 season</Link>}
       seasonHref="/2055"
       utilityControls={<button>Sign out</button>}
     />,
@@ -73,7 +77,8 @@ it('marks Season current only on the season wall', () => {
 
 it('closes the temporary panel when a season route transition completes', async () => {
   const props = {
-    qaPanel: <Link href="/2055">2055 season</Link>,
+    qaPanel: <Link href="/2055/operations">Club operations</Link>,
+    seasonControls: <Link href="/2055">2055 season</Link>,
     seasonHref: '/2055',
     utilityControls: <button>Sign out</button>,
   };

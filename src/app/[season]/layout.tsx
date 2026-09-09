@@ -45,9 +45,9 @@ export default async function SeasonLayout({
   return (
     <>
       <TopNav
+        seasonControls={<SeasonSelector currentYear={season.year} seasonYears={seasonYears} />}
         qaPanel={
           <>
-            <SeasonSelector currentYear={season.year} seasonYears={seasonYears} />
             {memberships.length > 1 ? (
               <Link className="top-nav-link" href="/clubs">
                 Switch club
