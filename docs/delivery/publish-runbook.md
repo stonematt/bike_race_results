@@ -53,10 +53,10 @@ Owner column: **operator** is the human with provider and registrar access;
 | 3   | Schema migration against the hosted database        | operator + agent | done        |
 | 4   | Club config, first admin, corpus load               | operator + agent | done        |
 | 5   | Mail sender and its DNS records                     | operator         | not started |
-| 6   | Host project, environment variables, build settings | operator         | paused      |
+| 6   | Host project, environment variables, build settings | operator         | done        |
 | 7   | Domain and TLS                                      | operator         | not started |
 | 8   | Verification pass                                   | agent            | not started |
-| 9   | Ledger entry and issue close-out                    | agent            | not started |
+| 9   | Ledger entry and issue close-out                    | agent            | in progress |
 
 ## Phase 2 — hosted-capable seed and normalize
 
@@ -162,3 +162,79 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. Re-check before deploying: the pending merge may move the schema.
   If it does, migrate the Neon `production` branch again and re-verify the view
   and membership counts before the first deployment serves a request.
+- 2026-09-09. Release landed. PR [#149](https://github.com/stonematt/bike_race_results/pull/149)
+  promoted `dev` into `main` — 244 commits, 60 merged PRs — merging at
+  `0ba39c64069f292906b974c1f5525bd936423101`. Both CI checks passed: the
+  production browser gate and the typecheck/lint/format/test lane. The full-diff
+  review gate was waived by the owner on the explicit ground that a 244-commit
+  release PR is not a sensible review unit and each constituent PR was reviewed
+  under `review: pocock` as it landed; the stored policy is unchanged and a
+  separate multi-agent review of the stack is planned as follow-up. The schema
+  re-check held: `src/lib/db/migrations/` was unchanged, so the hosted database
+  needed no re-migration before the first deployment.
+- 2026-09-09. Phase 6 completed. Deployment Protection was **already** enabled —
+  Vercel Authentication, Standard Protection — so no change was needed. Standard
+  covers every generated deployment URL including the production `.vercel.app`
+  origin and exempts only custom production domains, which is the posture to
+  keep: once `results.scdescenders.com` is attached the app's own login and
+  season wall guard it, and "All Deployments" would put a Vercel account login in
+  front of club members and break magic-link sign-in.
+- 2026-09-09. **Correction to the recorded order.** The prior entry's sequence —
+  set the production branch _before_ connecting the repository — is not
+  achievable. The production-branch field does not exist until a repository is
+  connected: Settings → Environments → Production shows Branch Tracking with no
+  input, and Settings → Git has no Production Branch section. On connection
+  Vercel set the production branch to `main` on its own rather than to the
+  repository default `dev`, so the outcome was correct without intervention.
+  The risk the ordering guarded against was in any case gone, `main` being the
+  merge commit of `dev` and therefore content-identical.
+- 2026-09-09. Vercel's GitHub App was installed with **Only select
+  repositories** and this repository was not among them, so the repository did
+  not appear in the connect picker. The operator granted access to
+  `stonematt/bike_race_results` specifically and kept the select-repositories
+  posture, so a future private repository — the identity map, anything holding
+  real names — cannot be reached by the host unless it is deliberately added.
+- 2026-09-09. Environment variables set, **Production scope only**: `AUTH_URL`,
+  `AUTH_SECRET` (both by CLI, values piped rather than typed so neither entered
+  a shell history) and `DATABASE_URL`, the pooled endpoint, set in the dashboard.
+  With `CURRENT_SEASON` that is four. Preview and Development scopes hold none,
+  which is what keeps rider names off pull-request preview URLs.
+  `AUTH_DEV_LOGIN` remains absent. `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM`
+  wait on phase 5.
+- 2026-09-09. TLS switches validated against the code that consumes them.
+  `src/lib/db/runtime.ts` builds its pool with a connection string and **no**
+  explicit `ssl` option, so the string is authoritative; the driver is `pg`
+  8.23.0 with `pg-connection-string` 2.14.0. `sslmode=verify-full` parses to
+  `rejectUnauthorized: true`, and because `pg` passes `servername` the hostname
+  is checked against the certificate as well — chain and identity both. Neon's
+  certificates chain to a public CA, so no CA file has to travel with the app.
+  `channel_binding=require` is honoured by libpq clients and is most likely
+  inert on the node-postgres path, which implements SCRAM-SHA-256 but not
+  SCRAM-SHA-256-PLUS; it is harmless and worth keeping for CLI sessions, but
+  `verify-full` is what protects the application connection.
+- 2026-09-09. First production build **failed**:
+  `Error: No Output Directory named "public" found after the Build completed`.
+  The Next.js compile itself succeeded — every route built, only two `<img>` LCP
+  warnings — and the failure came afterwards, at output packaging. Cause: the
+  project was created CLI-first with no repository attached, so Vercel never ran
+  framework detection and left the Framework Preset at `Other`, which looks for
+  a static `public/` directory instead of Next.js output. There is no
+  `vercel.json` in the repository and no override was set; the preset alone
+  explains it. **A CLI-created Vercel project does not auto-detect its framework
+  the way an imported repository does** — anyone recreating this project from
+  scratch will hit the same failure. Preset changed to `Next.js` with no
+  overrides.
+- 2026-09-09. **First production deployment is live.** Redeploy of the same
+  commit `0ba39c6` on `main` succeeded in one minute and is serving at the
+  project's generated production origin behind Vercel Authentication. No custom
+  domain is attached yet, so phase 7 is what remains before the canonical origin
+  resolves. Sign-in is deliberately unavailable until phase 5: `src/auth.ts`
+  registers providers conditionally, so with `AUTH_EMAIL_SERVER` unset no
+  provider is offered and the sign-in page says so rather than failing.
+- 2026-09-09. **Hazard, recorded because the project is now linked.** Never run
+  `vercel deploy` from the publish worktree. It uploads the local working tree,
+  and that tree carries `.env.local` and `fixtures/` as symlinks to real
+  credentials and real athlete data. Every deployment must originate from git —
+  a push to `main`, or a redeploy of a commit already there. `.gitignore` covers
+  `.vercel/`; there is no `.vercelignore`, and adding one would not make a
+  working-tree upload safe.
