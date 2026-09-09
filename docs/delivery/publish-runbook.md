@@ -52,7 +52,7 @@ Owner column: **operator** is the human with provider and registrar access;
 | 2   | Hosted-capable seed and normalize                   | agent            | done        |
 | 3   | Schema migration against the hosted database        | operator + agent | done        |
 | 4   | Club config, first admin, corpus load               | operator + agent | done        |
-| 5   | Mail sender and its DNS records                     | operator         | not started |
+| 5   | Mail sender and its DNS records                     | operator         | done        |
 | 6   | Host project, environment variables, build settings | operator         | done        |
 | 7   | Domain and TLS                                      | operator + agent | done        |
 | 8   | Verification pass                                   | agent            | not started |
@@ -80,16 +80,16 @@ Order for a hosted database is recorded in the
 
 Names and origins only.
 
-| Name                  | Value shape                                              | Where it is set                                 |
-| --------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| `DATABASE_URL`        | pooled hosted URL for the app; direct URL for migrations | host env, and the operator's shell for CLI runs |
-| `AUTH_SECRET`         | `npx auth secret`                                        | host env                                        |
-| `AUTH_URL`            | the canonical `https://` origin                          | host env                                        |
-| `AUTH_EMAIL_SERVER`   | SMTP URL for the sender                                  | host env                                        |
-| `AUTH_EMAIL_FROM`     | the sending address                                      | host env                                        |
-| `AUTH_ALLOWED_EMAILS` | bootstrap admin address                                  | operator's shell at seed time only              |
-| `CURRENT_SEASON`      | four-digit year, optional                                | host env                                        |
-| `AUTH_DEV_LOGIN`      | absent                                                   | nowhere                                         |
+| Name                  | Value shape                                                            | Where it is set                                 |
+| --------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| `DATABASE_URL`        | pooled hosted URL for the app; direct URL for migrations               | host env, and the operator's shell for CLI runs |
+| `AUTH_SECRET`         | `npx auth secret`                                                      | host env                                        |
+| `AUTH_URL`            | the canonical `https://` origin                                        | host env                                        |
+| `AUTH_EMAIL_SERVER`   | `smtps://<user>:<key>@<host>:465` — the scheme, not the port, sets TLS | host env                                        |
+| `AUTH_EMAIL_FROM`     | the sending address                                                    | host env                                        |
+| `AUTH_ALLOWED_EMAILS` | bootstrap admin address                                                | operator's shell at seed time only              |
+| `CURRENT_SEASON`      | four-digit year, optional                                              | host env                                        |
+| `AUTH_DEV_LOGIN`      | absent                                                                 | nowhere                                         |
 
 Runtime authorization is the active `club_membership` row read on each protected
 request. `AUTH_ALLOWED_EMAILS` bootstraps the first admin and nothing else; it
@@ -264,3 +264,114 @@ Append one line per completed step: date, what was done, and the evidence.
   classifier — an origin change, the same gate that refuses `vercel env add`.
   The operator ran it. Read-only verification (`dig`, `curl`, `vercel domains
 inspect`) was not gated, so the whole confirmation pass stayed with the agent.
+- 2026-09-09. Phase 5 mail sender, DNS half. Resend account created under
+  `admin@scdescenders.com` (team `scdescenders`, free tier, no card), sending
+  domain `send.scdescenders.com` in `us-east-1`. **Tracking subdomain left
+  blank** and click/open tracking therefore off — fewer DNS records, and no
+  rewriting of links in mail that carries sign-in tokens.
+  Resend's current record set is **not** the `MX` + SPF `TXT` shape older notes
+  predict. It issues three: `TXT resend._domainkey.send` (DKIM) and two
+  `CNAME`s, `rsend.send` → `rsend.forge.rmta.net` and `send.send` →
+  `send.forge.rmta.net`. All three entered at Squarespace as bare prefixes; all
+  three resolved on `8.8.8.8` before Resend's own poll caught up.
+  The Resend dashboard middle-truncates record values with `[…]`. It is a
+  rendering artifact, not elision — the DKIM string reassembled from the two
+  visible halves parses as a valid 1024-bit RSA public key (216 chars, correct
+  SPKI header), and Resend later rendered all three values in full, matching
+  what had been entered. Do not treat those values as unreadable.
+  Squarespace's DNS Settings page warns _You're using custom nameservers …
+  records below are inactive_. It is wrong here and should be ignored: the zone's
+  delegation lists both `ns0*.squarespacedns.com` and `dns*.p07.nsone.net`
+  (Squarespace's DNS runs on NS1), so its own UI reads the zone as third-party.
+  The phase 7 `results` CNAME sits in that same Custom records list and resolves.
+  Resend independently reports `PROVIDER: NS1`.
+  DMARC deliberately **not** published. Resend offers it at a bare `_dmarc`,
+  which at this zone means `_dmarc.scdescenders.com` — a policy over the whole
+  club domain, including the Google Workspace mail on the apex `MX`. It is
+  optional for sending. If it is ever wanted, it belongs at `_dmarc.send`.
+  TLS set to **Enforced** on the sending domain (Configuration tab). Scoped to
+  mail Resend sends from `send.scdescenders.com` — today only magic links — and
+  it does not touch club mail, which is a different domain on Google's MTA.
+  Opportunistic TLS delivers in cleartext when the receiving server will not
+  negotiate, and is downgrade-attackable; a magic link is a bearer token, so an
+  undelivered message that shows up in Resend's Logs beats a token in the clear.
+  Resend SMTP, from its docs: host `smtp.resend.com`, username `resend`,
+  password the API key, port `465` for implicit TLS. The scheme must be
+  `smtps://` — see the correction dated below; `smtp://` on 465 does not work.
+  Still open at the end of this entry: the API key, `AUTH_EMAIL_SERVER` and
+  `AUTH_EMAIL_FROM` on Production scope only, and the redeploy.
+- 2026-09-09. Phase 5 complete. A Resend API key scoped to **Sending access**
+  and to `send.scdescenders.com` alone (not Full access, not All domains) is the
+  password in `AUTH_EMAIL_SERVER` =
+  `smtps://resend:<key>@smtp.resend.com:465`. `AUTH_EMAIL_FROM` is
+  `Descenders Race Dashboard <results@send.scdescenders.com>`, matching the app
+  title in `src/app/layout.tsx`. Both on **Production scope only** — Preview and
+  Development left empty, which is what keeps rider names off preview URLs.
+  `AUTH_EMAIL_SERVER` is stored as a Vercel **Secret**, `AUTH_EMAIL_FROM` as
+  **Config**, since only the first carries the key.
+  Setting the variables does nothing on its own: `/api/auth/providers` still
+  answered `{}` until the deployment was replaced. Redeployed the current
+  production deployment (PR #149, `main`) from the dashboard — same source, new
+  project settings — which was not refused by the classifier, unlike
+  `vercel env add`. Ready in 1m17s.
+  Verified after: `/api/auth/providers` returns the `nodemailer` provider, and
+  its `callbackUrl` is on `results.scdescenders.com` rather than the `.vercel.app`
+  name, so `AUTH_URL` governs the link a coach receives. The signed-out posture
+  survived the redeploy — `/races` still `307`s to `/signin`, `/robots.txt` is
+  still `Disallow: /`.
+- 2026-09-09. **Hazard, cost one failed sign-in.** `AUTH_EMAIL_SERVER` was first
+  set to `smtp://resend:<key>@smtp.resend.com:465` and the first hosted sign-in
+  failed with `[auth][error] Error: Greeting never received` in the Vercel
+  runtime log on `POST /signin`, surfacing to the browser as
+  `/api/auth/error?error=Configuration`. Nodemailer takes TLS from the URL
+  **scheme, not the port**: `smtp://` means `secure: false`, so it opened a
+  plaintext socket to 465, which expects TLS immediately, and neither side ever
+  spoke. The correct value is **`smtps://`** on 465 (or `smtp://` on 587 for
+  STARTTLS; implicit TLS on 465 suits the Enforced posture better).
+  Two diagnostics worth reusing. Resend's **Emails** and **Logs** were both
+  empty, which localises the fault upstream of Resend rather than in the domain
+  or the key. And `vercel logs https://results.scdescenders.com --json` is
+  read-only, was not refused by the classifier, and carried the actual exception
+  where the browser showed only `error=Configuration`.
+  Local parity could not have caught this. `docs/delivery/dependency-readiness.md`
+  records the Nodemailer path exercised only against a loopback capture, and
+  `docs/delivery/status.md` gives that capture's address as `127.0.0.1:2525`;
+  implicit TLS was never on that path, so `smtp://` was right locally and wrong
+  hosted. This is the class of gap phase 8 exists for.
+  Corrected to `smtps://` and redeployed. The first hosted magic link then sent:
+  the browser reached `/api/auth/verify-request` with "Check your email", and
+  Resend's Emails list shows one message to `admin@scdescenders.com`, subject
+  "Sign in to results.scdescenders.com", status **Delivered**. That proves the
+  hosted app reached Resend over implicit TLS and Resend's handoff was accepted
+  by Google. It does not prove the message reached a mailbox, and it does not
+  itself observe the receiving TLS hop — `Delivered` is Resend's report of
+  acceptance. Where the message actually landed is the next entry.
+- 2026-09-09. **The first magic link landed in spam**, and this is expected to
+  repeat for every coach's first sign-in. Resend reported `Delivered`, so Google
+  accepted the message; the filtering happened after acceptance. Authentication
+  was not the problem — DKIM is published at `resend._domainkey.send`, and the
+  bounce domain `send.send.scdescenders.com` resolves through
+  `send.forge.rmta.net` to a valid `v=spf1 ... ~all`. What is missing is DMARC:
+  there is no `_dmarc.send.scdescenders.com`, and no `_dmarc.scdescenders.com`
+  for a receiver to fall back to at the organizational domain. A days-old
+  sending domain with no published policy is a spam-folder call.
+  Fix belongs at **`_dmarc.send`**, not the bare `_dmarc` Resend offers —
+  subdomain-scoped, so the club's Google Workspace mail on the apex is untouched.
+  `v=DMARC1; p=none; rua=mailto:admin@scdescenders.com` is monitoring-only and
+  cannot cause a rejection.
+  **Rollout consequence:** whatever coaches are given at onboarding has to tell
+  them to check spam for the first sign-in link. Reputation improves with age
+  and volume, so this fades rather than needing a permanent workaround.
+  Separate, pre-existing, and deliberately not touched: the apex
+  `scdescenders.com` publishes no `v=spf1` record at all — only the Google
+  site-verification TXT — so the club's own Workspace mail is unauthenticated by
+  SPF. Fixing that changes live club mail and is the operator's decision.
+- 2026-09-09. DMARC published at **`_dmarc.send`**, value
+  `v=DMARC1; p=none; rua=mailto:admin@scdescenders.com`. Verified from outside:
+  `_dmarc.send.scdescenders.com` resolves, `_dmarc.scdescenders.com` is still
+  absent, and the apex Google Workspace `MX` set is unchanged — the scoping held,
+  so club mail carries no new policy. The sending domain now publishes all three
+  of DKIM, SPF (on the bounce domain) and DMARC. This does not rescue mail
+  already filtered; it changes how later messages are judged.
+  The operator confirmed the magic link worked once retrieved from the spam
+  folder, so the hosted sign-in path is proven end to end.
