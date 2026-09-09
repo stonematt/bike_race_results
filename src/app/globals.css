@@ -995,3 +995,178 @@
   line-height: 1;
   text-decoration: none;
 }
+
+/* Temporary QA navigation: all reporting context remains available inline
+   when `qaPanelEnabled` is retired, rather than depending on this drawer. */
+.top-nav {
+  position: relative;
+  z-index: 10;
+  min-height: 82px;
+  color: white;
+  background: var(--deep-navy);
+  border-bottom: 1px solid rgb(255 255 255 / 0.32);
+}
+.top-nav-inner {
+  display: flex;
+  min-height: 82px;
+  max-width: 1160px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  margin: auto;
+}
+.top-nav-brand-group,
+.top-nav-utility,
+.top-nav-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.top-nav-reports {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.top-nav-reports a,
+.top-nav-reports span {
+  display: grid;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 10px;
+  color: white;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+.top-nav-reports a[aria-current='page'] {
+  color: var(--color-accent);
+  border-bottom: 3px solid var(--color-accent);
+}
+.top-nav-reports span[aria-disabled='true'] {
+  color: rgb(255 255 255 / 0.6);
+}
+.top-nav-toggle {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  cursor: pointer;
+  color: white;
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 0.48);
+}
+.top-nav-toggle:hover,
+.top-nav-toggle:focus-visible {
+  color: var(--color-fg);
+  background: var(--color-aqua);
+  border-color: var(--color-aqua);
+}
+.top-nav-toggle svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-width: 2;
+}
+.top-nav-brand {
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-size: 2.75rem;
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.top-nav-panel {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: max(20px, calc((100% - 1160px) / 2));
+  display: grid;
+  min-width: min(420px, calc(100vw - 40px));
+  gap: 14px;
+  padding: 20px;
+  color: var(--color-fg);
+  background: white;
+  box-shadow: 0 12px 28px rgb(21 29 51 / 0.24);
+}
+.top-nav-panel > p {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.top-nav-panel-controls {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.top-nav-link,
+.top-nav-panel form button {
+  min-height: 44px;
+  color: var(--color-fg);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.top-nav-panel form button {
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.top-nav-account {
+  max-width: min(28ch, calc(100vw - 80px));
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.top-nav-utility-expanded {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.top-nav-qa-disabled .top-nav-inner {
+  flex-wrap: wrap;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.top-nav-qa-disabled .top-nav-link {
+  color: white;
+}
+.top-nav-qa-disabled .top-nav-account {
+  color: rgb(255 255 255 / 0.8);
+}
+@media (max-width: 760px) {
+  .top-nav,
+  .top-nav-inner {
+    min-height: 72px;
+  }
+  .top-nav-inner {
+    padding: 0 20px;
+  }
+  .top-nav-brand-group {
+    gap: 10px;
+  }
+  .top-nav-brand {
+    font-size: 2.2rem;
+  }
+  .top-nav-reports {
+    display: none;
+  }
+  .top-nav-panel {
+    right: 20px;
+    left: 20px;
+    min-width: 0;
+  }
+  .top-nav-panel-controls,
+  .top-nav-utility-expanded {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
