@@ -93,7 +93,10 @@ export function plateWindowsOverlap(
 }
 
 export interface RiderConfig {
-  /** Stable, non-identifying handle. Referenced by squads. */
+  /**
+   * Stable, non-identifying handle. Referenced by squads, and the display name
+   * a rider starts under until a published result names them.
+   */
   key: string;
   plates: PlateBinding[];
 }
@@ -218,7 +221,8 @@ export function loadPublishedScoringTeams(
 
 /**
  * The coach key -> email address map. Absent is the normal case on a public
- * checkout and is not an error — seeding degrades to skipping the link rather than refusing.
+ * checkout and is not an error — seeding degrades to skipping the link rather
+ * than refusing.
  *
  * Addresses are normalised the same way sign-in normalises them
  * (`trim().toLowerCase()`), so a map entered as `Coach@X` and a sign-in as

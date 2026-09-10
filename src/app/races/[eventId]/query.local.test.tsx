@@ -3,9 +3,9 @@
  *
  * **Local lane.** This reads `fixtures/` — minors' full names, schools, grades,
  * plates and finish times — so it runs on a developer's machine with a human
- * present and never in CI (docs/fixtures.md, issue #29). It also reads the club
- * config, whose display names live outside the tree; with that file absent every
- * rider takes their `«RIDER-A»` pseudonym, which is what runs here.
+ * present and never in CI (docs/fixtures.md, issue #29). It also seeds the club
+ * config after normalizing, so each rider carries the name the league published
+ * on their results, as they do in the app.
  *
  * Every assertion below is a count, a null check, or a string the page itself
  * composes. Nothing asserts on, or can print, a rider's name.

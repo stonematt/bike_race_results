@@ -100,7 +100,7 @@ try {
     console.log(
       `seeded ${config.club} for ${config.season} in ${location}: ` +
         `${result.scoringTeams} scoring teams, ${result.riders} riders ` +
-        `(${result.ridersCreated} new, ${result.ridersNamed} named from results), ` +
+        `(${result.ridersCreated} new, ${result.ridersRenamed} renamed from results), ` +
         `${result.plates} plate mappings, ` +
         `${result.squads} squads, ${result.squadMembers} squad members, ` +
         `${result.squadCoaches} squad coaches`,

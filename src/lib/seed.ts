@@ -328,8 +328,8 @@ export interface SeedClubResult {
   riders: number;
   /** Rider rows this run had to create, so the CLI can say what changed. */
   ridersCreated: number;
-  /** Riders whose display name was taken from a published result this run. */
-  ridersNamed: number;
+  /** Riders this run renamed to the name on their latest published result. */
+  ridersRenamed: number;
   plates: number;
   squads: number;
   squadMembers: number;
@@ -412,7 +412,7 @@ export async function seedClubConfig(
 
     await replaceScoringTeams(tx, clubId, seasonId, config);
     const { riderIds, ridersCreated, plates } = await replaceRiders(tx, seasonId, config);
-    const ridersNamed = await nameRidersFromResults(tx, seasonId, [...riderIds.values()]);
+    const ridersRenamed = await nameRidersFromResults(tx, seasonId, [...riderIds.values()]);
     const coachEmails = options.coachEmails ?? loadCoachEmails();
     const { squadMembers, squadCoaches } = await replaceSquads(
       tx,
@@ -441,7 +441,7 @@ export async function seedClubConfig(
       scoringTeams: config.scoringTeams.length,
       riders: config.riders.length,
       ridersCreated,
-      ridersNamed,
+      ridersRenamed,
       plates,
       squads: config.squads.length,
       squadMembers,
@@ -495,7 +495,8 @@ async function replaceScoringTeams(
  * result this season, verbatim — casing included. It resolves through
  * `v_rider_result`, so a reissued plate names each holder from their own side
  * of the boundary. A rider with no result keeps what they have: a new one
- * their config key, an existing one their stored name.
+ * their config key, an existing one their stored name. Returns how many it
+ * renamed, so a second pass over the same results changes nothing and says so.
  */
 async function nameRidersFromResults(
   tx: Tx,
@@ -514,6 +515,7 @@ async function nameRidersFromResults(
          order by rider_id, round_ordinal desc, event_id desc
       ) latest
      where rider.id = latest.rider_id
+       and rider.display_name is distinct from latest.display_name
     returning rider.id
   `);
   return result.rows.length;

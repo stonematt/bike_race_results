@@ -470,10 +470,13 @@ describe('seedClubConfig', () => {
     const again = await seedClubConfig(db, clubConfig());
 
     expect(again.ridersCreated).toBe(0);
-    expect(again.ridersNamed).toBe(1);
+    expect(again.ridersRenamed).toBe(1);
     const riders = await db.select().from(schema.rider);
     expect(riders).toHaveLength(1);
     expect(riders[0]!.displayName).toBe('RACER 202');
+
+    // The same results a second time rename nobody.
+    expect((await seedClubConfig(db, clubConfig())).ridersRenamed).toBe(0);
   });
 
   it('takes the latest round when the league spelled a name two ways', async () => {
@@ -493,7 +496,7 @@ describe('seedClubConfig', () => {
 
     const again = await seedClubConfig(db, clubConfig());
 
-    expect(again.ridersNamed).toBe(0);
+    expect(again.ridersRenamed).toBe(0);
     const riders = await db.select().from(schema.rider);
     expect(riders[0]!.displayName).toBe('KEPT NAME');
   });
@@ -705,8 +708,10 @@ describe('club and squad slugs', () => {
 });
 
 /**
- * The sequence the README documents, against a fresh database — the thing that
- * used to end with the coach on one club and the roster on another (#62).
+ * The seeding step of the sequence the README documents, against a fresh
+ * database — the thing that used to end with the coach on one club and the
+ * roster on another (#62). Normalize runs before it in the README; with no
+ * results here every rider keeps their key, which changes nothing this proves.
  *
  * Driven through the same functions `bin/seed.ts` calls, rather than by running
  * the commands: `pnpm db:migrate` and `pnpm seed` write to whatever
@@ -716,8 +721,9 @@ describe('the README setup sequence', () => {
   it('ends with one club, one coach, and the roster reachable from that coach', async () => {
     const config = loadClubConfig();
 
-    // `node bin/seed.ts --club-config --email you@example.org`: config first, so
-    // the admin lands on the club it created.
+    // `node bin/seed.ts --club-config --email you@example.org`: within that one
+    // command the config runs before the admin, so the admin lands on the club
+    // it created.
     await seedClubConfig(db, config);
     const admin = await seedAdmin(db, {
       email: 'coach@example.org',
