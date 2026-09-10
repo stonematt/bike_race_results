@@ -36,7 +36,7 @@ The owner explicitly approved the following public seams. Record each behavior a
 
 For each behavior: write one failing test, run it and confirm the intended failure, implement enough to pass, then move to the next behavior. Keep each slice working end to end. Refactoring belongs in the subsequent review pass. Runtime-validate external inputs, keep domain types explicit, use parameterized database operations, and avoid `any` or non-null assertions that conceal missing states. Reuse existing modules before introducing abstractions.
 
-Public CI gets pseudonymous fixtures. The existing local corpus lane stays local. Do not refetch the league corpus already present. New tests should observe public behavior rather than private collaborators. Update the agreed seam list when a genuinely new public boundary becomes necessary.
+Public CI gets synthetic fixtures. The existing local corpus lane stays local. Do not refetch the league corpus already present. New tests should observe public behavior rather than private collaborators. Update the agreed seam list when a genuinely new public boundary becomes necessary.
 
 **Completion evidence**
 

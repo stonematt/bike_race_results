@@ -41,7 +41,7 @@ Season is the **frame**, not a filter — club membership is season-keyed, so "a
 
 **Two orientations, both first-class.** Some riders measure a season in places and podiums; others measure it in starts and finishes. Both are well represented, and the split does not follow middle school versus high school — there are high schoolers whose season is finishing a lap. So it can never be a filter or a segment: a view that renders only place serves half the roster. This is why a result has three states rather than two — positioned (the league published a place, whether or not a percent back is comparable), started without a comparable position (a DNF), and no result recorded. An absent row does not establish DNS; unpublished, incomplete and excluded results need their own states.
 
-**There is no public half.** Race payloads carry the names of minors, so every route sits behind auth, and `next.config.ts` sends `noindex, nofollow, noarchive`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store` on every path.
+**There is no public half.** The app is for club coaches, so every route sits behind auth, and `next.config.ts` sends `noindex, nofollow, noarchive`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store` on every path.
 
 ## Status
 
@@ -52,7 +52,7 @@ Local application delivery is active through [epic #121](https://github.com/ston
 - The season dispatch and club/squad rosters retain an explicit race checkpoint. Named rider and race-review routes provide deeper evidence.
 - Persistent club operations, reviewed stories and the hosted-Postgres readiness path are subsequent delivery increments; production has not been released.
 
-The append-only raw layer archives and normalizes local fixtures without refetching them. Public tests use pseudonymous data; protected corpus checks stay local. See the ledger for current tests, visual/data reviews and production-mode smoke checks rather than treating a local build as hosted-provider verification.
+The append-only raw layer archives and normalizes local fixtures without refetching them. Public tests use synthetic data; checks against the real corpus stay local. See the ledger for current tests, visual/data reviews and production-mode smoke checks rather than treating a local build as hosted-provider verification.
 
 ## Stack
 
@@ -98,7 +98,7 @@ later runs preserve managed roles and leave revoked memberships revoked.
 
 ## Safe synthetic demo
 
-For a repeatable local walkthrough without the private fixture corpus, use the synthetic demo. It migrates a dedicated PGlite database and creates only pseudonymous riders (`«RIDER-A»` through `«RIDER-E»`), a synthetic coach, a current 2026 race, and a small 2025 checkpoint. It never reads the names map, club config, or `fixtures/`.
+For a repeatable local walkthrough without the private fixture corpus, use the synthetic demo. It migrates a dedicated PGlite database and creates only synthetic riders (`«RIDER-A»` through `«RIDER-E»`), a synthetic coach, a current 2026 race, and a small 2025 checkpoint. It never reads the names map, club config, or `fixtures/`.
 
 ```bash
 DATABASE_URL=./.pglite-demo pnpm demo
@@ -207,7 +207,7 @@ pnpm test
 
 There are **two lanes, split by what a test reads.** `pnpm test` reads only code and
 synthetic data, so it is safe to run anywhere. A test named `*.local.test.ts` reads the
-real RaceResult fixture corpus — minors' names, schools, grades and finish times — and
+real RaceResult fixture corpus — production data — and
 runs only under `pnpm test:local`, never in CI. See
 [`docs/fixtures.md`](docs/fixtures.md) for the corpus, and for the pre-commit hook that
 `pnpm install` arms to stop those payloads ever being committed.
@@ -220,8 +220,8 @@ check and a fresh-database migration. Node comes from `.nvmrc` — one line, del
 not a matrix, because this app runs on one runtime.
 
 CI never runs `pnpm test:local`, `pnpm fetch`, `pnpm normalize` or `pnpm seed`, and
-**scheduled ingest must never be added while this repo is public**: `bin/fetch.ts` pulls
-minors' names from a live API. The workflow says so at the top of the file, and
+**scheduled ingest must never be added**: `bin/fetch.ts` pulls
+production data from a live API. The workflow says so at the top of the file, and
 `scripts/ci-workflow.test.ts` holds it.
 
 ## Contributing

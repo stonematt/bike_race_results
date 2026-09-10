@@ -25,7 +25,7 @@ development provider: `AUTH_DEV_LOGIN` is intentionally absent there.
 ## Fresh local synthetic walkthrough
 
 Use a new empty PGlite directory. The following creates only the committed
-pseudonymous demo and never reads club config, rider names or `fixtures/`:
+synthetic demo and never reads club config, rider names or `fixtures/`:
 
 ```sh
 DATABASE_URL=/private/tmp/descenders-demo pnpm demo
@@ -118,7 +118,7 @@ public runner or support artifact.
 Verified locally with synthetic data: persistent PGlite reopen, native
 PostgreSQL migrations and upgrades, transaction rollback, pool recovery,
 last-admin concurrency locking, production-mode Auth.js/browser smoke, and the
-privacy-first PGlite browser CI gate. The deployment candidate has **not** been
+synthetic-data PGlite browser CI gate. The deployment candidate has **not** been
 hosted or released.
 
 Before authorization to deploy, an operator must select and verify a provider,

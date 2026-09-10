@@ -74,10 +74,10 @@ left alone. See [#58](https://github.com/stonematt/bike_race_results/issues/58).
 
 ## Why it is ignored rather than committed
 
-**This repository is public and the payloads contain minors' full names, schools, grades
-and finish times.** The privacy ceiling set in
-[#3](https://github.com/stonematt/bike_race_results/issues/3) is that named data is
-never rendered without auth and never leaves a local file without an explicit decision.
+**Production data never goes into the repository or into a test suite that runs in CI.**
+Tests run on synthetic data; the local-only fidelity lane below is the one deliberate
+exception, and it never leaves the machine. Rider names are published results and need no
+special handling — the rule is about where production data goes, not whose name is in it.
 
 The corpus used to live outside the working tree entirely, which made an accidental
 `git add` impossible as a matter of physics. It moved in-tree because that cost every
@@ -129,10 +129,9 @@ tree does not trip it, and applies three rules:
 Run it yourself with `pnpm privacy:check`. It never echoes the value it matched — a
 failure message is written to a public CI log.
 
-Anything derived from these payloads that _does_ get committed — schema notes, worked
-examples, test fixtures — must have rider names redacted first. The pattern used in the
-issue threads is stable pseudonyms (`«RIDER-A»`), which keeps worked calculations
-verifiable while carrying no identity.
+Quoting a rider by name in an issue, PR or doc is fine. What stays out is production data as
+committed data: a test fixture or seed file gets synthetic values, which is what rule 3 checks
+for JSON and CSV.
 
 ## The shape corpus — what _is_ committed
 
@@ -191,34 +190,18 @@ fails if that ever stops being true.
 
 The split, and the decision not to run fidelity tests in CI at all, is
 [#29](https://github.com/stonematt/bike_race_results/issues/29). Encrypted fixtures with
-a CI secret were considered and rejected: full coverage is not worth putting minors' data
-one leaked secret away from a public repo. Drift detection runs in CI instead, against a
+a CI secret were considered and rejected: full coverage is not worth putting production
+data into CI. Drift detection runs in CI instead, against a
 committed shape corpus with no rows in it
 ([#31](https://github.com/stonematt/bike_race_results/issues/31)).
 
 ## If payloads ever get committed
 
-Treat it as a data disclosure, not a bad commit. **A credential can be rotated; a
-fourteen-year-old's name and school cannot.** Assume anything pushed to a public repo was
-fetched, mirrored and indexed within minutes.
-
-1. **Stop.** Do not push anything else, and do not open a public issue describing the
-   problem — the issue tracker is public too.
-2. **Get it out of history**, not just out of `HEAD`. A revert commit leaves the payload
-   fully readable in the parent. Rewrite with
-   `git filter-repo --path fixtures/ --invert-paths`, force-push every affected branch, and
-   rewrite any tag that carries it.
-3. **Ask GitHub to purge what a rewrite leaves behind.** The old objects stay reachable by
-   SHA and served by the API, and any fork keeps its own copy. Contact GitHub Support to
-   have the stale refs and forks removed; this is the step people skip.
-4. **Tell the league.** The data belongs to the riders and their families, and the Oregon
-   league is who has a relationship with them. That call is the coach's to make, with the
-   facts you can give: which events, which lists, and how long it was public.
-5. **Then fix the hole.** Find out how it got past the hook — bypassed with `--no-verify`,
-   never installed because `core.hooksPath` was taken, or a path the hook does not guard —
-   and close that specific gap.
-
-Note what is _not_ on this list: rotating a secret. There is nothing to rotate.
+Get them out of history, not just out of `HEAD` — a revert leaves the payload readable in the
+parent. Rewrite with `git filter-repo --path fixtures/ --invert-paths` and force-push the
+affected branches. Then find out how it got past the hook — bypassed with `--no-verify`, never
+installed because `core.hooksPath` was taken, or a path the hook does not guard — and close
+that gap.
 
 ## Re-fetching
 

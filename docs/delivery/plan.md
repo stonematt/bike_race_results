@@ -22,7 +22,7 @@ GPT-6 Astra orchestrates architecture, context, issue state and integration. Def
 
 Use the TDD skill and existing public interfaces: protected requests/actions, reporting queries over migrated PGlite, management commands, editorial publishing, components/browser journeys and database adapters. The owner approved these seams at activation on 2026-09-07; the complete contract is in [accepted-contract.md](accepted-contract.md). Work one failing behavioral test to one minimal implementation at a time. Avoid speculative abstractions and implementation-coupled tests. No runtime tests were added in the decision-persistence session.
 
-Public CI uses pseudonymous data. Real corpus fidelity stays local. Do not refetch what is already available. Never commit or publish the playground's identifying mockups, extracts or screenshots. Use the destination's identity mapping, source semantics and privacy rules.
+Public CI uses synthetic data. Real corpus fidelity stays local. Do not refetch what is already available. Never commit the playground's mockups, extracts or screenshots that carry production data. Use the destination's identity mapping and source semantics.
 
 **Approved working defaults**
 
