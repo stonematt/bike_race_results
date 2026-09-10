@@ -156,9 +156,13 @@ The fewer-lap group is stretched per row, from the cutoff to its slowest rider w
 
 ## 7. Layout
 
-- **Rows = categories**, ordered as the league publishes them. Never ordered by club performance.
-- **How rows are arranged on the wall is open** — one column of all categories, boys beside girls, MS beside HS, and so on. That is the next exploration (§11).
-- Row label carries category, lap structure, starters and, when a cutoff applies, the estimate. Right-aligned to the strip start.
+- **Rows = categories.** Never ordered by club performance.
+- **Four cohort blocks, in Season Pulse order:** Girls · Middle School, Girls · High School, Boys · Middle School, Boys · High School. These are the season Pulse wall's cohorts in its order (`src/components/SeasonPulse.tsx`), so the product keeps one vocabulary. (Owner, 2026-09-10.)
+- **Rows run descending inside a block**: Varsity down to HS1, MS3 down to MS1. This is `CategoryDirection` `'descending'` in `src/lib/category-order.ts`, the order a coach reads a squad. The blocks themselves stay MS before HS; only the rows flip. (Owner declined flipping the blocks, 2026-09-10.)
+- **Blocks float with the width.** One column on a phone, 2×2 from about 760px, four across on a wide screen (about 1800px). Never three across, which would strand the fourth block alone on a row. Four across reads left to right in the Pulse table's column-group order. The owner chose this arrangement for mobile and responsiveness.
+- **A category with no Descenders collapses to one line**, `MS1 Girls · 19 starters · no Descenders`, with no strip and no rail. It is not hidden. Race 4 North 2025 had six such categories out of fourteen.
+- Strips are narrower than in a single column. The densest 2025 field (HS1 Boys, 69 starters) was checked in the mockup at 368px on a phone, 408px at 2×2 on a tablet, and 441px four across, and it reads at each.
+- Row label sits on one line above the strip: category, lap structure, starters and, when a cutoff applies, the estimate.
 - One human-reviewed headline observation sits above the wall. The wall is evidence for that sentence.
 - Per-category evidence tables sit beneath, collapsed. Places, times, laps, status — the published record, unaltered.
 - Field ticks may overlap in large fields. That is acceptable density. **Do not jitter vertically into a swarm**; the swarm is a season-view form.
@@ -260,15 +264,14 @@ first_start_of_season      bool
 
 ## 11. Open decisions
 
-1. **Wall arrangement:** columns and grouping of category rows — all in one column, boys | girls, MS | HS, grade bands. Next exploration.
-2. Tolerance for a base split slightly under the estimate (−0:20 observed; split truncation is a plausible cause).
-3. Pooling the estimate across categories at the same level when a row has few bonus-lap riders.
-4. Clamping a far outlier inside the fewer-lap group (§7.3).
-5. Varsity's no-bonus status comes from its category name today; the season config's `bonus_lap` flag should own it.
-6. Whether M6 podium ships at all.
-7. Redraw the target SVG for the field strip.
+1. Tolerance for a base split slightly under the estimate (−0:20 observed; split truncation is a plausible cause).
+2. Pooling the estimate across categories at the same level when a row has few bonus-lap riders.
+3. Clamping a far outlier inside the fewer-lap group (§7.3).
+4. Varsity's no-bonus status comes from its category name today; the season config's `bonus_lap` flag should own it.
+5. Whether M6 podium ships at all.
+6. Redraw the target SVG for the field strip and the four-block wall.
 
-Closed 2026-09-10: winner anchor; field strip with headcount-sized groups; count label (`26 of 31`); time placement inside groups; one-sided estimate; near band `N` = 2:00, kept.
+Closed 2026-09-10: winner anchor; field strip with headcount-sized groups; count label (`26 of 31`); time placement inside groups; one-sided estimate; near band `N` = 2:00, kept; wall arrangement: four Pulse cohort blocks, MS before HS, rows descending, empty categories collapsed, blocks floating 1 → 2 → 4 (§7).
 
 ---
 
@@ -288,6 +291,13 @@ Explored in the mockup and rejected:
 - **Stretched left zone beside a fixed right zone** — a two-rider bonus group put a rider 1.7% back at the visual tail.
 - **Published order, laps-down groups, pure rank strip** — evenly spaced; see §2.
 
+Wall arrangements drawn 2026-09-10 and not chosen (§7 has the winner):
+- **One column in league order**, and **one column split into a Boys block and a Girls block.** The Boys/Girls split was the tallest page, and it puts the two MS2 fields far apart.
+- **Boys | Girls, and Girls | Boys, rows aligned by grade.** This was the shortest page on a laptop and the best for comparing one grade's two fields. The owner chose the Pulse blocks for mobile and responsiveness: they reflow, whereas aligned columns can only drop to one column.
+- **MS | HS columns.** The columns were uneven (6 rows against 8) and rows did not line up across them.
+- **Empty categories shown in full, dimmed, or hidden.** Collapsed was chosen. Season Pulse hides empty cohorts. The race wall does not.
+- **Flipping block order in descending direction** (HS blocks before MS). Owner: "no, MS first."
+
 ---
 
 ## 13. Agent prompt
@@ -305,7 +315,14 @@ their riders before decoding any individual mark. This is an analytic view;
 the league's published order is preserved separately in the evidence table.
 
 ROWS
-One row per category, ordered as the league publishes categories. Lap
+One row per category, grouped into four cohort blocks in the season Pulse
+order: Girls · Middle School, Girls · High School, Boys · Middle School,
+Boys · High School. Rows run descending inside each block (Varsity → HS1,
+MS3 → MS1; CategoryDirection 'descending'). Blocks stay MS before HS.
+Blocks reflow with width: one column on a phone, 2×2, then four across;
+never three across. A category with no club riders collapses to one line,
+"<category> · <n> starters · no Descenders", with no strip and no rail.
+Row labels sit on one line above the strip. Lap
 structure is derived per (race, category) over classified finishers:
 laps_bonus is the max lap count; laps_base is the highest lap count strictly
 below it. Never hardcode lap counts. Row labels carry their own counts, e.g.
