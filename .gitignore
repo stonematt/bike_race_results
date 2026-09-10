@@ -15,8 +15,9 @@ coverage/
 .serverctl/
 
 # The fixture corpus lives here, in the tree, and is never committed: it is
-# production data, which stays out of the repository and test suites. This line stops an ordinary `git add`; scripts/git-hooks/
-# pre-commit reads the index and so stops `git add -f` too. See docs/fixtures.md.
+# production data, which stays out of the repository and test suites. This
+# line stops an ordinary `git add`; scripts/git-hooks/pre-commit reads the
+# index and so stops `git add -f` too. See docs/fixtures.md.
 data/
 fixtures/
 

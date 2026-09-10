@@ -108,7 +108,7 @@ Append one line per completed step: date, what was done, and the evidence.
   described location instead of the URL. New native parity suites cover seeding
   and decoding, and skip themselves without a tracer cluster. Verified on a
   disposable loopback PostgreSQL 17 cluster: migrate, `seed --club-config` (the
-  committed pseudonymous config, 32 riders), a synthetic admin, `normalize` on an
+  committed synthetic config, 32 riders), a synthetic admin, `normalize` on an
   empty archive, and the allowlist refusal exiting 1 with the pool closed. No
   output carried a credential. Public suite with the required tracer: 1,160
   passed, 1 todo, and the known worktree-only git-hooks path failure. Typecheck,
