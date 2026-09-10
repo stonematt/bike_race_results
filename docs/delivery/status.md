@@ -279,7 +279,8 @@ Local browser verification passed on source head `c9003bf` at the configured `lo
 now names `verifyRequest: '/signin/check-email'` and `error: '/signin/recover'`, and the middleware
 matcher admits exactly those two paths as anchored alternatives beside `signin$`. The accepted Team
 Kit Pop presentation moved into `src/app/signin/SigninShell.tsx`, consumed unchanged by the door and
-both new states; the accepted headline, masthead, story column and MILO band are byte-identical.
+both new states; the accepted headline, masthead, story column and MILO band are unchanged in
+substance, with only the indentation the extraction into a component forced.
 
 Two defects were found during implementation, neither present in the preserved uncommitted
 candidate's scope. First, `@auth/core@0.41.3` dispatches by error _kind_: only `SignInError` kinds
@@ -306,12 +307,25 @@ and `/signin/recover/more` remain gated. Desktop and 390×844 mobile captures ar
 `~/.claude/jobs/44faaab1/tmp/uat-159/` and were not committed. This is local verification against a
 synthetic corpus and a local SMTP sink; it is not production or hosted-authentication verification.
 
-Typecheck, lint (two pre-existing optional-image warnings), Prettier, the privacy guard across 368
+Typecheck, lint (two pre-existing optional-image warnings), Prettier, the privacy guard across 376
 tracked files and a production build all pass. The full suite passed 1,180 tests with 16 skips and
 one TODO; the single failure is the known worktree hook-path assertion, and no hook setting was
 changed. Brand comparison skips in this temporary worktree, with the previously recorded upstream
 drift unresolved. `docs/brand.md` now points the reskin inventory at `SigninShell.tsx`, which owns
 the sign-in wordmark for all three anonymous routes.
+
+A two-axis review of the committed diff found one user-visible defect, since fixed: both status
+pages offered a bare `/signin`, so a visitor who arrived with `?callbackUrl=` lost their destination
+when they asked for a second link. Auth.js forwards no `callbackUrl` to either page — its
+`pages.error` redirect is built with `?error=` alone and `pages.verifyRequest` with
+`?provider=&type=` — so the Server Actions, which still hold the value, now carry it onto the status
+page URL and the pages hand it back to the door. It stays attacker-supplied throughout: nothing
+redirects to it, `safeCallbackUrl` accepts only a same-origin absolute path (dropping `https://`,
+`//`, `/\` and the redundant `/`), and `URLSearchParams` encodes it rather than interpolating it into
+an href. Reading `searchParams` moves `/signin/check-email` from prerendered (`○`) to dynamic (`ƒ`),
+a deliberate trade for an anonymous page whose sibling is dynamic already. The review's other two
+findings were this record's own: a stale tracked-file count and a "byte-identical" claim the
+extraction's re-indentation had made untrue. Both are corrected above.
 
 Two findings are recorded but out of scope for #159 and unfixed. Gate redirects resolve to
 `http://localhost:<port>` regardless of `AUTH_URL` and request `Host`, so after a successful callback
