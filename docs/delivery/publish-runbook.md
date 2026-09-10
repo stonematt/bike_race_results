@@ -12,7 +12,7 @@ modes, migration order, rollback), [status](status.md) (delivery ledger).
 
 These are not negotiable by convenience during this work.
 
-- The app renders minors' names. Every hosted surface must stay unindexed,
+- The app is members-only. Every hosted surface must stay unindexed,
   unshared, and behind auth. `next.config.ts` already sends
   `noindex, nofollow, noarchive`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on `/:path*`.
@@ -152,7 +152,7 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. **Blocker found: `main` is 228 commits behind `dev`**
   (`origin/main` at `7079fe4`, `origin/dev` at `b93f5c9`). The standing decision
   that the host's production branch is `main`, not the repository default `dev`,
-  is what keeps unreviewed work off an origin that serves minors' names — so it
+  is what keeps unreviewed work off the production origin — so it
   stands. But `main` today would deploy a months-old application against a schema
   migrated from current code. The operator is landing a large merge into `dev`
   and will release it to `main`; the host wiring waits for that release.
@@ -192,13 +192,12 @@ Append one line per completed step: date, what was done, and the evidence.
   repositories** and this repository was not among them, so the repository did
   not appear in the connect picker. The operator granted access to
   `stonematt/bike_race_results` specifically and kept the select-repositories
-  posture, so a future private repository — the identity map, anything holding
-  real names — cannot be reached by the host unless it is deliberately added.
+  posture, so a future private repository cannot be reached by the host unless it is deliberately added.
 - 2026-09-09. Environment variables set, **Production scope only**: `AUTH_URL`,
   `AUTH_SECRET` (both by CLI, values piped rather than typed so neither entered
   a shell history) and `DATABASE_URL`, the pooled endpoint, set in the dashboard.
   With `CURRENT_SEASON` that is four. Preview and Development scopes hold none,
-  which is what keeps rider names off pull-request preview URLs.
+  which is what keeps production data off pull-request preview URLs.
   `AUTH_DEV_LOGIN` remains absent. `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM`
   wait on phase 5.
 - 2026-09-09. TLS switches validated against the code that consumes them.
@@ -258,7 +257,7 @@ Append one line per completed step: date, what was done, and the evidence.
   no provider exists until `AUTH_EMAIL_SERVER` is set.
   This exercises the posture recorded under phase 6: Standard Protection exempts
   custom production domains, so on this origin the app's own session check is the
-  only thing in front of minors' names. The probe above is the evidence that it
+  only thing in front of the app's data. The probe above is the evidence that it
   holds. Re-run it after any change to middleware or to Deployment Protection.
 - 2026-09-09. Adding the domain by CLI was refused by the agent's auto-mode
   classifier — an origin change, the same gate that refuses `vercel env add`.
@@ -306,7 +305,7 @@ inspect`) was not gated, so the whole confirmation pass stayed with the agent.
   `smtps://resend:<key>@smtp.resend.com:465`. `AUTH_EMAIL_FROM` is
   `Descenders Race Dashboard <results@send.scdescenders.com>`, matching the app
   title in `src/app/layout.tsx`. Both on **Production scope only** — Preview and
-  Development left empty, which is what keeps rider names off preview URLs.
+  Development left empty, which is what keeps production data off preview URLs.
   `AUTH_EMAIL_SERVER` is stored as a Vercel **Secret**, `AUTH_EMAIL_FROM` as
   **Config**, since only the first carries the key.
   Setting the variables does nothing on its own: `/api/auth/providers` still

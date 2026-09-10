@@ -244,7 +244,7 @@ notes, assessments, mail, discussion log or raw source payload.
 ## Public behavioral tests
 
 Implement one red-to-green behavior at a time with migrated PGlite and
-pseudonymous fixtures. Observe public command/read results, not private
+synthetic fixtures. Observe public command/read results, not private
 collaborators.
 
 1. A coach can draft only a positive, complete candidate in their active club;

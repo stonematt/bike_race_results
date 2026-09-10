@@ -26,7 +26,7 @@ Keep Race and Rider profile as visible language. Preserve Round and Event as pre
 
 The earlier coach-flow session's mandatory squad roster-wall homepage, exactly-one-write-path rule, absence of administrative roles/audit, and exclusively seed-owned squad configuration no longer govern the new product. A reading preference still is not a permission. The earlier engineering layout is historical evidence, not final art direction. ADR-0005 replaces the write restriction narrowly.
 
-The two trees, season context, truthful category comparisons, published scoring authority, current display-name rules and authentication/privacy boundaries remain binding. Preserve the useful requirement that a rider view can be talked through aloud with an athlete.
+The two trees, season context, truthful category comparisons, published scoring authority, current display-name rules and the authentication boundary remain binding. Preserve the useful requirement that a rider view can be talked through aloud with an athlete.
 
 **Experiments and unresolved details**
 
