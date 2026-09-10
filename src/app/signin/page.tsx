@@ -1,5 +1,6 @@
-import { signIn } from '@/auth.ts';
-import { DEV_PROVIDER_ID } from '@/lib/admission.ts';
+import { redirect } from 'next/navigation';
+import { auth, signIn } from '@/auth.ts';
+import { admits, DEV_PROVIDER_ID } from '@/lib/admission.ts';
 import { availableProviders } from '@/lib/signin-providers.ts';
 
 /**
@@ -32,6 +33,24 @@ export default async function SignIn({
 }: {
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
+  /**
+   * Middleware lets this route through, so this page is the only thing that can
+   * route an already authenticated visitor onward — without this, someone with
+   * a live session who arrives here is offered a second magic link and no way
+   * through (issue #158). The root owns membership and season resolution, so it
+   * is the one destination; `callbackUrl` is next-auth's parameter for where to
+   * land *after* a sign-in and is deliberately not honoured here, where no
+   * sign-in is happening and it would be an attacker-supplied redirect target.
+   *
+   * Both halves of the condition are load-bearing. `admits` keeps a retained
+   * development claim inert against a deployment that registers no shim, and
+   * the id check keeps the one session shape the root sends straight back —
+   * `requireClubContext` redirects to `/signin` without a user id — from
+   * bouncing between the two routes.
+   */
+  const session = await auth();
+  if (admits(session?.provider, session?.user) && session?.user?.id) redirect('/');
+
   const { error, callbackUrl } = await searchParams;
   const redirectTo = callbackUrl ?? '/';
   const { email, dev } = availableProviders();
