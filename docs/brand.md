@@ -127,9 +127,14 @@ Keep this inventory current when adding a branded entry or shared header.
 2. **`src/app/layout.tsx`** — swap the two `next/font/google` families.
 3. **`src/app/icon.svg`** — the tab icon.
 4. **`src/components/Banner.tsx`**, **`src/components/TopNav.tsx`** and
-   **`src/app/signin/page.tsx`** — the wordmark text in the legacy utility banner,
+   **`src/app/signin/SigninShell.tsx`** — the wordmark text in the legacy utility banner,
    reporting masthead and public sign-in entry. Their ground/highlight styles live
    in `globals.css`. Update these wordmarks together when reskinning.
+
+   `SigninShell` carries the sign-in wordmark, story column and MILO band for all three
+   anonymous routes — the door (`/signin`), the email-sent confirmation
+   (`/signin/check-email`) and the recovery page (`/signin/recover`). One edit reskins the
+   three; adding a fourth anonymous state means consuming the shell, not copying it.
 
 Then either delete `bin/brand-check.ts` and its `brand:check` script, or repoint
 `designPath` at your own source of truth. It skips silently if `../scd-brand` is absent, so

@@ -272,3 +272,92 @@ Independent `topnav_standards` and `topnav_spec` reviews covered `1acbf3d...0871
 Final affected tests pass (nine navigation/selector tests), as do typecheck, formatting, lint with two existing optional-image warnings, and staged/new-file privacy (365 tracked files). The broader public run at the navigation checkpoint passed 1,158 tests with the known worktree hook-path assertion failure, 16 skips and one TODO; no hook setting was changed. A clean source-only production build passed at `08719b9` after the required font download; subsequent fallback changes passed affected checks. Exact final-head CI is tracked on PR #148 and is not yet claimed green in this record. Brand comparison skipped in this temporary worktree; previously recorded upstream drift remains unresolved.
 
 Local browser verification passed on source head `c9003bf` at the configured `localhost:3001` origin: sign-in, desktop/mobile panel display, initial focus, Escape/focus return, season change, Back dismissal, no mobile page overflow and actual sign-out. A final confirming batch also passed Club operations navigation, the absence of Season’s current-page marker there, and the wordmark return to the same season; closed desktop/mobile headers were inspected. An initial `127.0.0.1` attempt failed because it did not match the configured cookie origin; no application/auth configuration change was needed. Private captures were visually inspected and remain local. This verifies the navigation experience on the existing UAT runtime, not hosted authentication or Neon. The UAT worktree/runtime and publisher worktrees are preserved. Merge commit and cleanup are not applicable at this requested PR endpoint.
+
+### Branded authentication confirmation and recovery — 2026-09-09
+
+`feat/branded-auth-recovery` from dev `08d30ba` implements #159 (part of #157). `authConfig.pages`
+now names `verifyRequest: '/signin/check-email'` and `error: '/signin/recover'`, and the middleware
+matcher admits exactly those two paths as anchored alternatives beside `signin$`. The accepted Team
+Kit Pop presentation moved into `src/app/signin/SigninShell.tsx`, consumed unchanged by the door and
+both new states; the accepted headline, masthead, story column and MILO band are unchanged in
+substance, with only the indentation the extraction into a component forced.
+
+Two defects were found during implementation, neither present in the preserved uncommitted
+candidate's scope. First, `@auth/core@0.41.3` dispatches by error _kind_: only `SignInError` kinds
+return to `pages.signIn`, so configuring `pages.error` moved `AccessDenied` — raised in
+`send-token.js` when the `signIn` callback refuses, before any mail is sent — off `/signin` and away
+from the by-invitation refusal copy. `src/app/signin/messages.ts` now holds one copy table both
+surfaces read, so no code can read differently on the two pages. Second, local UAT found the refusal
+returning **HTTP 500** and a browser error page: the sign-in form posts through a Server Action,
+which is outside Auth.js routing, and the untrapped `AccessDenied` never reached `pages.error`. The
+actions moved to `src/app/signin/actions.ts`, catch `AuthError`, and route to the branded recovery
+page. Only `AccessDenied` and `Verification` are passed through as URL parameters; any other type
+drops the parameter and lands on the plain refusal, mirroring core's own client-safe filter.
+`redirect: false` on the email send puts the confirmation on its branded path instead of parking the
+browser on `/api/auth/verify-request`; the destination is a literal, and `redirectTo` still reaches
+Auth.js for trusted-origin validation.
+
+Local functional UAT on a synthetic corpus passed every item: a refused address returns 303 to
+`/signin/recover?error=AccessDenied` with no mail delivered; an admitted address lands on
+`/signin/check-email` showing no address and no token; a captured link retains its `callbackUrl`,
+signs in on first use and is rejected to `?error=Verification` on reuse with no session minted; first
+Tab reaches the recovery link with a visible ring and Enter navigates; `/signin/check-email` and
+`/signin/recover` return 200 with zero redirects signed out and signed in; `/signin/check-email-preview`
+and `/signin/recover/more` remain gated. Desktop and 390×844 mobile captures are local at
+`~/.claude/jobs/44faaab1/tmp/uat-159/` and were not committed. This is local verification against a
+synthetic corpus and a local SMTP sink; it is not production or hosted-authentication verification.
+
+Typecheck, lint (two pre-existing optional-image warnings), Prettier, the privacy guard across 376
+tracked files and a production build all pass. The full suite passed 1,180 tests with 16 skips and
+one TODO; the single failure is the known worktree hook-path assertion, and no hook setting was
+changed. Brand comparison skips in this temporary worktree, with the previously recorded upstream
+drift unresolved. `docs/brand.md` now points the reskin inventory at `SigninShell.tsx`, which owns
+the sign-in wordmark for all three anonymous routes.
+
+A two-axis review of the committed diff found one user-visible defect, since fixed: both status
+pages offered a bare `/signin`, so a visitor who arrived with `?callbackUrl=` lost their destination
+when they asked for a second link. Auth.js forwards no `callbackUrl` to either page — its
+`pages.error` redirect is built with `?error=` alone and `pages.verifyRequest` with
+`?provider=&type=` — so the Server Actions, which still hold the value, now carry it onto the status
+page URL and the pages hand it back to the door. It stays attacker-supplied throughout: nothing
+redirects to it, `safeCallbackUrl` accepts only a same-origin absolute path (dropping `https://`,
+`//`, `/\` and the redundant `/`), and `URLSearchParams` encodes it rather than interpolating it into
+an href. Reading `searchParams` moves `/signin/check-email` from prerendered (`○`) to dynamic (`ƒ`),
+a deliberate trade for an anonymous page whose sibling is dynamic already. The review's other two
+findings were this record's own: a stale tracked-file count and a "byte-identical" claim the
+extraction's re-indentation had made untrue. Both are corrected above.
+
+Two findings are recorded but out of scope for #159 and unfixed. Gate redirects resolve to
+`http://localhost:<port>` regardless of `AUTH_URL` and request `Host`, so after a successful callback
+on any other host the session cookie is out of scope and the visitor appears signed out; this is
+independent of these pages and predates them. Auth.js also logs a full `[auth][error] AccessDenied`
+stack on every refused sign-in even though the error is caught, which will be noisy in production.
+The unbranded default magic-link email is likewise untouched, per the issue's scope.
+
+No PR, merge, release or production verification is claimed or authorized by this entry.
+
+Independent Standards and Spec reviews of the full working diff against base `08d30ba` were run
+before commit. Standards reported no blocking violations and three low-severity findings, all
+applied: `.signin-status-action` now joins the shared `.signin-submit, .signin-dev-submit` selector
+list and carries only its differences below it, so a reskin has one button box to find rather than a
+copy — `docs/brand.md`'s inventory depends on that; the middleware matcher comment was reflowed to
+the block's width and now names the `signin/recover` anchoring case; and the module rationale in
+`actions.ts` moved above the imports rather than reading as one helper's docstring.
+
+Spec reported every acceptance criterion met except account-existence, which it marked partial and
+referred to the owner rather than passing silently. A refused address lands on
+`/signin/recover?error=AccessDenied` with the by-invitation copy while an admitted one lands on
+`/signin/check-email`, so the pair still answers whether an address has access. That distinction
+predates these pages — at `08d30ba` the refusal threw out of the Server Action as a 500 while an
+admitted address reached `/api/auth/verify-request` — and the repository already assigns closing it
+to issue #9, which the removed `page.tsx` comment named; #159's out-of-scope list covers
+authentication redesign. The behavior is therefore unchanged and deliberate, the reasoning is
+recorded at `src/app/signin/actions.ts`, and the confirmation copy stays hedged against the day it
+closes. Collapsing the two outcomes would also withhold the "ask your club admin" guidance from the
+person it was written for, so it is an owner decision, not an implementation detail.
+
+Spec also noted two evidentiary gaps, both accepted: link reuse and expiry are covered by local UAT
+only, with no in-repo test, and `pages.verifyRequest` is asserted as configuration rather than
+exercised as a route, because the form redirects to the same path itself. `src/auth.config.ts`
+records why the key is still required — a POST straight to `/api/auth/signin/nodemailer` is
+dispatched by the library rather than by the form.
