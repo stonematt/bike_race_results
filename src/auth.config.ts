@@ -22,7 +22,23 @@ declare module 'next-auth' {
 }
 
 export const authConfig = {
-  pages: { signIn: '/signin' },
+  /**
+   * Without these two keys the library falls back to its own built-in
+   * verification and error pages, which is what a visitor actually saw. Both
+   * new routes are anonymous, and `src/middleware.ts` admits exactly them.
+   *
+   * `verifyRequest` is not what the sign-in form uses — that action redirects to
+   * the same path itself, to keep the browser off the internal endpoint URL.
+   * It is still required here: a POST straight to `/api/auth/signin/nodemailer`
+   * is dispatched by the library, not by the form, and lands on whatever this
+   * names. `error` is load-bearing in the same way, and additionally catches the
+   * rejected-link case, which never passes through a Server Action at all.
+   */
+  pages: {
+    signIn: '/signin',
+    verifyRequest: '/signin/check-email',
+    error: '/signin/recover',
+  },
   session: { strategy: 'jwt' },
   callbacks: {
     /**

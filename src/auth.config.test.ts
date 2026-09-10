@@ -159,6 +159,8 @@ describe('the middleware matcher', () => {
     expect(gated('/api/auth/session')).toBe(false);
     expect(gated('/api/auth/callback/nodemailer')).toBe(false);
     expect(gated('/signin')).toBe(false);
+    expect(gated('/signin/check-email')).toBe(false);
+    expect(gated('/signin/recover')).toBe(false);
     expect(gated('/_next/static/chunk.js')).toBe(false);
     expect(gated('/_next/image/x.png')).toBe(false);
     expect(gated('/favicon.ico')).toBe(false);
@@ -180,11 +182,23 @@ describe('the middleware matcher', () => {
     expect(gated('/api/authorize')).toBe(true);
     expect(gated('/api/authenticate/steal')).toBe(true);
     expect(gated('/signin-preview')).toBe(true);
+    expect(gated('/signin/check-email-preview')).toBe(true);
+    expect(gated('/signin/recover/more')).toBe(true);
     expect(gated('/signinner')).toBe(true);
     expect(gated('/robots.txt.bak')).toBe(true);
     expect(gated('/icon.svg.map')).toBe(true);
     expect(gated('/favicon.ico.map')).toBe(true);
     expect(gated('/_next/staticky')).toBe(true);
+  });
+});
+
+describe('the branded Auth.js pages', () => {
+  it('routes verification confirmation and errors through the anonymous recovery surface', () => {
+    expect(authConfig.pages).toMatchObject({
+      signIn: '/signin',
+      verifyRequest: '/signin/check-email',
+      error: '/signin/recover',
+    });
   });
 });
 

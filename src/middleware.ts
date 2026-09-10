@@ -21,12 +21,13 @@ export default middleware;
 export const config = {
   matcher: [
     /*
-     * Everything except next-auth's own routes, the sign-in page, and static
-     * assets. Each alternative is anchored: an unanchored `api/auth` also
-     * excludes `/api/authorize`, and an unanchored `signin` also excludes
-     * `/signin-preview`, handing an attacker a route outside the gate for the
-     * price of a prefix.
+     * Everything except next-auth's own routes, the three anonymous sign-in
+     * surfaces, and static assets. Each alternative is anchored: an unanchored
+     * `api/auth` also excludes `/api/authorize`, an unanchored `signin` also
+     * excludes `/signin-preview`, and an unanchored `signin/recover` also
+     * excludes `/signin/recover/more` — handing an attacker a route outside the
+     * gate for the price of a prefix.
      */
-    '/((?!api/auth/|signin$|local-brand/(?:milo-lockup-orange|jersey-mountains)\\.png$|_next/static/|_next/image/|favicon\\.ico$|icon\\.svg$|robots\\.txt$).*)',
+    '/((?!api/auth/|signin(?:$|/(?:check-email|recover)$)|local-brand/(?:milo-lockup-orange|jersey-mountains)\\.png$|_next/static/|_next/image/|favicon\\.ico$|icon\\.svg$|robots\\.txt$).*)',
   ],
 };
