@@ -12,12 +12,12 @@ import { recoveryHeading, signinMessage } from '../messages.ts';
 export default async function Recover({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, callbackUrl } = await searchParams;
 
   return (
-    <AuthStatusPage badge="Try again" heading={recoveryHeading(error)}>
+    <AuthStatusPage badge="Try again" heading={recoveryHeading(error)} callbackUrl={callbackUrl}>
       <p className="signin-copy">{signinMessage(error)}</p>
     </AuthStatusPage>
   );

@@ -17,11 +17,16 @@ import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { signIn } from '@/auth.ts';
 import { DEV_PROVIDER_ID } from '@/lib/admission.ts';
-import { EMAIL_SENT_PATH, recoveryPath } from './messages.ts';
+import { emailSentPath, recoveryPath } from './messages.ts';
 
-/** Anything Auth.js raised becomes the branded recovery page; the rest rethrows. */
-function toRecovery(error: unknown): never {
-  if (error instanceof AuthError) redirect(recoveryPath(error.type));
+/**
+ * Anything Auth.js raised becomes the branded recovery page; the rest rethrows.
+ * `redirectTo` rides along so the visitor's destination survives the detour —
+ * it is filtered to a same-origin path and encoded by `recoveryPath`, and it is
+ * still not a destination this module picks.
+ */
+function toRecovery(error: unknown, redirectTo: string): never {
+  if (error instanceof AuthError) redirect(recoveryPath(error.type, redirectTo));
   throw error;
 }
 
@@ -29,7 +34,7 @@ function toRecovery(error: unknown): never {
  * `redirect: false` keeps the confirmation on its branded path. With Auth.js's
  * own redirect the browser is parked on the internal
  * `/api/auth/verify-request?provider=nodemailer` URL, which renders the branded
- * page but shows the endpoint in the address bar. `EMAIL_SENT_PATH` is a
+ * page but shows the endpoint in the address bar. `emailSentPath` builds on a
  * literal, so choosing the destination here introduces no open redirect.
  *
  * This still does not close the membership gap: a refused address lands on the
@@ -51,9 +56,9 @@ export async function requestEmailLink(redirectTo: string, formData: FormData) {
       redirect: false,
     });
   } catch (error) {
-    toRecovery(error);
+    toRecovery(error, redirectTo);
   }
-  redirect(EMAIL_SENT_PATH);
+  redirect(emailSentPath(redirectTo));
 }
 
 /** The development shim, which refuses for its own reasons and throws alike. */
@@ -61,6 +66,6 @@ export async function signInWithDevShim(redirectTo: string, formData: FormData) 
   try {
     await signIn(DEV_PROVIDER_ID, { email: formData.get('email'), redirectTo });
   } catch (error) {
-    toRecovery(error);
+    toRecovery(error, redirectTo);
   }
 }

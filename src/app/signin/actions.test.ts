@@ -78,6 +78,36 @@ describe('the sign-in Server Actions', () => {
     });
   });
 
+  /**
+   * Auth.js hands neither status page a `callbackUrl` of its own — its
+   * `pages.error` redirect carries `?error=` alone — so this is the only place
+   * the visitor's destination can survive the detour. It is still filtered and
+   * encoded, never redirected to.
+   */
+  it('carries a same-origin destination onto both status pages', async () => {
+    mockSignIn.mockResolvedValue(undefined);
+    await expect(requestEmailLink('/seasons/2025', form('coach@example.test'))).rejects.toThrow(
+      'redirect:/signin/check-email?callbackUrl=%2Fseasons%2F2025',
+    );
+
+    mockSignIn.mockRejectedValue(new Denied());
+    await expect(requestEmailLink('/seasons/2025', form('stranger@example.test'))).rejects.toThrow(
+      'redirect:/signin/recover?error=AccessDenied&callbackUrl=%2Fseasons%2F2025',
+    );
+  });
+
+  it('leaves an off-origin destination out of the status page URL entirely', async () => {
+    mockSignIn.mockResolvedValue(undefined);
+    await expect(
+      requestEmailLink('https://elsewhere.example/', form('coach@example.test')),
+    ).rejects.toThrow(/^redirect:\/signin\/check-email$/);
+
+    mockSignIn.mockRejectedValue(new Denied());
+    await expect(
+      requestEmailLink('//elsewhere.example', form('stranger@example.test')),
+    ).rejects.toThrow(/^redirect:\/signin\/recover\?error=AccessDenied$/);
+  });
+
   it('re-throws anything that is not an Auth.js error, including its own redirect', async () => {
     const boom = new TypeError('database is on fire');
     mockSignIn.mockRejectedValue(boom);
