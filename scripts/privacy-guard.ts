@@ -210,9 +210,9 @@ const NAME_MAP_MINIMUM = 3;
  *     flat list of strings is not that shape.
  *   - **An identity key.** `displayName`, `lastName`, `rider` — a field that
  *     names a person by definition.
- *   - **A name map.** An object whose string values are mostly name-shaped: the
- *     key → display-name file that deliberately lives outside this tree, if it
- *     ever stopped doing so.
+ *   - **A name map.** An object whose string values are mostly name-shaped,
+ *     such as a key → display-name file. Display names come from published
+ *     results, so a committed one is production data in the repository.
  */
 function* nameFindings(value: unknown): Generator<NameRule> {
   if (Array.isArray(value)) {

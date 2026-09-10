@@ -33,7 +33,7 @@
  * remains revoked even when that leaves the club with no active admin.
  */
 
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Database } from './db/index.ts';
 import { isAllowed, type AllowlistEnv } from './allowlist.ts';
 import {
@@ -328,6 +328,8 @@ export interface SeedClubResult {
   riders: number;
   /** Rider rows this run had to create, so the CLI can say what changed. */
   ridersCreated: number;
+  /** Riders whose display name was taken from a published result this run. */
+  ridersNamed: number;
   plates: number;
   squads: number;
   squadMembers: number;
@@ -410,6 +412,7 @@ export async function seedClubConfig(
 
     await replaceScoringTeams(tx, clubId, seasonId, config);
     const { riderIds, ridersCreated, plates } = await replaceRiders(tx, seasonId, config);
+    const ridersNamed = await nameRidersFromResults(tx, seasonId, [...riderIds.values()]);
     const coachEmails = options.coachEmails ?? loadCoachEmails();
     const { squadMembers, squadCoaches } = await replaceSquads(
       tx,
@@ -438,6 +441,7 @@ export async function seedClubConfig(
       scoringTeams: config.scoringTeams.length,
       riders: config.riders.length,
       ridersCreated,
+      ridersNamed,
       plates,
       squads: config.squads.length,
       squadMembers,
@@ -486,6 +490,35 @@ async function replaceScoringTeams(
     .values(config.scoringTeams.map((scoringTeam) => ({ clubId, seasonId, scoringTeam })));
 }
 
+/**
+ * A rider's display name is whatever the league published on their latest
+ * result this season, verbatim — casing included. It resolves through
+ * `v_rider_result`, so a reissued plate names each holder from their own side
+ * of the boundary. A rider with no result keeps what they have: a new one
+ * their config key, an existing one their stored name.
+ */
+async function nameRidersFromResults(
+  tx: Tx,
+  seasonId: number,
+  riderIds: number[],
+): Promise<number> {
+  if (riderIds.length === 0) return 0;
+  const result = await tx.execute(sql`
+    update rider
+       set display_name = latest.display_name
+      from (
+        select distinct on (rider_id) rider_id, display_name
+          from v_rider_result
+         where season_id = ${seasonId}
+           and rider_id in (${sql.join(riderIds, sql`, `)})
+         order by rider_id, round_ordinal desc, event_id desc
+      ) latest
+     where rider.id = latest.rider_id
+    returning rider.id
+  `);
+  return result.rows.length;
+}
+
 async function replaceRiders(
   tx: Tx,
   seasonId: number,
@@ -499,18 +532,11 @@ async function replaceRiders(
     const existingId = await findRiderByPlates(tx, seasonId, rider.plates);
     let riderId: number;
     if (existingId === null) {
-      const [row] = await tx
-        .insert(schema.rider)
-        .values({ displayName: rider.displayName })
-        .returning();
+      const [row] = await tx.insert(schema.rider).values({ displayName: rider.key }).returning();
       riderId = row!.id;
       ridersCreated += 1;
     } else {
       riderId = existingId;
-      await tx
-        .update(schema.rider)
-        .set({ displayName: rider.displayName })
-        .where(eq(schema.rider.id, riderId));
     }
     riderIds.set(rider.key, riderId);
 

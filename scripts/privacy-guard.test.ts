@@ -214,8 +214,8 @@ describe('the name rules', () => {
   });
 
   it('refuses a key-to-display-name map', () => {
-    // The names file deliberately lives outside this tree. This is the rule for
-    // the day it stops doing so.
+    // Display names come from published results; a committed name map is
+    // production data in the repository.
     const content = JSON.stringify({
       'rider-a': 'Jordan Rivers',
       'rider-b': 'Anne-Marie Dubois',
