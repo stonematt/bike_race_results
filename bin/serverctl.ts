@@ -35,7 +35,7 @@ const LOG_FILE = join(STATE_DIR, 'real-uat.log');
 const ARCHIVED_CORPUS = join(homedir(), '.local', 'share', 'bike_race_results', 'fixtures');
 
 type Command = 'up' | 'prepare' | 'status' | 'down';
-type ServerState = { pid: number; port: number };
+type ServerState = { pid: number; port: number; startedAt: string };
 
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error;
@@ -80,8 +80,13 @@ function readState(): ServerState | undefined {
   if (!existsSync(PID_FILE)) return undefined;
   try {
     const value = JSON.parse(readFileSync(PID_FILE, 'utf8')) as Partial<ServerState>;
-    if (typeof value.pid !== 'number' || typeof value.port !== 'number') throw new Error('invalid');
-    return { pid: value.pid, port: value.port };
+    if (
+      typeof value.pid !== 'number' ||
+      typeof value.port !== 'number' ||
+      typeof value.startedAt !== 'string'
+    )
+      throw new Error('invalid');
+    return { pid: value.pid, port: value.port, startedAt: value.startedAt };
   } catch {
     console.error(`refused: ${PID_FILE} is invalid; inspect it before removing it.`);
     process.exit(1);
@@ -118,7 +123,10 @@ function assertRecordedNextServer(state: ServerState): void {
     '--port',
     String(state.port),
   ];
-  if (!expected.every((part) => commandLine.includes(part))) {
+  const started = spawnSync('ps', ['-p', String(state.pid), '-o', 'lstart='], {
+    encoding: 'utf8',
+  }).stdout.trim();
+  if (!expected.every((part) => commandLine.includes(part)) || started !== state.startedAt) {
     console.error(
       `refused: pid ${state.pid} is not a Next development server; leaving it and ${PID_FILE} untouched.`,
     );
@@ -259,7 +267,14 @@ function start(email: string, requestedPort: number): void {
     },
   );
   child.unref();
-  writeFileSync(PID_FILE, JSON.stringify({ pid: child.pid, port: requestedPort }) + '\n');
+  const startedAt = spawnSync('ps', ['-p', String(child.pid), '-o', 'lstart='], {
+    encoding: 'utf8',
+  }).stdout.trim();
+  if (startedAt === '') throw new Error('could not establish local server process identity');
+  writeFileSync(
+    PID_FILE,
+    JSON.stringify({ pid: child.pid, port: requestedPort, startedAt }) + '\n',
+  );
   console.log(
     `UAT server started at http://localhost:${requestedPort}/2025 — sign in locally as ${email}.`,
   );
