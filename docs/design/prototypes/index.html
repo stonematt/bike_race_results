@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Reporting prototypes — synthetic data</title>
+<style>
+  :root{
+    --bg:#faf9f5; --panel:#ffffff; --text-primary:#1a1915; --text-secondary:#4a4842;
+    --text-muted:#898781; --border:#e1e0d9; --rule:#d6d5cd;
+    --font-sans:ui-sans-serif,-apple-system,"Segoe UI",Nunito,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#141311; --panel:#1c1b18; --text-primary:#f2f1ec; --text-secondary:#c3c2b7;
+           --text-muted:#898781; --border:#33322d; --rule:#3d3c36; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);
+       line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+  h1{font-size:1.6rem;margin:0 0 .4rem;letter-spacing:-.01em}
+  h2{font-size:1.05rem;margin:0 0 .3rem;letter-spacing:-.005em}
+  .lede{color:var(--text-secondary);max-width:62ch;margin:0 0 1.25rem}
+  .notice{border:1px solid var(--border);background:var(--panel);border-radius:8px;
+          padding:.85rem 1rem;color:var(--text-secondary);font-size:.9rem;max-width:78ch;margin-bottom:2.5rem}
+  .notice strong{color:var(--text-primary)}
+  section{border-top:1px solid var(--rule);padding-top:1.75rem;margin-top:2.5rem}
+  .cap{color:var(--text-secondary);font-size:.92rem;max-width:72ch;margin:.45rem 0 1.25rem}
+  .badge{display:inline-block;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;
+         border:1px solid var(--border);border-radius:99px;padding:.16rem .55rem;color:var(--text-muted);
+         vertical-align:.18em;margin-left:.5rem}
+  .fig{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem .75rem}
+  footer{margin-top:4rem;color:var(--text-muted);font-size:.85rem}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Reporting prototypes</h1>
+<p class="lede">Exploration behind the <a href="../race-wall.md">race wall design direction</a>, in the order the thinking happened. Judged against the <a href="../visualization-rubric.md">visualization rubric</a>.</p>
+
+<p class="lede">Only 5, 6 and 7 bear on the race review surface. 1 through 4 are season-surface forms, archived here as exploration — the season landing is settled and is not being iterated from this work.</p>
+
+<div class="notice">
+<strong>Every roster and result on this page is synthetic.</strong> Names are two-letter placeholders and no value traces to a real athlete. Season totals were fitted to the shape of a plausible season (32 riders, 96 starts, 25/16/19/21/15 per race) so the forms could be judged at realistic density. These are drawings, not data. Safe to commit; not evidence of anything.
+</div>
+
+<section>
+<h2>1 · Season participation wall<span class="badge">experiment</span></h2>
+<p class="cap">Riders as columns, races as rows, grouped by category. Columns sorted by first-start race then by starts, so full-season riders anchor the left of each block and late arrivals stack right. Group width carries composition for free. One bit per cell — solid is a finish, hollow is a start without published finish, a faint dot is no result. The orange notch marks a first recorded start after race 1. Row totals on the right make a separate starts/finishes bar chart redundant.</p>
+<div class="fig" id="p1"></div>
+</section>
+
+<section>
+<h2>2 · Participation depth<span class="badge">experiment</span></h2>
+<p class="cap">Every rider still one mark, but the axis is commitment rather than calendar. Answers whether the season is a few regulars plus a long tail or a broad base. The U shape is the finding. Cost: loses which races.</p>
+<div class="fig" id="p2"></div>
+</section>
+
+<section>
+<h2>3 · Roster of pulses<span class="badge">experiment</span></h2>
+<p class="cap">Small multiples — each Descender an object with a name attached rather than a coordinate. The version a coach can point at, and the one that survives being filtered to a squad or printed. Cost: real estate, and 32 glyphs is near the upper bound before it reads as confetti.</p>
+<div class="fig" id="p3"></div>
+</section>
+
+<section>
+<h2>4 · Arrival cohorts<span class="badge">experiment</span></h2>
+<p class="cap">Same 96 starts, reframed as recruitment and retention. Each rider a unit block shaded by the race they first started. Reframes a mid-season dip as "who didn't come back" rather than "attendance was low." Cost: riders aren't traceable across columns — cohorts, not individuals.</p>
+<div class="fig" id="p4"></div>
+</section>
+
+<section>
+<h2>5 · Race board on a shared axis<span class="badge">superseded</span></h2>
+<p class="cap">First attempt at the race surface: all club riders on one axis, percent behind the category winner, full field in grey. The grey-field idea survives into the direction. The <em>anchor</em> does not — percent back off total time is incoherent once the bonus lap exists, and the category winner is the wrong origin regardless. Superseded by 7.</p>
+<div class="fig" id="p5"></div>
+</section>
+
+<section>
+<h2>6 · Why total time fails<span class="badge">reference</span></h2>
+<p class="cap">Explanatory, not a candidate surface. Above: total time splits a category into two lap cohorts with two separate zeros and no scale spanning them. Below: comparing over the base distance every rider completed restores one axis and puts the cutoff on it. Note the hollow mark left of the cutoff — a rider with base laps recorded whose split was inside the line. We do not know why, and nothing on the chart may guess.</p>
+<div class="fig" id="p6"></div>
+</section>
+
+<section>
+<h2>7 · Bonus-lap distribution<span class="badge">proposed</span></h2>
+<p class="cap">The direction. Zero is the bonus-lap cutoff, not the winner. Unit is clock time. Left of the line is a success region and the tint does that work — no badge. The shaded band right of the line is labeled by its measured width, never as "nearly made it." Full field in grey answers the question a coach actually has. Shown here with three categories; the built version carries every category, and the cutoff renders as a band wherever it is derived rather than published.</p>
+<div class="fig" id="p7"></div>
+</section>
+
+<footer>Prototype tokens on this page are local to the gallery and are not the brand tokens. See <a href="../../brand.md">docs/brand.md</a> for the real palette and its rules.</footer>
+
+</div>
+
+<script>
+var ACC="#eb6834", MUT="#898781", HUE="#2a78d6";
+
+/* 1 — season participation wall */
+(function(){
+var blocks=[
+{label:"MS girls",rows:["11111","10110","10000","000s0"]},
+{label:"HS girls",rows:["11111","11111","11110","1s001","10000","0001s"]},
+{label:"MS boys",rows:["11111","11111","11110","101s0","1010s","100s0","10000","01100","00011"]},
+{label:"HS boys",rows:["11111","11111","11111","11111","11101","11110","11100","10000","10000","10000","00s10","00011","00010"]}];
+var CW=21,CG=3,BG=18,X0=106,Y0=76,RH=24;
+var s='<svg viewBox="0 0 1000 232" width="100%" role="img" aria-label="Grid of 32 rider columns and five race rows grouped by category."><g font-family="var(--font-sans)">';
+var lx=106, leg=[["Recorded finish",1],["Start, no published finish",2],["No result recorded",3],["First start after race 1",4]];
+leg.forEach(function(e){var t=e[0],k=e[1];
+ if(k===1)s+='<rect x="'+lx+'" y="14" width="11" height="11" rx="2" fill="'+HUE+'"/>';
+ if(k===2)s+='<rect x="'+(lx+0.75)+'" y="14.75" width="9.5" height="9.5" rx="2" fill="none" stroke="'+HUE+'" stroke-width="1.5"/>';
+ if(k===3)s+='<circle cx="'+(lx+5.5)+'" cy="19.5" r="2" fill="'+MUT+'"/>';
+ if(k===4)s+='<rect x="'+lx+'" y="14" width="11" height="3" fill="'+ACC+'"/><rect x="'+lx+'" y="19" width="11" height="6" rx="1" fill="'+HUE+'"/>';
+ s+='<text x="'+(lx+17)+'" y="24" font-size="12" fill="var(--text-secondary)">'+t+'</text>';
+ lx+=17+t.length*6.4+22;});
+for(var r=0;r<5;r++){s+='<text x="96" y="'+(Y0+r*RH+15)+'" font-size="12" text-anchor="end" fill="var(--text-secondary)">Race '+(r+1)+'</text>';}
+var bx=X0, tot=[0,0,0,0,0];
+blocks.forEach(function(b){
+ s+='<text x="'+bx+'" y="66" font-size="12" fill="var(--text-muted)">'+b.label+' · '+b.rows.length+'</text>';
+ b.rows.forEach(function(p,i){
+  var x=bx+i*(CW+CG), fs=-1;
+  for(var q=0;q<5;q++){if(p[q]!=="0"){fs=q;break;}}
+  for(var r2=0;r2<5;r2++){var y=Y0+r2*RH,c=p[r2];
+   if(c==="0"){s+='<circle cx="'+(x+CW/2)+'" cy="'+(y+CW/2)+'" r="2" fill="'+MUT+'" opacity="0.55"/>';}
+   else{tot[r2]++;
+    if(c==="1")s+='<rect x="'+x+'" y="'+y+'" width="'+CW+'" height="'+CW+'" rx="3" fill="'+HUE+'"/>';
+    else s+='<rect x="'+(x+0.9)+'" y="'+(y+0.9)+'" width="'+(CW-1.8)+'" height="'+(CW-1.8)+'" rx="3" fill="none" stroke="'+HUE+'" stroke-width="1.8"/>';
+    if(r2===fs&&fs>0)s+='<rect x="'+x+'" y="'+(y-5)+'" width="'+CW+'" height="3" fill="'+ACC+'"/>';}}});
+ bx+=b.rows.length*(CW+CG)+BG;});
+for(var r3=0;r3<5;r3++){s+='<text x="944" y="'+(Y0+r3*RH+15)+'" font-size="12" fill="var(--text-primary)">'+tot[r3]+'</text>';}
+s+='<text x="944" y="60" font-size="11" fill="var(--text-muted)">starts</text>';
+s+='<text x="106" y="216" font-size="12" fill="var(--text-muted)">A full column is a rider with a result in every race. Nine of them sit at the left edge of their group.</text>';
+document.getElementById("p1").innerHTML=s+'</g></svg>';})();
+
+/* 2 — participation depth */
+(function(){
+var cols=[{n:1,ms:3,hs:5},{n:2,ms:3,hs:3},{n:3,ms:3,hs:2},{n:4,ms:1,hs:3},{n:5,ms:3,hs:6}];
+var cx=[140,320,500,680,860],BASE=250,STEP=22,R=8.5;
+var s='<svg viewBox="0 0 1000 300" width="100%" role="img" aria-label="Dot columns showing how many riders started one through five races."><g font-family="var(--font-sans)">';
+s+='<circle cx="120" cy="22" r="6" fill="'+HUE+'"/><text x="134" y="27" font-size="12" fill="var(--text-secondary)">High school</text>';
+s+='<circle cx="250" cy="22" r="6" fill="none" stroke="'+HUE+'" stroke-width="1.8"/><text x="264" y="27" font-size="12" fill="var(--text-secondary)">Middle school</text>';
+cols.forEach(function(c,i){var x=cx[i],k=0,col=(c.n===5?ACC:HUE),j;
+ for(j=0;j<c.hs;j++){s+='<circle cx="'+x+'" cy="'+(BASE-k*STEP)+'" r="'+R+'" fill="'+col+'"/>';k++;}
+ for(j=0;j<c.ms;j++){s+='<circle cx="'+x+'" cy="'+(BASE-k*STEP)+'" r="'+(R-0.9)+'" fill="none" stroke="'+col+'" stroke-width="1.8"/>';k++;}
+ s+='<text x="'+x+'" y="278" font-size="13" text-anchor="middle" fill="var(--text-primary)">'+c.n+' race'+(c.n>1?"s":"")+'</text>';
+ s+='<text x="'+x+'" y="294" font-size="11" text-anchor="middle" fill="var(--text-muted)">'+(c.ms+c.hs)+' riders</text>';});
+s+='<line x1="90" y1="264" x2="920" y2="264" stroke="var(--border)" stroke-width="1"/>';
+s+='<text x="800" y="52" font-size="12" fill="'+ACC+'">Nine started every race</text>';
+document.getElementById("p2").innerHTML=s+'</g></svg>';})();
+
+/* 3 — roster of pulses */
+(function(){
+var R=[["AB","HSB","11111"],["CD","HSB","11111"],["EF","HSB","11111"],["GH","HSB","11111"],["JK","HSG","11111"],["LM","HSG","11111"],["NP","MSB","11111"],["QR","MSB","11111"],["ST","MSG","11111"],["UV","HSG","11110"],["WX","MSB","11110"],["YZ","HSB","11101"],["AC","HSB","11110"],["BD","MSG","10110"],["CE","HSG","11001"],["DF","MSB","10110"],["EG","MSB","10101"],["FH","HSB","11100"],["GJ","HSG","00011"],["HK","MSB","10010"],["JL","MSB","01100"],["KM","MSB","00011"],["LN","HSB","00110"],["MP","HSB","00011"],["NQ","MSG","10000"],["PR","MSG","00010"],["QS","HSG","10000"],["RT","MSB","10000"],["SU","HSB","10000"],["TV","HSB","10000"],["UW","HSB","10000"],["VX","HSB","00010"]];
+var s='<svg viewBox="0 0 1000 380" width="100%" role="img" aria-label="Thirty-two pulse glyphs, one per rider."><g font-family="var(--font-sans)">';
+R.forEach(function(r,i){
+ var c=i%8,row=(i-c)/8,x=14+c*123,y=24+row*88,n=0,k;
+ for(k=0;k<5;k++){if(r[2][k]==="1")n++;}
+ s+='<text x="'+x+'" y="'+(y+12)+'" font-size="13" fill="var(--text-primary)">'+r[0]+'</text>';
+ s+='<text x="'+(x+100)+'" y="'+(y+12)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">'+r[1]+' · '+n+'/5</text>';
+ var base=y+62;
+ for(k=0;k<5;k++){var bx=x+k*19;
+  if(r[2][k]==="1")s+='<rect x="'+bx+'" y="'+(base-30)+'" width="11" height="30" rx="2" fill="'+HUE+'"/>';
+  else s+='<circle cx="'+(bx+5.5)+'" cy="'+(base-3)+'" r="2.5" fill="'+MUT+'" opacity="0.6"/>';}
+ s+='<line x1="'+x+'" y1="'+(base+4)+'" x2="'+(x+100)+'" y2="'+(base+4)+'" stroke="var(--border)" stroke-width="1"/>';});
+document.getElementById("p3").innerHTML=s+'</g></svg>';})();
+
+/* 4 — arrival cohorts */
+(function(){
+var data=[[25,0,0,0],[15,1,0,0],[17,1,1,0],[15,0,1,5],[12,0,0,3]];
+var C=["#185FA5","#378ADD","#85B7EB",ACC];
+var LB=["First raced at race 1","race 2","race 3","race 4"];
+var cx=[140,320,500,680,860],W=88,BASE=272,UH=7,UG=1.6;
+var s='<svg viewBox="0 0 1000 320" width="100%" role="img" aria-label="Five stacked unit columns, one per race, shaded by arrival cohort."><g font-family="var(--font-sans)">';
+var lx=110;
+C.forEach(function(c,i){s+='<rect x="'+lx+'" y="14" width="11" height="11" rx="2" fill="'+c+'"/><text x="'+(lx+16)+'" y="24" font-size="12" fill="var(--text-secondary)">'+LB[i]+'</text>';lx+=16+LB[i].length*6.3+20;});
+data.forEach(function(col,i){var x=cx[i]-W/2,k=0,tot=0;
+ col.forEach(function(n,ci){for(var j=0;j<n;j++){s+='<rect x="'+x+'" y="'+(BASE-(k+1)*(UH+UG))+'" width="'+W+'" height="'+UH+'" rx="1.5" fill="'+C[ci]+'"/>';k++;}tot+=n;});
+ s+='<text x="'+cx[i]+'" y="292" font-size="13" text-anchor="middle" fill="var(--text-primary)">Race '+(i+1)+'</text>';
+ s+='<text x="'+cx[i]+'" y="308" font-size="11" text-anchor="middle" fill="var(--text-muted)">'+tot+' starts</text>';});
+s+='<line x1="80" y1="276" x2="930" y2="276" stroke="var(--border)" stroke-width="1"/>';
+document.getElementById("p4").innerHTML=s+'</g></svg>';})();
+
+/* 5 — race board, percent back (superseded) */
+(function(){
+var cats=[
+{n:"MS girls",f:14,r:[["AB",8],["CD",31]]},
+{n:"MS boys",f:41,r:[["EF",4],["GH",12],["JK",19],["LM",27],["NP",44]]},
+{n:"HS1 girls",f:19,r:[["QR",15],["ST",22]]},
+{n:"HS1 boys",f:46,r:[["UV",6],["WX",11],["YZ",25],["AC",38]]},
+{n:"HS2 girls",f:13,r:[["BD",9],["CE",17],["DF",34]]},
+{n:"HS2 boys",f:23,r:[["EG",3],["FH",14],["GJ",20],["HK",41]]}];
+var X0=150,X1=930,MAX=50,Y0=64,RH=54;
+var px=function(v){return X0+(v/MAX)*(X1-X0);};
+var s='<svg viewBox="0 0 1000 400" width="100%" role="img" aria-label="Six category rows, full field in grey, club riders in orange, positioned by percent behind the category winner."><g font-family="var(--font-sans)">';
+for(var t=0;t<=50;t+=10){s+='<line x1="'+px(t)+'" y1="46" x2="'+px(t)+'" y2="'+(Y0+6*RH-18)+'" stroke="var(--border)" stroke-width="1"/>';
+ s+='<text x="'+px(t)+'" y="38" font-size="11" text-anchor="middle" fill="var(--text-muted)">'+(t===0?"winner":"+"+t+"%")+'</text>';}
+cats.forEach(function(c,i){var y=Y0+i*RH;
+ s+='<text x="138" y="'+(y+4)+'" font-size="13" text-anchor="end" fill="var(--text-primary)">'+c.n+'</text>';
+ s+='<text x="138" y="'+(y+20)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">'+c.f+' finishers</text>';
+ for(var k=0;k<c.f;k++){var v=MAX*0.92*Math.pow(k/(c.f-1),0.82)*(0.55+0.45*((k*37)%11)/11);
+  s+='<line x1="'+px(v)+'" y1="'+(y-7)+'" x2="'+px(v)+'" y2="'+(y+7)+'" stroke="'+MUT+'" stroke-width="1.5" opacity="0.4"/>';}
+ c.r.forEach(function(e){s+='<circle cx="'+px(e[1])+'" cy="'+y+'" r="6" fill="'+ACC+'"/>';
+  s+='<text x="'+px(e[1])+'" y="'+(y-13)+'" font-size="11.5" text-anchor="middle" fill="var(--text-primary)">'+e[0]+'</text>';});});
+s+='<circle cx="150" cy="384" r="6" fill="'+ACC+'"/><text x="164" y="389" font-size="12" fill="var(--text-secondary)">Descender</text>';
+s+='<line x1="266" y1="377" x2="266" y2="391" stroke="'+MUT+'" stroke-width="1.5" opacity="0.4"/><text x="278" y="389" font-size="12" fill="var(--text-secondary)">Other finisher in that category</text>';
+document.getElementById("p5").innerHTML=s+'</g></svg>';})();
+
+/* 6 — why total time fails */
+(function(){
+var three=[0,1.5,3,4,6,7.5,9,11,13,15,18,21,24,28], two=[0,2,4,7,9,12,15,19,22];
+var bThree=[0,1.8,3.2,4.5,6,7.5,9,11,12.5,14,16,18,20,23], bTwo=[22,25,27,29,31,33,35,38,41];
+var cA3=[4,15],cA2=[7,19],cB3=[4.5,14],cB2=[27,38];
+var s='<svg viewBox="0 0 1000 250" width="100%" role="img" aria-label="Upper axis splits lap cohorts with separate zeros; lower axis puts the whole field on base-distance elapsed time with a cutoff line."><g font-family="var(--font-sans)">';
+var tick=function(x,y,f){return f?'<circle cx="'+x+'" cy="'+y+'" r="5.5" fill="'+ACC+'"/>':'<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(y+7)+'" stroke="'+MUT+'" stroke-width="1.5" opacity="0.45"/>';};
+var hollow=function(x,y,c){return '<circle cx="'+x+'" cy="'+y+'" r="5" fill="none" stroke="'+c+'" stroke-width="1.8" opacity="'+(c===ACC?1:0.5)+'"/>';};
+var yA=76, a1=function(x){return 150+(x/30)*370;}, a2=function(x){return 600+(x/25)*330;};
+s+='<text x="138" y="'+(yA-30)+'" font-size="13" text-anchor="end" fill="var(--text-primary)">Total time</text>';
+s+='<text x="138" y="'+(yA-14)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">two zeros</text>';
+three.forEach(function(v){s+=tick(a1(v),yA,cA3.indexOf(v)>-1?1:0);});
+two.forEach(function(v){s+=(cA2.indexOf(v)>-1)?tick(a2(v),yA,1):hollow(a2(v),yA,MUT);});
+s+='<line x1="150" y1="'+(yA+22)+'" x2="520" y2="'+(yA+22)+'" stroke="var(--border)" stroke-width="1"/>';
+s+='<line x1="600" y1="'+(yA+22)+'" x2="930" y2="'+(yA+22)+'" stroke="var(--border)" stroke-width="1"/>';
+s+='<text x="150" y="'+(yA+38)+'" font-size="11" fill="var(--text-muted)">bonus lap · 14 riders · winner</text>';
+s+='<text x="600" y="'+(yA+38)+'" font-size="11" fill="var(--text-muted)">base distance · 9 riders · own fastest</text>';
+s+='<line x1="560" y1="'+(yA-24)+'" x2="560" y2="'+(yA+30)+'" stroke="'+MUT+'" stroke-width="1" stroke-dasharray="3 4"/>';
+s+='<text x="560" y="'+(yA-32)+'" font-size="11" text-anchor="middle" fill="var(--text-muted)">no shared scale</text>';
+var yB=186, b=function(x){return 150+(x/45)*780;};
+s+='<text x="138" y="'+(yB-30)+'" font-size="13" text-anchor="end" fill="var(--text-primary)">Base distance</text>';
+s+='<text x="138" y="'+(yB-14)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">one zero</text>';
+bThree.forEach(function(v){s+=tick(b(v),yB,cB3.indexOf(v)>-1?1:0);});
+bTwo.forEach(function(v){s+=hollow(b(v),yB,cB2.indexOf(v)>-1?ACC:MUT);});
+s+='<line x1="'+b(24)+'" y1="'+(yB-26)+'" x2="'+b(24)+'" y2="'+(yB+18)+'" stroke="var(--text-secondary)" stroke-width="1.2" stroke-dasharray="4 4"/>';
+s+='<text x="'+b(24)+'" y="'+(yB-32)+'" font-size="11" text-anchor="middle" fill="var(--text-secondary)">bonus-lap cutoff</text>';
+s+='<line x1="150" y1="'+(yB+22)+'" x2="930" y2="'+(yB+22)+'" stroke="var(--border)" stroke-width="1"/>';
+s+='<text x="150" y="'+(yB+38)+'" font-size="11" fill="var(--text-muted)">fastest base distance in category</text>';
+s+='<text x="930" y="'+(yB+38)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">+45%</text>';
+s+='<circle cx="150" cy="234" r="5.5" fill="'+ACC+'"/><text x="163" y="238" font-size="12" fill="var(--text-secondary)">Descender, bonus lap</text>';
+s+='<circle cx="316" cy="234" r="5" fill="none" stroke="'+ACC+'" stroke-width="1.8"/><text x="329" y="238" font-size="12" fill="var(--text-secondary)">Descender, base distance</text>';
+document.getElementById("p6").innerHTML=s+'</g></svg>';})();
+
+/* 7 — bonus-lap distribution */
+(function(){
+var LO=-400,HI=480,X0=150,X1=930;
+var px=function(v){return X0+((v-LO)/(HI-LO))*(X1-X0);};
+var cats=[
+{n:"HS1 boys",f:46,e:31,x:15,ce:[12,26],cx:[1,6],lb:"3/2 laps"},
+{n:"HS2 boys",f:23,e:14,x:9,ce:[5,12],cx:[1,6],lb:"3/2 laps"},
+{n:"MS girls",f:13,e:6,x:7,ce:[3],cx:[0,4],lb:"2/1 laps"}];
+var jit=function(i){return ((i*53)%17)/17*18-9;};
+var s='<svg viewBox="0 0 1000 300" width="100%" role="img" aria-label="Three category rows on an axis anchored at the bonus-lap cutoff."><g font-family="var(--font-sans)">';
+s+='<rect x="'+X0+'" y="46" width="'+(px(0)-X0)+'" height="186" fill="#2a78d6" opacity="0.07"/>';
+s+='<rect x="'+px(0)+'" y="46" width="'+(px(120)-px(0))+'" height="186" fill="'+MUT+'" opacity="0.09"/>';
+[-360,-240,-120,0,120,240,360,480].forEach(function(t){
+ var lb=t===0?"cutoff":(t<0?"\u2212":"+")+Math.abs(t/60)+":00";
+ s+='<line x1="'+px(t)+'" y1="46" x2="'+px(t)+'" y2="232" stroke="'+(t===0?"var(--text-secondary)":"var(--border)")+'" stroke-width="'+(t===0?1.4:1)+'"'+(t===0?' stroke-dasharray="4 4"':'')+'/>';
+ s+='<text x="'+px(t)+'" y="38" font-size="11" text-anchor="middle" fill="'+(t===0?"var(--text-primary)":"var(--text-muted)")+'">'+lb+'</text>';});
+s+='<text x="'+((X0+px(0))/2)+'" y="252" font-size="11.5" text-anchor="middle" fill="var(--text-secondary)">bonus lap completed</text>';
+s+='<text x="'+px(300)+'" y="252" font-size="11.5" text-anchor="middle" fill="var(--text-secondary)">base distance recorded</text>';
+cats.forEach(function(c,ci){var y=70+ci*60,i,v;
+ s+='<text x="138" y="'+(y-2)+'" font-size="13" text-anchor="end" fill="var(--text-primary)">'+c.n+'</text>';
+ s+='<text x="138" y="'+(y+14)+'" font-size="11" text-anchor="end" fill="var(--text-muted)">'+c.lb+' · '+c.e+' of '+c.f+'</text>';
+ for(i=0;i<c.e;i++){v=-380+372*Math.pow(i/(c.e-1),0.68)+jit(i)*0.5;
+  s+=(c.ce.indexOf(i)>-1)?'<circle cx="'+px(v)+'" cy="'+y+'" r="5.5" fill="'+ACC+'"/>'
+   :'<line x1="'+px(v)+'" y1="'+(y-7)+'" x2="'+px(v)+'" y2="'+(y+7)+'" stroke="'+MUT+'" stroke-width="1.5" opacity="0.45"/>';}
+ for(i=0;i<c.x;i++){v=10+455*Math.pow(i/(c.x-1),1.7)+jit(i+3)*0.4;
+  s+=(c.cx.indexOf(i)>-1)?'<circle cx="'+px(v)+'" cy="'+y+'" r="5" fill="none" stroke="'+ACC+'" stroke-width="2"/>'
+   :'<circle cx="'+px(v)+'" cy="'+y+'" r="4" fill="none" stroke="'+MUT+'" stroke-width="1.5" opacity="0.5"/>';}});
+s+='<circle cx="150" cy="282" r="5.5" fill="'+ACC+'"/><text x="163" y="286" font-size="12" fill="var(--text-secondary)">Descender, bonus lap</text>';
+s+='<circle cx="345" cy="282" r="5" fill="none" stroke="'+ACC+'" stroke-width="2"/><text x="358" y="286" font-size="12" fill="var(--text-secondary)">Descender, base distance</text>';
+s+='<text x="560" y="286" font-size="12" fill="var(--text-muted)">Shaded band right of the line: within 2:00 of the cutoff</text>';
+document.getElementById("p7").innerHTML=s+'</g></svg>';})();
+</script>
+</body>
+</html>
