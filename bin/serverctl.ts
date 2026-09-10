@@ -110,6 +110,13 @@ function recordedServer(): ServerState | undefined {
   return undefined;
 }
 
+// The start time pairs with the pid as the process identity: a pid alone can be
+// reused by an unrelated process after the recorded server exits.
+function processStartTime(pid: number): string {
+  const inspected = spawnSync('ps', ['-p', String(pid), '-o', 'lstart='], { encoding: 'utf8' });
+  return inspected.status === 0 ? inspected.stdout.trim() : '';
+}
+
 function assertRecordedNextServer(state: ServerState): void {
   const inspected = spawnSync('ps', ['-p', String(state.pid), '-o', 'command='], {
     encoding: 'utf8',
@@ -123,12 +130,15 @@ function assertRecordedNextServer(state: ServerState): void {
     '--port',
     String(state.port),
   ];
-  const started = spawnSync('ps', ['-p', String(state.pid), '-o', 'lstart='], {
-    encoding: 'utf8',
-  }).stdout.trim();
-  if (!expected.every((part) => commandLine.includes(part)) || started !== state.startedAt) {
+  if (!expected.every((part) => commandLine.includes(part))) {
     console.error(
       `refused: pid ${state.pid} is not a Next development server; leaving it and ${PID_FILE} untouched.`,
+    );
+    process.exit(1);
+  }
+  if (processStartTime(state.pid) !== state.startedAt) {
+    console.error(
+      `refused: pid ${state.pid} does not match the recorded start time, so the pid was reused; leaving it and ${PID_FILE} untouched.`,
     );
     process.exit(1);
   }
@@ -267,10 +277,19 @@ function start(email: string, requestedPort: number): void {
     },
   );
   child.unref();
-  const startedAt = spawnSync('ps', ['-p', String(child.pid), '-o', 'lstart='], {
-    encoding: 'utf8',
-  }).stdout.trim();
-  if (startedAt === '') throw new Error('could not establish local server process identity');
+  const startedAt = child.pid === undefined ? '' : processStartTime(child.pid);
+  if (child.pid === undefined || startedAt === '') {
+    // Without a recorded identity `down` could never stop this server, so stop it now.
+    if (child.pid !== undefined) {
+      try {
+        process.kill(child.pid, 'SIGTERM');
+      } catch {
+        // Already exited.
+      }
+    }
+    console.error(`refused: the local server exited or could not be identified; see ${LOG_FILE}.`);
+    process.exit(1);
+  }
   writeFileSync(
     PID_FILE,
     JSON.stringify({ pid: child.pid, port: requestedPort, startedAt }) + '\n',
