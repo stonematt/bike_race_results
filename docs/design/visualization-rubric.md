@@ -6,26 +6,26 @@ The [editorial direction](editorial-direction.md) says to start from an observat
 
 ## The six tests
 
-| # | Test | Question | Fails when |
-|---|------|----------|------------|
-| 1 | **Anchor** | Is zero the reader's question? | The origin defaults to the category winner because that's where the data starts |
-| 2 | **Unit** | Does the axis mean the same thing along its whole length? | Lap cohorts, unequal field sizes, or mixed encodings share one scale |
-| 3 | **Field** | Is the subject shown inside the population it raced? | Club riders float on an empty axis with no field for context |
-| 4 | **Budget** | One accent, one meaning. | Orange marks two different things on the same surface |
-| 5 | **Region** | Can the answer be read from the zones before decoding any single mark? | The reader must find and interpret an individual dot to learn anything |
-| 6 | **Record** | Does every mark correspond to a published or derived record, never a reason? | A marker, label, or region name implies cause, effort, or capacity |
+| #   | Test       | Question                                                                     | Fails when                                                                             |
+| --- | ---------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | **Anchor** | Is zero the reader's question?                                               | The origin sits wherever the data happens to start, not where the reader's question is |
+| 2   | **Unit**   | Does the axis mean the same thing along its whole length?                    | Lap cohorts, unequal field sizes, or mixed encodings share one scale                   |
+| 3   | **Field**  | Is the subject shown inside the population it raced?                         | Club riders float on an empty axis with no field for context                           |
+| 4   | **Budget** | One accent, one meaning.                                                     | Orange marks two different things on the same surface                                  |
+| 5   | **Region** | Can the answer be read from the zones before decoding any single mark?       | The reader must find and interpret an individual dot to learn anything                 |
+| 6   | **Record** | Does every mark correspond to a published or derived record, never a reason? | A marker, label, or region name implies cause, effort, or capacity                     |
 
 **Closing gate: evidence underneath, never first.** The table exists. It is not the lead.
 
 ## Notes on each
 
-**1 — Anchor.** The winner is the default origin and almost never the right one. It converts every chart into a distance-from-first chart, which is the frame this product is explicitly not building. Prefer a reference that is a threshold (a cutoff time) or a property of the field (a median). *The origin is never a person.*
+**1 — Anchor.** Zero should be chosen for the reader's question, not inherited from the data. When the question is the race, the winner is the right origin: the race wall anchors every category on its winner (owner, 2026-09-10; see [race wall](race-wall.md) §2). When the question is a threshold, such as whether a rider earned the bonus lap, draw that threshold inside the chart as a marker. What fails is an origin nobody chose. _Revised 2026-09-10. The earlier rule "the origin is never a person" is superseded; see race wall §12._
 
 **2 — Unit.** The failure is silent, which is what makes it dangerous. A place is not comparable across fields of 13 and 46. An elapsed time is not comparable across riders who rode different distances. Both look fine on screen. The editorial direction already names this: normalized rank and time gap are different encodings and must never switch silently.
 
 **3 — Field.** A coach's question is usually about a rider relative to the people they actually raced, not relative to the club. Showing the full published field as muted context is what makes that question answerable, and it is the argument for loading complete league rows rather than only club rows.
 
-**4 — Budget.** Accent color is a fixed budget spent on one meaning per surface. On the reporting surfaces, orange means *Descender*. Per `docs/brand.md`, orange leads as a highlight and never as a field, and always carries ink rather than white.
+**4 — Budget.** Accent color is a fixed budget spent on one meaning per surface. On the reporting surfaces, orange means _Descender_. Per `docs/brand.md`, orange leads as a highlight and never as a field, and always carries ink rather than white.
 
 **5 — Region.** Tests whether the chart works for a coach who is not a chart person. If the shaded zones, the reference line, and the row labels carry the finding, the marks are detail rather than a decoding task.
 

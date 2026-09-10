@@ -4,7 +4,7 @@
 
 ## The shape of the problem
 
-The [race wall](race-wall.md) anchors every category on its bonus-lap cutoff. Lap counts and cutoff times differ by category and by race, and the league publishes them as prose on event pages in whatever form they happen to use that year.
+The [race wall](race-wall.md) splits every category's field at its bonus-lap cutoff. Lap counts and cutoff times differ by category and by race, and the league publishes them as prose on event pages in whatever form they happen to use that year.
 
 This is a once-a-year problem with a handful of races behind it. It does not warrant a scraper.
 
@@ -36,7 +36,7 @@ races:
     verified_by: <initials>
     categories:
       - category: HS2 Boys
-        bonus_lap: false       # prologue — everyone rides the same distance
+        bonus_lap: false # prologue — everyone rides the same distance
         laps: 2
       - category: MS Girls
         bonus_lap: false
@@ -52,7 +52,7 @@ races:
         laps_base: 2
         laps_bonus: 3
         cutoff: 01:15:00
-        cutoff_kind: elapsed   # elapsed | wall_clock
+        cutoff_kind: elapsed # elapsed | wall_clock
       - category: MS Girls
         bonus_lap: true
         laps_base: 1
@@ -67,9 +67,9 @@ Absent entries are fine. Anything the config does not cover falls back to the de
 
 They answer different questions and neither replaces the other.
 
-| Source | Gives you | Cannot give you |
-|---|---|---|
-| League event page | The cutoff **time** | What actually happened on the day |
+| Source            | Gives you               | Cannot give you                                |
+| ----------------- | ----------------------- | ---------------------------------------------- |
+| League event page | The cutoff **time**     | What actually happened on the day              |
 | Published results | Laps actually completed | The cutoff time — only an interval bounding it |
 
 So the config upgrades `cutoff_source` from `bounded` to `published`. That is worth doing because the band is wide enough to be vague on a tight field.

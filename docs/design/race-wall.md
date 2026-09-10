@@ -30,11 +30,11 @@ Each category row is one **field strip**: every starter in the category, left to
 
 The strip is split into groups by **lap count, not by time**:
 
-| Group | Who | Width | Position inside the group |
-|---|---|---|---|
-| **Bonus lap** | Classified finishers who completed `laps_bonus` | Their share of starters | Time back from the winner: winner at the left edge, last bonus-lap rider at the cutoff marker |
-| **Fewer laps** | Classified finishers with fewer laps | Their share of starters | Base-distance split past the cutoff estimate (§4): cutoff at the left edge, slowest fewer-lap rider at the right |
-| **Unfinished** | No published finish | Their share of starters | Tail of the strip. No time position |
+| Group          | Who                                             | Width                   | Position inside the group                                                                                        |
+| -------------- | ----------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Bonus lap**  | Classified finishers who completed `laps_bonus` | Their share of starters | Time back from the winner: winner at the left edge, last bonus-lap rider at the cutoff marker                    |
+| **Fewer laps** | Classified finishers with fewer laps            | Their share of starters | Base-distance split past the cutoff estimate (§4): cutoff at the left edge, slowest fewer-lap rider at the right |
+| **Unfinished** | No published finish                             | Their share of starters | Tail of the strip. No time position                                                                              |
 
 Because group widths are headcounts, the **cutoff marker** — the boundary between the first two groups — sits at the share of starters who earned the bonus lap, and it slides row by row. It is labelled with counts, `26 of 31`, not a percent.
 
@@ -80,14 +80,14 @@ Where the league publishes lap counts and cutoff times, they are captured once p
 
 ### Required cases
 
-| Case | Condition | Treatment |
-|---|---|---|
-| **Below base distance** | Classified rider with `laps < laps_base` | End of the fewer-lap group, square marker, no time position. Chip shows the lap count. |
-| **Split under the estimate** | Fewer-lap rider whose base split beats the cutoff estimate | Left edge of the fewer-lap group, dashed hollow marker. See §4. |
-| **No bonus lap** | Every classified finisher shares one lap count and the category has no bonus lap (Varsity; the 2025 prologue) | One group: winner at left, last finisher at right, time between. No cutoff marker, no near band. A normal row, not a degraded one. |
-| **Everyone earned it** | No fewer-lap finishers | One group; the cutoff marker sits at the right edge and reads `28 of 28`. |
-| **Ambiguous split** | The lower lap cohort contains a single rider | Derivation cannot tell a real cutoff split from a no-bonus-lap race plus one short ride. Do not guess. Use the season config's `bonus_lap` flag, or flag for review. |
-| **Single finisher** | One classified finisher in the category | No field. Render the rider with an explicit "field of one" label. |
+| Case                         | Condition                                                                                                     | Treatment                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Below base distance**      | Classified rider with `laps < laps_base`                                                                      | End of the fewer-lap group, square marker, no time position. Chip shows the lap count.                                                                               |
+| **Split under the estimate** | Fewer-lap rider whose base split beats the cutoff estimate                                                    | Left edge of the fewer-lap group, dashed hollow marker. See §4.                                                                                                      |
+| **No bonus lap**             | Every classified finisher shares one lap count and the category has no bonus lap (Varsity; the 2025 prologue) | One group: winner at left, last finisher at right, time between. No cutoff marker, no near band. A normal row, not a degraded one.                                   |
+| **Everyone earned it**       | No fewer-lap finishers                                                                                        | One group; the cutoff marker sits at the right edge and reads `28 of 28`.                                                                                            |
+| **Ambiguous split**          | The lower lap cohort contains a single rider                                                                  | Derivation cannot tell a real cutoff split from a no-bonus-lap race plus one short ride. Do not guess. Use the season config's `bonus_lap` flag, or flag for review. |
+| **Single finisher**          | One classified finisher in the category                                                                       | No field. Render the rider with an explicit "field of one" label.                                                                                                    |
 
 ### 3.1 Config resolves what derivation cannot
 
@@ -97,7 +97,7 @@ The ambiguous-split case is why the [season config](season-setup.md) carries an 
 
 ## 4. The cutoff estimate
 
-Unless season config supplies a published cutoff, the estimate is **one-sided: the base-distance split of the slowest bonus-lap rider.** It is the left edge of the fewer-lap group and the origin of the near band. Nothing else uses it. The cutoff marker's *position* comes from headcount, not from this time.
+Unless season config supplies a published cutoff, the estimate is **one-sided: the base-distance split of the slowest bonus-lap rider.** It is the left edge of the fewer-lap group and the origin of the near band. Nothing else uses it. The cutoff marker's _position_ comes from headcount, not from this time.
 
 - **Base split** = Σ `lap1..lap_base`. Lap columns are per-lap durations stored as `m:ss` text, whole seconds, truncated. Coverage is complete for riders who reached base distance. Official totals take precedence over sums of rounded splits wherever a total is shown.
 - **Split under the estimate.** A fewer-lap rider whose base split beats the estimate is drawn at the group's left edge with a dashed hollow marker. Something is inconsistent — a stop, a mechanical, a wave-start offset, split truncation — and the chart does not say which. Race 4 North 2025 has two club riders in this state, at −1:31 and −0:20.
@@ -114,12 +114,12 @@ Carry `cutoff_source` on the row: `published` | `estimated` | `not_applicable`.
 
 Regions carry the answer. A coach reads the shape before reading a name.
 
-| ID | Region | Extent | Meaning |
-|---|---|---|---|
-| **R1** | Bonus lap | The bonus-lap group | Bonus lap completed. Aqua tint. |
-| **R2** | Near band | First `N` of the fewer-lap group | Base split within `N` of the cutoff estimate |
-| **R3** | Fewer laps | Rest of the fewer-lap group | Base split beyond the near band |
-| **R4** | Unfinished | Tail of the strip, hatched | No published finish, or below base distance. No time position. |
+| ID     | Region     | Extent                           | Meaning                                                        |
+| ------ | ---------- | -------------------------------- | -------------------------------------------------------------- |
+| **R1** | Bonus lap  | The bonus-lap group              | Bonus lap completed. Aqua tint.                                |
+| **R2** | Near band  | First `N` of the fewer-lap group | Base split within `N` of the cutoff estimate                   |
+| **R3** | Fewer laps | Rest of the fewer-lap group      | Base split beyond the near band                                |
+| **R4** | Unfinished | Tail of the strip, hatched       | No published finish, or below base distance. No time position. |
 
 `N` defaults to 2:00 and is **labelled by its measured width** — "within 2:00 of cutoff est." Never "nearly made it", which is a claim about capacity. The owner kept the band after review (2026-09-10).
 
@@ -133,16 +133,16 @@ The fewer-lap group is stretched per row, from the cutoff to its slowest rider w
 
 ## 6. Markers
 
-| ID | Marker | Form | Means |
-|---|---|---|---|
-| **M1** | Field tick | Thin vertical rule, neutral, ~45% opacity | One non-club rider |
-| **M2** | Descender, bonus lap | Solid dot, accent, thin ink ring | Club rider, `laps_bonus` completed |
-| **M3** | Descender, fewer laps | Hollow dot, accent, 2.5px stroke | Club rider, fewer laps, base split at or past the estimate |
-| **M3a** | Descender, split under estimate | Dashed hollow dot, accent | Club rider, fewer laps, base split beats the estimate |
-| **M4** | First start | 3px accent bar seated above the dot | First recorded start this season, after race 1 |
-| **M5** | Unfinished | Square outline, accent, in R4 | No published finish or below base distance; published status only |
-| **M6** | Podium *(owner-gated, off by default)* | Small inset dot inside M2, same hue | Published podium place |
-| — | Cutoff marker | Aqua-ink vertical rule at the group boundary, count label above | `bonus finishers of starters` |
+| ID      | Marker                                 | Form                                                            | Means                                                             |
+| ------- | -------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **M1**  | Field tick                             | Thin vertical rule, neutral, ~45% opacity                       | One non-club rider                                                |
+| **M2**  | Descender, bonus lap                   | Solid dot, accent, thin ink ring                                | Club rider, `laps_bonus` completed                                |
+| **M3**  | Descender, fewer laps                  | Hollow dot, accent, 2.5px stroke                                | Club rider, fewer laps, base split at or past the estimate        |
+| **M3a** | Descender, split under estimate        | Dashed hollow dot, accent                                       | Club rider, fewer laps, base split beats the estimate             |
+| **M4**  | First start                            | 3px accent bar seated above the dot                             | First recorded start this season, after race 1                    |
+| **M5**  | Unfinished                             | Square outline, accent, in R4                                   | No published finish or below base distance; published status only |
+| **M6**  | Podium _(owner-gated, off by default)_ | Small inset dot inside M2, same hue                             | Published podium place                                            |
+| —       | Cutoff marker                          | Aqua-ink vertical rule at the group boundary, count label above | `bonus finishers of starters`                                     |
 
 **Ticks are population, dots are individuals.** Do not render the field as small dots.
 
@@ -185,7 +185,7 @@ Use the rail at every width. One component, one behaviour.
 
 ### 7.2 Selection
 
-Selection must not spend accent. Orange already means *Descender*.
+Selection must not spend accent. Orange already means _Descender_.
 
 - On selection, **context recedes**: field ticks and other club marks drop opacity. The selected mark keeps its fill and gains a neutral ring.
 - Selection is per-row and toggles off on a second tap.
@@ -202,15 +202,16 @@ There is no shared axis and no shared cap. Each group stretches to its own rider
 
 Tokens and hard rules live in [`docs/brand.md`](../brand.md). This section only assigns meaning.
 
-| Token | Use on this surface | Never |
-|---|---|---|
-| **accent (orange)** | Descenders only — M2, M3, M3a, M4, M5, chip outlines | Anything that is not a Descender |
-| **aqua** | R1 tint and the near band. Aqua means *the objective*. | A rider, a place, a category |
-| **aqua ink** (darker step, `#00897d` in the mockup) | The cutoff marker rule | Fills |
-| **navy** | Type, structure, chrome | Data marks |
-| neutral | Field ticks, all non-club marks | Emphasis of any kind |
+| Token                                               | Use on this surface                                    | Never                            |
+| --------------------------------------------------- | ------------------------------------------------------ | -------------------------------- |
+| **accent (orange)**                                 | Descenders only — M2, M3, M3a, M4, M5, chip outlines   | Anything that is not a Descender |
+| **aqua**                                            | R1 tint and the near band. Aqua means _the objective_. | A rider, a place, a category     |
+| **aqua ink** (darker step, `#00897d` in the mockup) | The cutoff marker rule                                 | Fills                            |
+| **navy**                                            | Type, structure, chrome                                | Data marks                       |
+| neutral                                             | Field ticks, all non-club marks                        | Emphasis of any kind             |
 
 Accessibility adjustments, recorded as the brand rules require:
+
 - `#00FFE9` is too light to read as a thin rule on paper, so the cutoff marker uses a darker aqua step.
 - Orange on paper is about 2.45:1, below 3:1 for graphics. Solid club dots take a thin ink ring, hollow dots a 2.5px stroke, and every club rider also has a labelled chip.
 
@@ -258,7 +259,7 @@ first_start_of_season      bool
 - No rank strips or evenly spaced riders. Position is time.
 - No cross-category shared time scale.
 - No derived claims about fitness, effort, preparation, or improvement.
-- No inference about *why* a rider has fewer laps or no finish.
+- No inference about _why_ a rider has fewer laps or no finish.
 
 ---
 
@@ -279,19 +280,21 @@ Closed 2026-09-10: winner anchor; field strip with headcount-sized groups; count
 
 Kept so the reasoning is not re-derived.
 
-| Was | Now | Why |
-|---|---|---|
-| "The origin is never a person"; axis is signed `m:ss` from the cutoff | Winner anchor, field strip (§2) | Owner: "This is a race." |
-| Cutoff as a two-sided band; draw none when it inverts | One-sided estimate (§4) | Inversions are common (Race 3 South 2025: 5 of 10 categories), and the marker's position now comes from headcount |
-| No-bonus rows on an absolute elapsed-time axis | One group, winner at left (§3) | Follows from the winner anchor |
-| One shared axis cap across rows | Each group stretches to its own riders (§7.3) | No shared axis remains |
+| Was                                                                   | Now                                           | Why                                                                                                               |
+| --------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| "The origin is never a person"; axis is signed `m:ss` from the cutoff | Winner anchor, field strip (§2)               | Owner: "This is a race."                                                                                          |
+| Cutoff as a two-sided band; draw none when it inverts                 | One-sided estimate (§4)                       | Inversions are common (Race 3 South 2025: 5 of 10 categories), and the marker's position now comes from headcount |
+| No-bonus rows on an absolute elapsed-time axis                        | One group, winner at left (§3)                | Follows from the winner anchor                                                                                    |
+| One shared axis cap across rows                                       | Each group stretches to its own riders (§7.3) | No shared axis remains                                                                                            |
 
 Explored in the mockup and rejected:
+
 - **Shared percent-back scale** on a fixed left zone — honest, but ragged dividers wasted most rows.
 - **Stretched left zone beside a fixed right zone** — a two-rider bonus group put a rider 1.7% back at the visual tail.
 - **Published order, laps-down groups, pure rank strip** — evenly spaced; see §2.
 
 Wall arrangements drawn 2026-09-10 and not chosen (§7 has the winner):
+
 - **One column in league order**, and **one column split into a Boys block and a Girls block.** The Boys/Girls split was the tallest page, and it puts the two MS2 fields far apart.
 - **Boys | Girls, and Girls | Boys, rows aligned by grade.** This was the shortest page on a laptop and the best for comparing one grade's two fields. The owner chose the Pulse blocks for mobile and responsiveness: they reflow, whereas aligned columns can only drop to one column.
 - **MS | HS columns.** The columns were uneven (6 rows against 8) and rows did not line up across them.
