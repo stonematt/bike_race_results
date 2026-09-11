@@ -1,6 +1,6 @@
 # Delivery status
 
-Updated 2026-09-10 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
+Updated 2026-09-11 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
 
@@ -366,7 +366,8 @@ rather than exercised as a route, because the form redirects to the same path it
 
 A fresh post-merge comparison on 2026-09-10 found one bounded copy defect and opened #164. Auth.js
 uses `Verification` for an invalid email/token combination, which can mean either no matching row or
-expiry, while the page said the link had expired or was already used. The local #164 correction
-keeps the existing heading and recovery action but changes the body to cause-neutral guidance. Its
-public route-rendering test failed on the old wording and passed after the correction. This is a
-local correction on `fix/auth-verification-copy`, not a commit, PR, merge or production release.
+expiry, while the page said the link had expired or was already used. The #164 correction keeps
+the existing heading and recovery action but changes the body to cause-neutral guidance. Its public
+route-rendering test failed on the old wording and passed after the correction. The correction is
+committed on `fix/auth-verification-copy` for review and a PR into `dev`; no production release is
+claimed.
