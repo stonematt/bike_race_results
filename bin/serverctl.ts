@@ -34,7 +34,7 @@ const LOG_FILE = join(STATE_DIR, 'real-uat.log');
 const ARCHIVED_CORPUS = join(homedir(), '.local', 'share', 'bike_race_results', 'fixtures');
 
 type Command = 'up' | 'prepare' | 'status' | 'down';
-type ServerState = { pid: number; port: number };
+type ServerState = { pid: number; port: number; startedAt: string };
 
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error;
@@ -79,8 +79,13 @@ function readState(): ServerState | undefined {
   if (!existsSync(PID_FILE)) return undefined;
   try {
     const value = JSON.parse(readFileSync(PID_FILE, 'utf8')) as Partial<ServerState>;
-    if (typeof value.pid !== 'number' || typeof value.port !== 'number') throw new Error('invalid');
-    return { pid: value.pid, port: value.port };
+    if (
+      typeof value.pid !== 'number' ||
+      typeof value.port !== 'number' ||
+      typeof value.startedAt !== 'string'
+    )
+      throw new Error('invalid');
+    return { pid: value.pid, port: value.port, startedAt: value.startedAt };
   } catch {
     console.error(`refused: ${PID_FILE} is invalid; inspect it before removing it.`);
     process.exit(1);
@@ -104,7 +109,23 @@ function recordedServer(): ServerState | undefined {
   return undefined;
 }
 
+// The start time pairs with the pid as the process identity: a pid alone can be
+// reused by an unrelated process after the recorded server exits.
+function processStartTime(pid: number): string {
+  const inspected = spawnSync('ps', ['-p', String(pid), '-o', 'lstart='], { encoding: 'utf8' });
+  return inspected.status === 0 ? inspected.stdout.trim() : '';
+}
+
 function assertRecordedNextServer(state: ServerState): void {
+  // Identity first: an unrelated process that inherited this pid almost never happens
+  // to look like a Next dev server, so checking the command shape first would usually
+  // misreport reuse as "not a Next development server" instead.
+  if (processStartTime(state.pid) !== state.startedAt) {
+    console.error(
+      `refused: pid ${state.pid} does not match the recorded start time, so the pid was reused; leaving it and ${PID_FILE} untouched.`,
+    );
+    process.exit(1);
+  }
   const inspected = spawnSync('ps', ['-p', String(state.pid), '-o', 'command='], {
     encoding: 'utf8',
   });
@@ -253,7 +274,23 @@ function start(email: string, requestedPort: number): void {
     },
   );
   child.unref();
-  writeFileSync(PID_FILE, JSON.stringify({ pid: child.pid, port: requestedPort }) + '\n');
+  const startedAt = child.pid === undefined ? '' : processStartTime(child.pid);
+  if (child.pid === undefined || startedAt === '') {
+    // Without a recorded identity `down` could never stop this server, so stop it now.
+    if (child.pid !== undefined) {
+      try {
+        process.kill(child.pid, 'SIGTERM');
+      } catch {
+        // Already exited.
+      }
+    }
+    console.error(`refused: the local server exited or could not be identified; see ${LOG_FILE}.`);
+    process.exit(1);
+  }
+  writeFileSync(
+    PID_FILE,
+    JSON.stringify({ pid: child.pid, port: requestedPort, startedAt }) + '\n',
+  );
   console.log(
     `UAT server started at http://localhost:${requestedPort}/2025 — sign in locally as ${email}.`,
   );
