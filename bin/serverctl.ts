@@ -23,7 +23,6 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { defaultRiderNamesPath } from '../src/lib/club-config.ts';
 import { corpusRoot, hasCorpus } from '../src/lib/fixtures.ts';
 import { loadEnvLocal, repoRoot } from './env.ts';
 
@@ -42,7 +41,7 @@ function usage(exitCode = 0): never {
   out(
     'usage: pnpm serverctl <up|prepare|status|down> [--email <address>] [--port <port>]\n' +
       '  up       prepare the local real-data database, then start a loopback dev server\n' +
-      '  prepare  migrate, seed the verified club roster, and decode archived 2025/2026 fixtures\n' +
+      '  prepare  migrate, decode archived 2025/2026 fixtures, and seed the verified club roster\n' +
       '  status   report whether this controller owns a running server\n' +
       '  down     stop only the server recorded by this controller',
   );
@@ -191,12 +190,6 @@ function requirePreparation(email: string): void {
     console.error('refused: the requested local sign-in address is not in AUTH_ALLOWED_EMAILS.');
     process.exit(1);
   }
-  if (!existsSync(defaultRiderNamesPath)) {
-    console.error(
-      `refused: no private rider-name map at ${defaultRiderNamesPath}; named-athlete UAT must not fall back to pseudonyms.`,
-    );
-    process.exit(1);
-  }
   ensurePrivateCorpus();
 }
 
@@ -220,9 +213,10 @@ function prepare(email: string): void {
   }
   requirePreparation(email);
   runBin('migrate.ts', []);
-  runBin('seed.ts', ['--club-config', '--email', email]);
   runBin('normalize.ts', ['--load-fixtures']);
   runBin('normalize.ts', []);
+  // After normalize, so each rider is named from their published results.
+  runBin('seed.ts', ['--club-config', '--email', email]);
   console.log('real-data UAT database is ready: archived 2025 and 2026 fixtures are local-only.');
 }
 

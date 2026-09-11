@@ -1,6 +1,6 @@
 /**
  * Club config validation. The properties that matter: the checked-in file is
- * valid and carries no identity, an unpublished scoring team is a hard failure,
+ * valid and carries no rider names, an unpublished scoring team is a hard failure,
  * and a plate is never claimed by two riders at the same race.
  */
 
@@ -14,12 +14,9 @@ import {
   loadClubConfig,
   loadCoachEmails,
   loadPublishedScoringTeams,
-  loadRiderNames,
   parseClubConfig,
   parseCoachEmails,
   parsePublishedScoringTeams,
-  parseRiderNames,
-  pseudonymFor,
   publishedScoringTeamsPath,
 } from './club-config.ts';
 
@@ -43,8 +40,8 @@ const base = {
   squads: [{ name: 'Descenders', members: ['rider-a'] }],
 };
 
-const parse = (overrides: Record<string, unknown>, riderNames?: Map<string, string>) =>
-  parseClubConfig({ ...base, ...overrides }, { publishedScoringTeams: published, riderNames });
+const parse = (overrides: Record<string, unknown>) =>
+  parseClubConfig({ ...base, ...overrides }, { publishedScoringTeams: published });
 
 const problemsOf = (fn: () => unknown): string[] => {
   try {
@@ -71,7 +68,7 @@ afterEach(() => {
 
 describe('the checked-in config', () => {
   it('is valid against the checked-in published scoring teams', () => {
-    const config = loadClubConfig({ riderNamesFile: path.join(os.tmpdir(), 'no-such-names.json') });
+    const config = loadClubConfig();
 
     expect(config.club).toBe('Descenders');
     expect(config.season).toBe(2025);
@@ -84,18 +81,10 @@ describe('the checked-in config', () => {
     expect(config.squads.length).toBeGreaterThan(0);
   });
 
-  it('carries no rider identity — this repo is public and the riders are minors', () => {
-    // The whole privacy argument in one assertion: with no local names file
-    // present, every display name the config can produce is its own pseudonym.
-    // A real name in the committed file would fail here.
-    const config = loadClubConfig({ riderNamesFile: path.join(os.tmpdir(), 'no-such-names.json') });
-    for (const rider of config.riders) {
-      expect(rider.displayName).toBe(pseudonymFor(rider.key));
-      expect(rider.displayName).toMatch(/^«RIDER-[A-Z]+»$/);
-    }
-
-    // And nothing name-shaped is in the file's bytes either: keys are slugs,
-    // plates are digits, and the only free text is the club and squad names.
+  it('commits no rider names — production data stays out of the repository', () => {
+    // Names come from published results at seed time, so the committed file has
+    // no reason to hold one: keys are slugs, plates are digits, and the only
+    // free text is the club and squad names.
     const raw = JSON.parse(fs.readFileSync(clubConfigPath, 'utf8')) as Record<string, unknown>;
     for (const rider of raw.riders as { key: string; plates: unknown[] }[]) {
       expect(rider.key).toMatch(/^rider-[a-z]+$/);
@@ -392,36 +381,6 @@ describe('structural validation', () => {
   });
 });
 
-describe('rider names, kept outside the working tree', () => {
-  it('falls back to the key pseudonym when there is no names file', () => {
-    const config = parse({});
-    expect(config.riders[0]!.displayName).toBe('«RIDER-A»');
-  });
-
-  it('takes a display name from the names map when one is there', () => {
-    const config = parse({}, new Map([['rider-a', 'A Rider']]));
-    expect(config.riders[0]!.displayName).toBe('A Rider');
-  });
-
-  it('refuses a names entry no rider declares, so a stale key is not silent', () => {
-    const problems = problemsOf(() => parse({}, new Map([['rider-q', 'Someone Else']])));
-    expect(problems[0]).toContain('rider-q');
-  });
-
-  it('reads the names file it is pointed at', () => {
-    const file = tempFile('names.json', '{"rider-a": "A Rider"}');
-    expect(loadRiderNames(file).get('rider-a')).toBe('A Rider');
-  });
-
-  it('treats an absent names file as the normal case, not an error', () => {
-    expect(loadRiderNames(path.join(os.tmpdir(), 'definitely-not-here.json')).size).toBe(0);
-  });
-
-  it('refuses a names file that maps a key to something that is not a name', () => {
-    expect(() => parseRiderNames({ 'rider-a': 42 }, 'names.json')).toThrow(ClubConfigError);
-  });
-});
-
 describe('coach emails, kept outside the working tree', () => {
   it('reads the map file it is pointed at, normalising the address', () => {
     const file = tempFile('coach-emails.json', '{"coach-a": "  Coach@Example.ORG "}');
@@ -444,8 +403,8 @@ describe('coach emails, kept outside the working tree', () => {
     expect(() => parseCoachEmails({ 'coach-a': 42 }, 'coach-emails.json')).toThrow(ClubConfigError);
   });
 
-  // Unlike the rider names map, a key with no squad naming it yet is not
-  // flagged as stale: a coach can be kept in the map ahead of being assigned.
+  // A key with no squad naming it yet is not flagged as stale: a coach can be
+  // kept in the map ahead of being assigned.
   it('does not require every key to be claimed by a squad', () => {
     expect(() =>
       parseCoachEmails({ 'coach-unclaimed': 'coach@example.org' }, 'coach-emails.json'),

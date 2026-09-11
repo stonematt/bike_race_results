@@ -17,7 +17,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadEnvLocal } from '../../bin/env.ts';
 import { loadSquadNavigation } from './db/editorial-query.ts';
-import { ClubConfigError, loadClubConfig, pseudonymFor, type ClubConfig } from './club-config.ts';
+import { ClubConfigError, loadClubConfig, type ClubConfig } from './club-config.ts';
 import { createTestDb, type TestDatabase } from './db/testing.ts';
 import { resolveDatabaseUrl } from './db/url.ts';
 import * as schema from './db/schema.ts';
@@ -387,11 +387,7 @@ const plate = (p: string, fromRound: number | null = null, toRound: number | nul
   toRound,
 });
 
-const rider = (key: string, ...plates: ReturnType<typeof plate>[]) => ({
-  key,
-  displayName: pseudonymFor(key),
-  plates,
-});
+const rider = (key: string, ...plates: ReturnType<typeof plate>[]) => ({ key, plates });
 
 const clubConfig = (overrides: Partial<ClubConfig> = {}): ClubConfig => ({
   club: 'Descenders',
@@ -411,7 +407,7 @@ const clubConfig = (overrides: Partial<ClubConfig> = {}): ClubConfig => ({
 async function archiveRace(
   seasonId: number,
   ordinal: number,
-  entries: [plate: string, scoringTeam: string][],
+  entries: [plate: string, scoringTeam: string, displayName?: string][],
 ) {
   await db.insert(schema.round).values({ id: ordinal, seasonId, ordinal, name: `Race ${ordinal}` });
   await db.insert(schema.event).values({
@@ -422,10 +418,10 @@ async function archiveRace(
     name: `Race ${ordinal} - North`,
   });
   await db.insert(schema.individualResult).values(
-    entries.map(([bib, scoringTeam], index) => ({
+    entries.map(([bib, scoringTeam, displayName], index) => ({
       eventId: ordinal,
       plate: bib,
-      displayName: `RACER ${bib}`,
+      displayName: displayName ?? `RACER ${bib}`,
       scoringTeam,
       categoryRaw: 'HS1 Boys - North',
       place: String(index + 1),
@@ -461,10 +457,48 @@ describe('seedClubConfig', () => {
     expect(await db.select().from(schema.squadMember)).toHaveLength(2);
   });
 
-  it('names a rider by the pseudonym when no local names file supplied one', async () => {
+  it('starts a rider with no published result under their key', async () => {
     await seedClubConfig(db, clubConfig());
     const riders = await db.select().from(schema.rider);
-    expect(riders[0]!.displayName).toBe('«RIDER-A»');
+    expect(riders[0]!.displayName).toBe('rider-a');
+  });
+
+  it('names a rider by what the league published on their result, in place', async () => {
+    const { seasonId } = await seedClubConfig(db, clubConfig());
+    await archiveRace(seasonId, 1, [['202', SALEM]]);
+
+    const again = await seedClubConfig(db, clubConfig());
+
+    expect(again.ridersCreated).toBe(0);
+    expect(again.ridersRenamed).toBe(1);
+    const riders = await db.select().from(schema.rider);
+    expect(riders).toHaveLength(1);
+    expect(riders[0]!.displayName).toBe('RACER 202');
+
+    // The same results a second time rename nobody.
+    expect((await seedClubConfig(db, clubConfig())).ridersRenamed).toBe(0);
+  });
+
+  it('takes the latest round when the league spelled a name two ways', async () => {
+    const { seasonId } = await seedClubConfig(db, clubConfig());
+    await archiveRace(seasonId, 1, [['202', SALEM, 'RACER EARLY']]);
+    await archiveRace(seasonId, 2, [['202', SALEM, 'RACER LATE']]);
+
+    await seedClubConfig(db, clubConfig());
+
+    const riders = await db.select().from(schema.rider);
+    expect(riders[0]!.displayName).toBe('RACER LATE');
+  });
+
+  it('keeps a stored name when the rider has no published result to replace it', async () => {
+    await seedClubConfig(db, clubConfig());
+    await db.update(schema.rider).set({ displayName: 'KEPT NAME' });
+
+    const again = await seedClubConfig(db, clubConfig());
+
+    expect(again.ridersRenamed).toBe(0);
+    const riders = await db.select().from(schema.rider);
+    expect(riders[0]!.displayName).toBe('KEPT NAME');
   });
 
   it('creates the season row rather than waiting on an ingest to supply it', async () => {
@@ -575,20 +609,6 @@ describe('seedClubConfig', () => {
     expect(teams.map((t) => t.scoringTeam)).toEqual([SALEM]);
   });
 
-  it('renames a rider in place when a names file arrives, rather than duplicating them', async () => {
-    await seedClubConfig(db, clubConfig());
-    await seedClubConfig(
-      db,
-      clubConfig({
-        riders: [{ key: 'rider-a', displayName: 'A Real Name', plates: [plate('202')] }],
-      }),
-    );
-
-    const riders = await db.select().from(schema.rider);
-    expect(riders).toHaveLength(1);
-    expect(riders[0]!.displayName).toBe('A Real Name');
-  });
-
   it('removes a plate mapping the config dropped, so a stale one cannot resolve', async () => {
     await seedClubConfig(
       db,
@@ -602,17 +622,16 @@ describe('seedClubConfig', () => {
 
   it('seeds the checked-in config end to end', async () => {
     // The committed file, loaded and validated exactly as `pnpm seed` would.
-    const config = loadClubConfig({
-      riderNamesFile: path.join(os.tmpdir(), 'no-such-rider-names.json'),
-    });
+    const config = loadClubConfig();
     const result = await seedClubConfig(db, config);
 
     expect(result.scoringTeams).toBe(3);
     expect(result.riders).toBeGreaterThan(0);
     expect(await db.select().from(schema.rider)).toHaveLength(config.riders.length);
 
+    // Nothing is ingested here, so every rider still carries their own key.
     const names = (await db.select().from(schema.rider)).map((r) => r.displayName);
-    expect(names.every((n) => /^«RIDER-[A-Z]+»$/.test(n))).toBe(true);
+    expect(names.every((n) => /^rider-[a-z]+$/.test(n))).toBe(true);
   });
 });
 
@@ -689,8 +708,10 @@ describe('club and squad slugs', () => {
 });
 
 /**
- * The sequence the README documents, against a fresh database — the thing that
- * used to end with the coach on one club and the roster on another (#62).
+ * The seeding step of the sequence the README documents, against a fresh
+ * database — the thing that used to end with the coach on one club and the
+ * roster on another (#62). Normalize runs before it in the README; with no
+ * results here every rider keeps their key, which changes nothing this proves.
  *
  * Driven through the same functions `bin/seed.ts` calls, rather than by running
  * the commands: `pnpm db:migrate` and `pnpm seed` write to whatever
@@ -698,12 +719,11 @@ describe('club and squad slugs', () => {
  */
 describe('the README setup sequence', () => {
   it('ends with one club, one coach, and the roster reachable from that coach', async () => {
-    const config = loadClubConfig({
-      riderNamesFile: path.join(os.tmpdir(), 'no-such-rider-names.json'),
-    });
+    const config = loadClubConfig();
 
-    // `node bin/seed.ts --club-config --email you@example.org`: config first, so
-    // the admin lands on the club it created.
+    // `node bin/seed.ts --club-config --email you@example.org`: within that one
+    // command the config runs before the admin, so the admin lands on the club
+    // it created.
     await seedClubConfig(db, config);
     const admin = await seedAdmin(db, {
       email: 'coach@example.org',
@@ -1221,10 +1241,27 @@ describe('a reissued plate', () => {
     ).rows as Record<string, unknown>[];
 
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({ round_ordinal: 2, rider_name: '«RIDER-A»' });
-    expect(rows[1]).toMatchObject({ round_ordinal: 3, rider_name: '«RIDER-B»' });
+    expect(rows[0]).toMatchObject({ round_ordinal: 2, rider_name: 'rider-a' });
+    expect(rows[1]).toMatchObject({ round_ordinal: 3, rider_name: 'rider-b' });
     // And neither round resolves to both people.
     expect(await unmapped()).toHaveLength(0);
+  });
+
+  it('names each rider from their own side of the boundary', async () => {
+    const config = clubConfig({
+      riders: [rider('rider-a', plate('204', null, 2)), rider('rider-b', plate('204', 3, null))],
+      squads: [],
+    });
+    const { seasonId } = await seedClubConfig(db, config);
+    await archiveRace(seasonId, 2, [['204', SALEM, 'RACER BEFORE']]);
+    await archiveRace(seasonId, 3, [['204', SALEM, 'RACER AFTER']]);
+
+    await seedClubConfig(db, config);
+
+    const names = (await db.select().from(schema.rider).orderBy(schema.rider.id)).map(
+      (r) => r.displayName,
+    );
+    expect(names).toEqual(['RACER BEFORE', 'RACER AFTER']);
   });
 
   it('keeps the two riders apart across a re-seed', async () => {

@@ -6,7 +6,7 @@
  *   node bin/seed.ts --club-config --email coach@example.org
  *   node bin/seed.ts --club-config --email coach@example.org --name "A Coach"
  *   node bin/seed.ts --club-config
- *   node bin/seed.ts --club-config path/to/club-seed.json --names path/to/rider-names.json
+ *   node bin/seed.ts --club-config path/to/club-seed.json
  *
  * `--email` seeds the first coach who can sign in. The address must already be
  * on AUTH_ALLOWED_EMAILS or this refuses: seeding does not bypass the gate. See
@@ -18,13 +18,13 @@
  *
  * `--club-config` seeds the club, its scoring teams, the roster, the plate
  * mappings, the squads and the coach↔squad assignments from
- * config/club-seed.json, or from the file named after the flag. Rider display
- * names come from the key -> name map named by `--names`, and squad coaches
- * are resolved from the key -> email map named by `--coach-emails`; either
- * defaults to the path outside the working tree that src/lib/club-config.ts
- * documents. With no such file every rider seeds as its own pseudonym, and
- * every squad coach key is skipped with a log line, because the committed
- * config carries no identity for either.
+ * config/club-seed.json, or from the file named after the flag. A rider's
+ * display name is the one the league published on their latest result, so run
+ * normalize first; a rider with no result yet starts under their config key and
+ * is named by the next seed after one arrives. Squad coaches are resolved from
+ * the key -> email map named by `--coach-emails`, which defaults to the path
+ * outside the working tree that src/lib/club-config.ts documents; with no such
+ * file every squad coach key is skipped with a log line.
  *
  * **There is no `--club` to type.** The club's name is whatever the config
  * declares, for the coach and the roster alike — nothing else can put them on
@@ -71,7 +71,7 @@ const seedClub = process.argv.includes('--club-config');
 
 if (!seedClub && !email) {
   console.error(
-    'usage: node bin/seed.ts [--club-config [file]] [--names <file>] [--coach-emails <file>]\n' +
+    'usage: node bin/seed.ts [--club-config [file]] [--coach-emails <file>]\n' +
       '       node bin/seed.ts --email <address> [--name <display name>] [--club <name>]',
   );
   process.exit(2);
@@ -91,10 +91,7 @@ let exitCode = 0;
 try {
   // Read even for an admin-only run: the config is where the club's name lives,
   // and an admin seeded onto any other name is a coach with an empty app.
-  const config = loadClubConfig({
-    configFile: flag('club-config'),
-    riderNamesFile: flag('names'),
-  });
+  const config = loadClubConfig({ configFile: flag('club-config') });
 
   if (seedClub) {
     const result = await seedClubConfig(db, config, {
@@ -103,7 +100,8 @@ try {
     console.log(
       `seeded ${config.club} for ${config.season} in ${location}: ` +
         `${result.scoringTeams} scoring teams, ${result.riders} riders ` +
-        `(${result.ridersCreated} new), ${result.plates} plate mappings, ` +
+        `(${result.ridersCreated} new, ${result.ridersRenamed} renamed from results), ` +
+        `${result.plates} plate mappings, ` +
         `${result.squads} squads, ${result.squadMembers} squad members, ` +
         `${result.squadCoaches} squad coaches`,
     );

@@ -9,22 +9,11 @@
  *
  * Three properties carry the weight.
  *
- *   - **Identity is not in the config file.** The repository is public and the
- *     riders are minors, so a rider in `config/club-seed.json` is a stable key
- *     and a plate mapping and nothing that names anyone. Display names arrive
- *     from a separate key -> name map, and that map is kept *outside* the
- *     working tree, at `~/.local/share/bike_race_results/config/`.
- *
- *     Outside rather than in-tree-and-ignored, which is where the payload
- *     corpus now lives (docs/fixtures.md). The corpus bought its way in with a
- *     mechanical guard: `.gitignore` plus a pre-commit hook that reads the index
- *     and rejects any staged path under `fixtures/`. No such guard covers a path
- *     under `config/`, and until one does, a file of minors' names is safer
- *     where an accidental `git add` is impossible as a matter of physics rather
- *     than of a rule someone has to have installed.
- *
- *     With no names file, every rider takes its own pseudonym — `rider-a`
- *     becomes `«RIDER-A»`, the redaction form docs/fixtures.md names.
+ *   - **Names are not in the config file.** A rider here is a stable key and
+ *     a plate mapping. Their display name is what the league published on
+ *     their own result rows, and seeding copies it from there (src/lib/seed.ts),
+ *     so there is no names file to keep. The committed config stays free of
+ *     production data, which is the rule the privacy guard enforces.
  *
  *   - **An unpublished scoring team is a hard failure.** Every scoring-team
  *     string is checked against the season's observed set in
@@ -62,27 +51,12 @@ export const publishedScoringTeamsPath = path.join(
 );
 
 /**
- * Where the key -> display name map lives. Outside the working tree, for the
- * reason the module comment gives. `--names` on `bin/seed.ts` points elsewhere;
- * there is deliberately no environment override, which is the machine-local
- * configuration issue #30 took back out of this repo.
- */
-export const defaultRiderNamesPath = path.join(
-  os.homedir(),
-  '.local',
-  'share',
-  'bike_race_results',
-  'config',
-  'rider-names.json',
-);
-
-/**
- * Where the coach key -> email address map lives. Same home, same reason as
- * `defaultRiderNamesPath`: a coach's address is a real person's contact
- * information, and `config/club-seed.json` is public. Squads name coaches by
- * key (`squads[].coaches`); this is what resolves a key to the address seeding
- * needs, and it stays out of the working tree for the same guard-by-physics
- * reason the rider names map does.
+ * Where the coach key -> email address map lives: outside the working tree. A
+ * coach's address is a real person's contact information, not a published
+ * result, and `config/club-seed.json` is public. Squads name coaches by key
+ * (`squads[].coaches`); this is what resolves a key to the address seeding
+ * needs, and living outside the tree makes an accidental `git add` impossible
+ * rather than merely blocked.
  */
 export const defaultCoachEmailsPath = path.join(
   os.homedir(),
@@ -119,10 +93,11 @@ export function plateWindowsOverlap(
 }
 
 export interface RiderConfig {
-  /** Stable, non-identifying handle. Referenced by squads and the names map. */
+  /**
+   * Stable, non-identifying handle. Referenced by squads, and the display name
+   * a rider starts under until a published result names them.
+   */
   key: string;
-  /** The names map's entry, or the key's pseudonym when there is none. */
-  displayName: string;
   plates: PlateBinding[];
 }
 
@@ -176,14 +151,6 @@ export class ClubConfigError extends Error {
     this.name = 'ClubConfigError';
     this.problems = problems;
   }
-}
-
-/**
- * The pseudonym a rider carries when no names file supplies a real one.
- * `rider-a` -> `«RIDER-A»`. Stable, so a screenshot or a test stays readable.
- */
-export function pseudonymFor(riderKey: string): string {
-  return `«${riderKey.toUpperCase()}»`;
 }
 
 /**
@@ -253,37 +220,9 @@ export function loadPublishedScoringTeams(
 }
 
 /**
- * The key -> display name map. Absent is the normal case on a public checkout
- * and is not an error; a *present* file with a key no rider declares is, since
- * that is a typo or a stale entry silently doing nothing.
- */
-export function parseRiderNames(raw: unknown, source: string): Map<string, string> {
-  if (!isRecord(raw)) throw new ClubConfigError(source, ['must be a JSON object of key -> name']);
-
-  const problems: string[] = [];
-  const names = new Map<string, string>();
-  for (const [key, value] of Object.entries(raw)) {
-    if (isCommentKey(key)) continue;
-    if (typeof value !== 'string' || value.trim() === '') {
-      problems.push(`"${key}" must map to a non-empty display name`);
-      continue;
-    }
-    names.set(key, value.trim());
-  }
-
-  if (problems.length > 0) throw new ClubConfigError(source, problems);
-  return names;
-}
-
-export function loadRiderNames(file: string = defaultRiderNamesPath): Map<string, string> {
-  if (!fs.existsSync(file)) return new Map();
-  return parseRiderNames(readJson(file), file);
-}
-
-/**
  * The coach key -> email address map. Absent is the normal case on a public
- * checkout, exactly like the rider names map, and for the same reason is not
- * an error — seeding degrades to skipping the link rather than refusing.
+ * checkout and is not an error — seeding degrades to skipping the link rather
+ * than refusing.
  *
  * Addresses are normalised the same way sign-in normalises them
  * (`trim().toLowerCase()`), so a map entered as `Coach@X` and a sign-in as
@@ -316,8 +255,6 @@ export function loadCoachEmails(file: string = defaultCoachEmailsPath): Map<stri
 
 export interface ParseClubConfigOptions {
   publishedScoringTeams: Map<number, Set<string>>;
-  /** Rider key -> display name. Missing keys fall back to the pseudonym. */
-  riderNames?: Map<string, string>;
   /** Named in error messages. */
   source?: string;
 }
@@ -326,7 +263,6 @@ export interface ParseClubConfigOptions {
 export function parseClubConfig(raw: unknown, options: ParseClubConfigOptions): ClubConfig {
   const source = options.source ?? clubConfigPath;
   const problems: string[] = [];
-  const riderNames = options.riderNames ?? new Map<string, string>();
 
   if (!isRecord(raw)) throw new ClubConfigError(source, ['must be a JSON object']);
 
@@ -348,7 +284,7 @@ export function parseClubConfig(raw: unknown, options: ParseClubConfigOptions): 
   }
 
   const scoringTeams = parseScoringTeams(raw.scoringTeams, season, options, problems);
-  const riders = parseRiders(raw.riders, riderNames, problems);
+  const riders = parseRiders(raw.riders, problems);
   const squads = parseSquads(raw.squads, new Set(riders.map((r) => r.key)), problems);
 
   if (problems.length > 0) throw new ClubConfigError(source, problems);
@@ -445,11 +381,7 @@ function parseScoringTeams(
   return teams;
 }
 
-function parseRiders(
-  raw: unknown,
-  riderNames: Map<string, string>,
-  problems: string[],
-): RiderConfig[] {
+function parseRiders(raw: unknown, problems: string[]): RiderConfig[] {
   if (!Array.isArray(raw)) {
     problems.push('"riders" must be an array');
     return [];
@@ -495,13 +427,7 @@ function parseRiders(
       windows.set(binding.plate, claimed);
     }
 
-    riders.push({ key, displayName: riderNames.get(key) ?? pseudonymFor(key), plates });
-  }
-
-  for (const key of riderNames.keys()) {
-    if (!seenKeys.has(key)) {
-      problems.push(`the rider names file has an entry for "${key}", which no rider declares`);
-    }
+    riders.push({ key, plates });
   }
 
   return riders;
@@ -624,16 +550,13 @@ export interface LoadClubConfigOptions {
   /** Defaults to the checked-in `config/club-seed.json`. */
   configFile?: string;
   publishedScoringTeamsFile?: string;
-  /** Defaults to the path outside the working tree. */
-  riderNamesFile?: string;
 }
 
-/** Read the checked-in config, merge in local names, and validate the result. */
+/** Read the checked-in config and validate the result. */
 export function loadClubConfig(options: LoadClubConfigOptions = {}): ClubConfig {
   const configFile = options.configFile ?? clubConfigPath;
   return parseClubConfig(readJson(configFile), {
     publishedScoringTeams: loadPublishedScoringTeams(options.publishedScoringTeamsFile),
-    riderNames: loadRiderNames(options.riderNamesFile),
     source: configFile,
   });
 }

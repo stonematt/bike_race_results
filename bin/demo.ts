@@ -1,6 +1,7 @@
 /**
  * Prepare a repeatable, synthetic local demo. This is intentionally separate
- * from `seed`: it never reads club config, names maps, or the private corpus.
+ * from `seed`: it never reads club config, the coach email map, or the private
+ * corpus.
  *
  *   pnpm demo
  *   DATABASE_URL=/private/tmp/descenders-d1-demo pnpm demo

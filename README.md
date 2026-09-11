@@ -76,17 +76,17 @@ Fill in `.env.local`. At minimum you need three things:
 | `AUTH_ALLOWED_EMAILS` | Your first-admin bootstrap address. Comma-separated; it authorizes `seedAdmin`, not runtime sign-in. |
 | `AUTH_DEV_LOGIN`      | `1`, to sign in locally without a mail server. Development only — see Auth.                          |
 
-Then bring up the database, seed the club and yourself, and load the archived race payloads:
+Then bring up the database, load the archived race payloads, and seed the club and yourself:
 
 ```bash
 pnpm db:migrate
-node bin/seed.ts --club-config --email you@example.org
 node bin/normalize.ts --load-fixtures   # archive the corpus into raw_fetch
 node bin/normalize.ts                   # decode it into the result tables
+node bin/seed.ts --club-config --email you@example.org
 pnpm dev
 ```
 
-`--club-config` is what fills the club, its scoring teams, the roster, the plate mappings and the squads from `config/club-seed.json`; without it you get a coach on a club with nobody in it. The club's **name** comes from that file too, so there is nothing to type and nothing to keep in step — one invocation puts the coach and the roster on the same club row.
+`--club-config` is what fills the club, its scoring teams, the roster, the plate mappings and the squads from `config/club-seed.json`; without it you get a coach on a club with nobody in it. The club's **name** comes from that file too, so there is nothing to type and nothing to keep in step — one invocation puts the coach and the roster on the same club row. Seed after normalizing: a rider's display name is copied from their latest published result, and a rider with no result yet shows their config key until a later seed finds one.
 
 The two `normalize` runs are two different jobs and both are needed. `--load-fixtures` archives payloads into `raw_fetch` and decodes nothing; the bare run decodes that archive into the result tables. The first prints a cheerful "archived 60 payloads" whether or not you run the second, so it is easy to stop early and find every result table empty. On a checkout with no `fixtures/` corpus, skip both — see [`docs/fixtures.md`](docs/fixtures.md).
 
@@ -98,7 +98,7 @@ later runs preserve managed roles and leave revoked memberships revoked.
 
 ## Safe synthetic demo
 
-For a repeatable local walkthrough without the private fixture corpus, use the synthetic demo. It migrates a dedicated PGlite database and creates only synthetic riders (`«RIDER-A»` through `«RIDER-E»`), a synthetic coach, a current 2026 race, and a small 2025 checkpoint. It never reads the names map, club config, or `fixtures/`.
+For a repeatable local walkthrough without the private fixture corpus, use the synthetic demo. It migrates a dedicated PGlite database and creates only synthetic riders (`«RIDER-A»` through `«RIDER-E»`), a synthetic coach, a current 2026 race, and a small 2025 checkpoint. It never reads club config or `fixtures/`.
 
 ```bash
 DATABASE_URL=./.pglite-demo pnpm demo
@@ -126,7 +126,7 @@ pnpm serverctl up --email you@example.org
 ```
 
 The address must already appear in `AUTH_ALLOWED_EMAILS` in `.env.local`; the
-controller also requires `AUTH_SECRET` and the out-of-tree rider-name map. Open
+controller also requires `AUTH_SECRET`. Open
 the printed loopback URL and use the development sign-in form with that same
 address. `pnpm serverctl status` and `pnpm serverctl down` inspect and stop only
 the controller-owned server.
