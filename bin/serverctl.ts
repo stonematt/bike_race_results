@@ -118,6 +118,15 @@ function processStartTime(pid: number): string {
 }
 
 function assertRecordedNextServer(state: ServerState): void {
+  // Identity first: an unrelated process that inherited this pid almost never happens
+  // to look like a Next dev server, so checking the command shape first would usually
+  // misreport reuse as "not a Next development server" instead.
+  if (processStartTime(state.pid) !== state.startedAt) {
+    console.error(
+      `refused: pid ${state.pid} does not match the recorded start time, so the pid was reused; leaving it and ${PID_FILE} untouched.`,
+    );
+    process.exit(1);
+  }
   const inspected = spawnSync('ps', ['-p', String(state.pid), '-o', 'command='], {
     encoding: 'utf8',
   });
@@ -133,12 +142,6 @@ function assertRecordedNextServer(state: ServerState): void {
   if (!expected.every((part) => commandLine.includes(part))) {
     console.error(
       `refused: pid ${state.pid} is not a Next development server; leaving it and ${PID_FILE} untouched.`,
-    );
-    process.exit(1);
-  }
-  if (processStartTime(state.pid) !== state.startedAt) {
-    console.error(
-      `refused: pid ${state.pid} does not match the recorded start time, so the pid was reused; leaving it and ${PID_FILE} untouched.`,
     );
     process.exit(1);
   }
