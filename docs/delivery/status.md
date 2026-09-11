@@ -1,6 +1,6 @@
 # Delivery status
 
-Updated 2026-09-09 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
+Updated 2026-09-11 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
 
@@ -299,7 +299,7 @@ drops the parameter and lands on the plain refusal, mirroring core's own client-
 browser on `/api/auth/verify-request`; the destination is a literal, and `redirectTo` still reaches
 Auth.js for trusted-origin validation.
 
-Local functional UAT on a synthetic corpus passed every item: a refused address returns 303 to
+Local functional UAT on a synthetic corpus exercised the recorded paths: a refused address returns 303 to
 `/signin/recover?error=AccessDenied` with no mail delivered; an admitted address lands on
 `/signin/check-email` showing no address and no token; a captured link retains its `callbackUrl`,
 signs in on first use and is rejected to `?error=Verification` on reuse with no session minted; first
@@ -358,8 +358,16 @@ recorded at `src/app/signin/actions.ts`, and the confirmation copy stays hedged 
 closes. Collapsing the two outcomes would also withhold the "ask your club admin" guidance from the
 person it was written for, so it is an owner decision, not an implementation detail.
 
-Spec also noted two evidentiary gaps, both accepted: link reuse and expiry are covered by local UAT
-only, with no in-repo test, and `pages.verifyRequest` is asserted as configuration rather than
-exercised as a route, because the form redirects to the same path itself. `src/auth.config.ts`
-records why the key is still required — a POST straight to `/api/auth/signin/nodemailer` is
-dispatched by the library rather than by the form.
+Spec also noted two evidentiary gaps, both accepted: link reuse was covered by local UAT only and no
+distinct expired-link exercise was recorded; and `pages.verifyRequest` is asserted as configuration
+rather than exercised as a route, because the form redirects to the same path itself.
+`src/auth.config.ts` records why the key is still required — a POST straight to
+`/api/auth/signin/nodemailer` is dispatched by the library rather than by the form.
+
+A fresh post-merge comparison on 2026-09-10 found one bounded copy defect and opened #164. Auth.js
+uses `Verification` for an invalid email/token combination, which can mean either no matching row or
+expiry, while the page said the link had expired or was already used. The #164 correction keeps
+the existing heading and recovery action but changes the body to cause-neutral guidance. Its public
+route-rendering test failed on the old wording and passed after the correction. The correction is
+committed on `fix/auth-verification-copy` for review and a PR into `dev`; no production release is
+claimed.

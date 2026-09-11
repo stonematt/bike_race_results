@@ -21,7 +21,7 @@ export const REFUSED =
  * else falls back to the refusal, which claims no reason at all.
  */
 const MESSAGES: Record<string, string> = {
-  Verification: 'That sign-in link has expired or was already used. Request a new one.',
+  Verification: 'Use a new sign-in link to try again.',
 };
 
 /** Headline for the branded recovery page, matched to the copy below it. */

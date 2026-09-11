@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import CheckEmail from './check-email/page.tsx';
 import Recover from './recover/page.tsx';
-import { REFUSED, signinMessage } from './messages.ts';
+import { REFUSED } from './messages.ts';
 
 const recover = async (error?: string, callbackUrl?: string) =>
   renderToStaticMarkup(await Recover({ searchParams: Promise.resolve({ error, callbackUrl }) }));
@@ -43,11 +43,12 @@ describe('branded authentication status pages', () => {
     expect(denied).not.toMatch(/expired|already used/i);
   });
 
-  it('says a rejected link was expired or used, the one reason Auth.js asserts', async () => {
+  it('gives a rejected link a cause-neutral way forward', async () => {
     const markup = await recover('Verification');
 
-    expect(markup).toContain(signinMessage('Verification'));
     expect(markup).toContain('That sign-in link didn’t work.');
+    expect(markup).toContain('Use a new sign-in link to try again.');
+    expect(markup).not.toMatch(/expired|already used/i);
   });
 
   /**
