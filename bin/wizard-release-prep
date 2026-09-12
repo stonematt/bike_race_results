@@ -5,6 +5,10 @@
 #
 # Everything above the "STAGES" marker is the wizard library: do not hand-edit
 # it. Author the per-step stages below the marker.
+#
+# Release prep, run once per release to production: reset the Neon 'preview'
+# branch, set the dev-scoped Preview variables, migrate, UAT, then the owner's
+# production steps. Spec: #179, amended; decision: #181. See the publish runbook.
 
 set -euo pipefail
 
@@ -216,12 +220,22 @@ _branches() { jq -c 'if type == "array" then .[] else .branches[] end'; }
 # Values are dropped here, so none reaches the terminal or a file.
 _env_meta() { vercel env ls --format json 2>/dev/null | jq -c '[.envs[] | {key, target, gitBranch}]'; }
 
-# _has_env KEY BRANCH: KEY is set on Preview for git branch BRANCH, where ""
-# means Preview as a whole. Reads $ENV_META.
+# _has_env KEY BRANCH: KEY is set on Preview alone for git branch BRANCH, where
+# "" means Preview as a whole. Reads $ENV_META.
 _has_env() {
   jq -e --arg k "$1" --arg b "$2" \
-    '.[] | select(.key == $k and any((.target // [])[]; . == "preview") and ((.gitBranch // "") == $b))' \
+    '.[] | select(.key == $k and (.target // []) == ["preview"] and ((.gitBranch // "") == $b))' \
     <<<"$ENV_META" >/dev/null 2>&1
+}
+
+# _shared_targets KEY prints the targets of any record that puts KEY on Preview
+# together with Production or Development, or nothing. vercel env rm deletes a
+# whole record, so removing one of these would take KEY off those too.
+_shared_targets() {
+  jq -r --arg k "$1" \
+    '[.[] | select(.key == $k and any((.target // [])[]; . == "preview") and ((.target // []) | length) > 1)
+       | .target | join(", ")] | join("; ")' \
+    <<<"$ENV_META"
 }
 
 # _want_dev_var NAME: true when NAME needs setting on dev, because it's absent
@@ -247,14 +261,19 @@ _add_dev_var() {
   fi
 }
 
-# _check "label" "question" asks whether a UAT check passed and records it.
-_check() {
+# _record_uat_gap "label" records a gap in the UAT record and the closing summary.
+_record_uat_gap() {
+  UAT_LINES+=("- GAP: $1")
+  UAT_GAPS=$((UAT_GAPS + 1))
+  SKIPPED+=("UAT gap: $1")
+}
+
+# _uat_check "label" "question" asks whether a UAT check passed and records it.
+_uat_check() {
   if confirm "$2"; then
     UAT_LINES+=("- pass: $1")
   else
-    UAT_LINES+=("- GAP: $1")
-    UAT_GAPS=$((UAT_GAPS + 1))
-    SKIPPED+=("UAT gap: $1")
+    _record_uat_gap "$1"
   fi
 }
 
@@ -285,29 +304,33 @@ say "The results database lives under the club's Neon account"
 say "(admin@scdescenders.com), not your personal Neon login. It needs its own"
 say "CLI profile, '$NEON_PROFILE', separate from DEFAULT."
 
+# Creating a profile signs in through the browser, so the warning comes first.
+step "If neon signs you in, your default browser may already be signed in as"
+step "your personal account. If so, open a private/incognito window at the URL"
+step "it prints and sign in there instead, as admin@scdescenders.com."
+
 if neon profile list -o json 2>/dev/null | jq -e --arg n "$NEON_PROFILE" \
     '.[] | select(.name == $n)' >/dev/null 2>&1; then
   note "profile '$NEON_PROFILE' already exists"
 else
   if confirm "Create Neon CLI profile '$NEON_PROFILE' for the club account?"; then
-    neon profile create "$NEON_PROFILE"
+    neon profile create "$NEON_PROFILE" --keyring
   else
     warn "can't continue without it — re-run this wizard when ready"
     exit 1
   fi
 fi
 
-step "neon auth may open your default browser already signed in as your"
-step "personal account. If so, open a private/incognito window at the URL it"
-step "prints and sign in there instead, as admin@scdescenders.com."
-pause "Ready to authenticate the '$NEON_PROFILE' profile?"
-neon auth --profile "$NEON_PROFILE" --keyring
-
+# Sign in again only when the profile has no session or the wrong account.
 say "Confirming identity:"
-neon me --profile "$NEON_PROFILE"
-if ! confirm "Does that show admin@scdescenders.com?"; then
-  warn "wrong identity on '$NEON_PROFILE' — fix it (neon profile remove $NEON_PROFILE, then re-run) before continuing"
-  exit 1
+if ! { neon me --profile "$NEON_PROFILE" && confirm "Does that show admin@scdescenders.com?"; }; then
+  pause "Ready to sign the '$NEON_PROFILE' profile in again?"
+  neon auth --profile "$NEON_PROFILE" --keyring
+  neon me --profile "$NEON_PROFILE" || true
+  if ! confirm "Does that show admin@scdescenders.com now?"; then
+    warn "wrong identity on '$NEON_PROFILE' — fix it (neon profile remove $NEON_PROFILE, then re-run) before continuing"
+    exit 1
+  fi
 fi
 
 say "Projects visible to this profile:"
@@ -387,7 +410,15 @@ ask VERCEL_PROJECT_NAME "Vercel project name:"
 write_env VERCEL_PROJECT_NAME "$VERCEL_PROJECT_NAME"
 
 if [[ ! -f .vercel/project.json ]]; then
-  say "Linking this checkout to the Vercel project (.vercel/ is gitignored)."
+  # vercel link can offer to pull variables into .env.local, which may be a
+  # symlink to the production credential file (see the runbook). A yes would
+  # write through it.
+  if [[ -L .env.local ]]; then
+    warn ".env.local is a symlink, and vercel link could write through it"
+    warn "move it aside first (mv .env.local .env.local.aside), re-run, then move it back once linked"
+    exit 1
+  fi
+  say "Linking this checkout to the Vercel project (.vercel is gitignored)."
   step "If vercel offers to pull environment variables, answer No: it writes a token to .env.local."
   vercel link --project "$VERCEL_PROJECT_NAME"
 else
@@ -451,8 +482,17 @@ done
 
 # A Preview-wide copy reaches every branch's preview. The stopped run on
 # 2026-09-11 left four: DATABASE_URL, AUTH_URL, AUTH_EMAIL_FROM, CURRENT_SEASON.
+# Only a record for Preview alone is removed here. One shared with Production
+# or Development is left to the dashboard, since vercel env rm takes it off all.
 ENV_META=$(_env_meta) || { warn "couldn't re-list the Vercel variables"; exit 1; }
 for name in "${PREVIEW_ENV_NAMES[@]}"; do
+  shared=$(_shared_targets "$name")
+  if [[ -n "$shared" ]]; then
+    warn "$name is set on Preview together with other environments ($shared)"
+    step "Vercel dashboard → $VERCEL_PROJECT_NAME → Settings → Environment Variables:"
+    step "edit $name and untick Preview. Removing it here would delete it everywhere."
+    SKIPPED+=("$name on Preview with $shared: untick Preview in the Vercel dashboard")
+  fi
   _has_env "$name" "" || continue
   warn "$name is set on Preview as a whole, so every branch's preview gets it"
   if confirm "Remove the Preview-wide $name?"; then
@@ -472,6 +512,8 @@ say "Preview variables now:"
 for name in "${PREVIEW_ENV_NAMES[@]}"; do
   if _has_env "$name" dev; then scope="dev"; else scope="MISSING on dev"; fi
   _has_env "$name" "" && scope="$scope, still Preview-wide"
+  shared=$(_shared_targets "$name")
+  [[ -n "$shared" ]] && scope="$scope, still on Preview with $shared"
   note "  $name: $scope"
 done
 # The wizard never sets AUTH_DEV_LOGIN; this only catches one set by hand.
@@ -512,8 +554,7 @@ if $HAS_DB_STATUS; then
     PREVIEW_MIGRATED="yes; db:status at head"
   else
     PREVIEW_MIGRATED="yes; db:status NOT at head"
-    UAT_GAPS=$((UAT_GAPS + 1))
-    SKIPPED+=("preview isn't at the migration journal's head after db:migrate")
+    _record_uat_gap "preview isn't at the migration journal's head after db:migrate"
   fi
 fi
 pause "Continue to UAT?"
@@ -536,29 +577,25 @@ open_url "$PREVIEW_AUTH_URL/signin"
 step "Pass Vercel Authentication if asked, then request a magic link for"
 step "admin@scdescenders.com. Check spam: first links often land there."
 pause "Signed in as admin?"
-_check "Admin: real Season data" "Does /$SEASON show real Season data, not an empty state?"
-_check "Admin: Club accounts visible" "Open /$SEASON/operations. Is Club accounts visible?"
+_uat_check "Admin: real Season data" "Does /$SEASON show real Season data, not an empty state?"
+_uat_check "Admin: Club accounts visible" "Open /$SEASON/operations. Is Club accounts visible?"
 
 say "Now the coach UAT user. Its coach membership comes from #182's owner step."
 if confirm "Has the coach membership been granted yet?"; then
   step "Sign out, then request a magic link for the coach UAT address."
   open_url "$PREVIEW_AUTH_URL/signin"
   pause "Signed in as the coach?"
-  _check "Coach: the same Season data" "Does /$SEASON show the same Season data?"
-  _check "Coach: stories open" "Open /$SEASON/stories, then any story. Does it open?"
-  _check "Coach: Club accounts absent" "Is Club accounts absent, including on /$SEASON/operations?"
-  _check "Coach: Approve and Publish absent" "On an open story, are Approve and Publish absent?"
+  _uat_check "Coach: the same Season data" "Does /$SEASON show the same Season data?"
+  _uat_check "Coach: stories open" "Open /$SEASON/stories, then any story. Does it open?"
+  _uat_check "Coach: Club accounts absent" "Is Club accounts absent, including on /$SEASON/operations?"
+  _uat_check "Coach: Approve and Publish absent" "On an open story, are Approve and Publish absent?"
 else
   UAT_LINES+=("- skipped: coach half, no coach membership yet (#182)")
   note "coach half skipped and recorded; it doesn't block this release"
 fi
 
 ask UAT_NOTE "Any other gap to record against this release? (Enter for none)"
-if [[ -n "$UAT_NOTE" ]]; then
-  UAT_LINES+=("- GAP: $UAT_NOTE")
-  UAT_GAPS=$((UAT_GAPS + 1))
-  SKIPPED+=("UAT gap: $UAT_NOTE")
-fi
+[[ -n "$UAT_NOTE" ]] && _record_uat_gap "$UAT_NOTE"
 
 # ── Stage 6: migrate production, then promote dev → main ──────────────────
 stage "Production: migrate, then promote dev → main"

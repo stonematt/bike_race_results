@@ -103,10 +103,10 @@ decision in #181.
 
 - **Neon account.** The results database lives under the Neon account
   `admin@scdescenders.com`, not the operator's personal Neon account. It needs
-  its own CLI profile, `scd` (`neon profile create scd`, then
-  `neon auth --profile scd`, signing in as the club address — a private
-  browser window avoids reusing the personal session). Every Neon call for
-  this project passes `--profile scd`.
+  its own CLI profile, `scd` (`neon profile create scd --keyring` signs in
+  through the browser; sign in as the club address — a private browser window
+  avoids reusing the personal session). Every Neon call for this project
+  passes `--profile scd`.
 - **Previews use a dedicated `preview` Neon branch**, copy-on-write from
   `production`. It is reset from production every release
   (`neon branches reset preview --parent`), so it is always a fresh copy.
@@ -121,6 +121,7 @@ decision in #181.
 
   Only the `dev` preview can sign in. Other branches' previews and one-off
   deployment addresses get none of these. Development still holds none.
+
 - **Why that is safe.** The `dev` preview sits behind Vercel Authentication and
   the membership check, and its database is a copy of production, reset every
   release. Preview never holds a production database URL. `AUTH_DEV_LOGIN`
@@ -144,9 +145,9 @@ decision in #181.
   6. Migrate production, then promote `dev` → `main`. Owner steps: the wizard
      prints the production commands, which read the direct URL from
      `~/.config/scdescenders/neon-direct.env`, and waits.
-- `bin/preview-env-setup` and `bin/preview-env-reset` (#175 task 3) were
-  specified before the `dev` scoping and would write Preview-wide variables.
-  The wizard no longer calls them.
+- `bin/preview-env-setup` and `bin/preview-env-reset` never landed. #175 task 3
+  specified them before the `dev` scoping. As specified they would write
+  Preview-wide variables, so the wizard doesn't use them.
 
 ## Log
 
@@ -249,10 +250,10 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. Environment variables set, **Production scope only**: `AUTH_URL`,
   `AUTH_SECRET` (both by CLI, values piped rather than typed so neither entered
   a shell history) and `DATABASE_URL`, the pooled endpoint, set in the dashboard.
-  With `CURRENT_SEASON` that is four. Since #181, Preview holds the
-  `dev`-scoped set described under Release prep, and Development still holds
-  none. `AUTH_DEV_LOGIN` remains absent. `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM`
-  wait on phase 5.
+  With `CURRENT_SEASON` that is four. Since #181, Preview is to hold the
+  `dev`-scoped set described under Release prep, set by the release-prep
+  wizard; Development still holds none. `AUTH_DEV_LOGIN` remains absent.
+  `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM` wait on phase 5.
 - 2026-09-09. TLS switches validated against the code that consumes them.
   `src/lib/db/runtime.ts` builds its pool with a connection string and **no**
   explicit `ssl` option, so the string is authoritative; the driver is `pg`
@@ -358,10 +359,10 @@ inspect`) was not gated, so the whole confirmation pass stayed with the agent.
   `smtps://resend:<key>@smtp.resend.com:465`. `AUTH_EMAIL_FROM` is
   `Descenders Race Dashboard <results@send.scdescenders.com>`, matching the app
   title in `src/app/layout.tsx`. Both were set on **Production scope only**.
-  Since #181, Preview carries its own `dev`-scoped copies. What keeps
-  production data safe there is that the `dev` preview sits behind Vercel
-  Authentication and the membership check, and its database is a copy of
-  production, reset every release.
+  Since #181, Preview is to carry its own `dev`-scoped copies, set by the
+  release-prep wizard. What keeps production data safe there is that the `dev`
+  preview sits behind Vercel Authentication and the membership check, and its
+  database is a copy of production, reset every release.
   `AUTH_EMAIL_SERVER` is stored as a Vercel **Secret**, `AUTH_EMAIL_FROM` as
   **Config**, since only the first carries the key.
   Setting the variables does nothing on its own: `/api/auth/providers` still
@@ -430,3 +431,8 @@ inspect`) was not gated, so the whole confirmation pass stayed with the agent.
   already filtered; it changes how later messages are judged.
   The operator confirmed the magic link worked once retrieved from the spam
   folder, so the hosted sign-in path is proven end to end.
+- 2026-09-11. A release-prep wizard run was stopped partway, after it had set
+  `DATABASE_URL`, `AUTH_URL`, `AUTH_EMAIL_FROM` and `CURRENT_SEASON` on all of
+  Preview rather than on the `dev` branch. `AUTH_URL` probably holds
+  Production's value. Evidence: the #181 decision comment. The reworked wizard
+  moves them to `dev` scope, asking before each removal.

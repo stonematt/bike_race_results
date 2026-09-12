@@ -46,8 +46,10 @@ next-env.d.ts
 # Agent worktrees and local session state.
 .claude/worktrees/
 
-# Vercel CLI link state; created by any `vercel` run in the checkout.
-.vercel/
+# Vercel CLI link state; created by any `vercel` run in the checkout. Keep the
+# exact `.vercel` form: `vercel link` looks for that line and appends another
+# when it finds only `.vercel/`.
+.vercel
 
 # Neon CLI local context; created by `neon set-context` or a `neon` run that
 # records a project in the checkout.
