@@ -76,7 +76,7 @@ Signed-out verification against that origin: `/`, `/races`, `/clubs` and `/2026`
 
 **What this does not yet prove.** The mail sender is live and one authenticated sign-in has succeeded, so the `nodemailer` provider is offered and the magic-link path works end to end. The verification pass is still incomplete: hosted reporting output has not been compared with local output. Hosted operation is therefore live, reachable and signed-in-capable, but its reporting is unverified beyond the signed-out surface above. The first magic link landed in spam, which is a rollout consideration rather than a defect — see the publish runbook.
 
-**Standing hazard.** The publish worktree is now `vercel link`ed, and its working tree carries `.env.local` and `fixtures/` as symlinks to real credentials and real athlete data. `vercel deploy` from that worktree would upload them. Every deployment must originate from git — a push to `main`, or a redeploy of a commit already there.
+**Standing hazard.** The publish worktree is now `vercel link`ed, and its working tree carries `.env.local` and `fixtures/` as symlinks to real credentials and real athlete data. `vercel deploy` from that worktree would upload them. Since #182, production credentials are not to be symlinked in as `.env.local`; a hosted run names a file outside the checkout with `--env-file` (see the publish runbook). Every deployment must originate from git — a push to `main`, or a redeploy of a commit already there.
 
 ## D4 delivery audit
 

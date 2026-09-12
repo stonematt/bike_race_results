@@ -139,7 +139,8 @@ decision in #181.
   5. UAT on the `dev` preview, starting at `/signin` (#183). As admin: real
      Season data, and Club accounts visible. As the coach UAT user: the same
      data, stories open, and Club accounts, Approve and Publish absent. Until
-     #182's owner step grants the coach membership, the coach half is
+     #182's [owner step](#owner-step-the-coach-uat-membership) grants the
+     coach membership, the coach half is
      recorded as skipped. The wizard prints a UAT record; paste it, gaps
      included, into the release PR.
   6. Migrate production, then promote `dev` → `main`. Owner steps: the wizard
@@ -148,6 +149,72 @@ decision in #181.
 - `bin/preview-env-setup` and `bin/preview-env-reset` never landed. #175 task 3
   specified them before the `dev` scoping. As specified they would write
   Preview-wide variables, so the wizard doesn't use them.
+
+## Hosted credentials: the `--env-file` rule
+
+Production and preview connection strings never enter a checkout, and never
+as `.env.local`. Every other `bin/` script loads `.env.local` (`bin/env.ts`),
+so a production URL there would silently point `seed`, `db:migrate` and
+`normalize` at production from then on. The direct URLs live in the operator's
+password manager and a `chmod 600` file outside every checkout, such as
+`~/.config/scdescenders/neon-direct.env`. A hosted run names that file
+explicitly:
+
+- `pnpm membership:grant --env-file <path> …` reads `DATABASE_URL` from the
+  named file and nothing else. It never loads `.env.local`, the file's
+  `DATABASE_URL` wins over the shell's, and without `--env-file` it refuses a
+  hosted `DATABASE_URL` from the shell.
+- Scripts that load `.env.local` take the file through a subshell, as the
+  release-prep wizard prints them:
+  `( set -a; . <path>; set +a; pnpm db:migrate )`. A variable already set in
+  the shell wins over `.env.local`.
+
+## Operator grant: a Club membership outside the app
+
+`pnpm membership:grant` (`bin/grant-membership.ts`, #182) grants a `coach` or
+`member` Club membership to an email address. It is the operator path outside
+the app: a direct grant, not an invitation, and a script, not a migration.
+`admin` is refused. Admin keeps its own bootstrap (`pnpm seed --email`) and
+promotion in the app.
+
+```bash
+pnpm membership:grant --env-file <path> --email <address> --role coach
+pnpm membership:grant --env-file <path> --email <address> --role coach --apply
+```
+
+- **A dry run by default.** It prints the database host and name, the Club,
+  the email, the role, the current state (user row, membership, revoked or
+  not) and the exact planned writes. It writes nothing.
+- **`--apply`** refuses without an interactive terminal, and writes only after
+  the database host is typed at the prompt. It runs one transaction: find or
+  create the user, matching the email as the sign-in gate does (trimmed and
+  lowercased); insert the membership; write a `club_audit_event` with action
+  `membership.granted`, the user as subject and a null actor.
+- **`--club <slug>`** may be left off when the database holds exactly one
+  Club. The dry run names the Club it chose.
+- **It writes nothing, and says so,** when the membership is already active in
+  that role. It reports and leaves alone a revoked membership, an active
+  membership in another role (role changes are made in the app), and an email
+  that matches more than one user row.
+- **Exit codes:** `0` for a dry run, a grant, or nothing to write; `1` for a
+  refusal or a state it leaves alone; `2` for a usage error, including
+  `--role admin`.
+
+### Owner step: the coach UAT membership
+
+Run this in the owner's own terminal, never in an agent session. The coach UAT
+address stays off the tracker and out of the repository. The grant is made
+once, in production, and every reset of `preview` carries it.
+
+1. Dry run against production. Check that the host is production's, that the
+   Club is the right one, and that the planned writes are the expected ones:
+   `pnpm membership:grant --env-file ~/.config/scdescenders/neon-direct.env --email <coach UAT address> --role coach`
+2. Run it again with `--apply`, and type the host when asked.
+3. Confirm by running the dry run once more. It reports
+   `membership: active coach` and nothing to write: one active membership.
+4. The next release's reset of `preview` carries the membership, so the
+   release-prep wizard runs the coach half of UAT instead of recording it as
+   skipped.
 
 ## Log
 
@@ -174,7 +241,9 @@ Append one line per completed step: date, what was done, and the evidence.
   deliberately not run: deployment is Vercel's, and vendor agent files do not
   belong in a public repository. The connection strings live outside every
   checkout, in the operator's password manager and a `chmod 600` file symlinked
-  in as `.env.local`.
+  in as `.env.local`. _Amended by #182:_ that file is no longer symlinked in as
+  `.env.local`. A hosted run names it explicitly; see
+  [Hosted credentials](#hosted-credentials-the---env-file-rule).
 - 2026-09-09. `sslmode` changed from `require` to `verify-full` on the direct
   URL. `pg` treats `require` as full verification today and warns that v9 will
   silently weaken it to libpq semantics — encrypted but unverified. The pooled
@@ -287,7 +356,10 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. **Hazard, recorded because the project is now linked.** Never run
   `vercel deploy` from the publish worktree. It uploads the local working tree,
   and that tree carries `.env.local` and `fixtures/` as symlinks to real
-  credentials and real athlete data. Every deployment must originate from git —
+  credentials and real athlete data. _Amended by #182:_ production credentials
+  no longer enter a checkout as `.env.local` (see
+  [Hosted credentials](#hosted-credentials-the---env-file-rule)), but the
+  upload stays unsafe regardless. Every deployment must originate from git —
   a push to `main`, or a redeploy of a commit already there. `.gitignore` covers
   `.vercel/`; there is no `.vercelignore`, and adding one would not make a
   working-tree upload safe.
