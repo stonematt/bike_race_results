@@ -22,11 +22,11 @@ The source design system is `stonematt/scd-brand` (`DESIGN.md`, status APPROVED)
 
 ## Wayfinder
 
-Planning for this project is charted as a wayfinder map on the issue tracker: `gh issue list --label "wayfinder:map"`. Read the map before starting work; it holds the destination, domain vocabulary, and standing decisions.
+Planning for this project is charted as a wayfinder map on the issue tracker: `gh issue list --label "wayfinder:map"`. Read the map before starting work; it holds the destination and the route. The live map is #143. Closed map #1 is decision history, and its Standing decisions table still binds; domain vocabulary lives in `CONTEXT.md`.
 
 ## Product and delivery authority
 
-Read `PRODUCT.md`, `docs/design/editorial-direction.md` and `docs/delivery/status.md` before implementation. Accepted playground UX and editorial storytelling lead product judgment over historical engineering layouts. Source semantics and privacy remain binding. ADR-0005 permits persistent club administration. Keep completed work and verification distinct from decisions in the delivery ledger.
+Read `PRODUCT.md`, `docs/design/editorial-direction.md` and `docs/delivery/status.md` before implementation. Accepted playground UX and editorial storytelling lead product judgment over historical engineering layouts. Source semantics and the auth boundary remain binding. Production data stays out of the repository and test suites; rider names need no special handling beyond that. ADR-0005 permits persistent club administration. Keep completed work and verification distinct from decisions in the delivery ledger.
 
 ## Development lifecycle
 

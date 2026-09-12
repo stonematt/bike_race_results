@@ -1,8 +1,14 @@
 # Delivery status
 
-Updated 2026-09-09 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
+Updated 2026-09-11 local date. **Goal active; D1, D2, D3A, D4 and D5 local runtime/parity work are merged and cleaned up; invitations remain incomplete. The first release and the first hosted deployment have both landed.** Real athlete data has been transferred to a third-party database provider and a production deployment is serving from it, both under the owner's explicit authorization — see the hosted bring-up audit below and the [publish runbook](publish-runbook.md). Provider accounts exist on free tiers; no paid resource and no real invitation. The [accepted contract](accepted-contract.md), [plan](plan.md), editorial direction and later ADRs govern remaining work.
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
+
+## Pre-Madras auth release — preparation, 2026-09-11
+
+Goal [#175](https://github.com/stonematt/bike_race_results/issues/175), task 1, explicitly authorizes release PR [#177](https://github.com/stonematt/bike_race_results/pull/177) from `dev` to `main`. The initial candidate compares base `63923c2bb7483f6ada533d6030405498b85d50f9` with head `87742be48da284252df9e340bd3430aa8d9fadb4` (30 commits). It contains the authenticated sign-in redirect (#162), branded confirmation/recovery and preserved callback destinations (#163), cause-neutral verification copy (#172), and the intervening published-result name sourcing, server process identity fixes and accepted design/map documentation (#165/#169/#170/#171/#174). Migrations are byte-identical across the release range; no hosted database command is needed or authorized for this task.
+
+Fresh independent `release_standards` and `release_spec` reviews cite those exact SHAs. Standards found no violations or actionable smells. Spec confirmed the required auth behavior and found one P2: the #164 entry below still described a merged correction as awaiting a PR. This documentation change corrects that state. Review of the correction and final-head checks must be recorded on #177 before merge. The release is prepared, not yet deployed; its eventual merge SHA and deployment evidence belong to the completion audit. The phone pass on #157 will be informational and will not block the remaining #175 tasks. Task 2 (`db:status`, #173) is next; tasks 2–7 remain unchecked.
 
 | Increment  | Current state                                                                                                                                                                                                                                                                                                                                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,13 +56,13 @@ The first release and the first hosted deployment both landed on 2026-09-09. Thi
 
 **Athlete-data transfer, recorded here rather than only in the runbook.** Real athlete data was transferred to Neon, a third-party database provider, under the owner's explicit authorization — 3 scoring teams, 32 riders, 32 plate mappings, 1 squad, then a corpus load of 60 payloads and 9 events yielding 3,068 individual results and 641 season standings. This is the first time real athlete data has left the operator's laptop. It was verified after load: views resolve, one club membership, no unmapped riders. The identity map and `fixtures/` did not enter the repository and are not on the host; they travel from the laptop into the database and nowhere else.
 
-**Hosted environment.** Vercel project `bike-race-results` on a personal Hobby account, connected to the repository, production branch `main`. Deployment Protection was already enabled as Vercel Authentication with Standard Protection, which covers every generated deployment URL including the production origin and exempts only custom production domains — the correct posture, because the application's own login and season wall guard the custom origin once it exists. Four environment variables are set, **Production scope only**: `DATABASE_URL` (the pooled endpoint), `AUTH_SECRET`, `AUTH_URL` and `CURRENT_SEASON`. Preview and Development scopes hold none, which is what keeps rider names off pull-request preview URLs. `AUTH_DEV_LOGIN` is absent, not empty. Vercel's GitHub App remains scoped to selected repositories, so a future private repository is not reachable by the host by default.
+**Hosted environment.** Vercel project `bike-race-results` on a personal Hobby account, connected to the repository, production branch `main`. Deployment Protection was already enabled as Vercel Authentication with Standard Protection, which covers every generated deployment URL including the production origin and exempts only custom production domains — the correct posture, because the application's own login and season wall guard the custom origin once it exists. Four environment variables are set, **Production scope only**: `DATABASE_URL` (the pooled endpoint), `AUTH_SECRET`, `AUTH_URL` and `CURRENT_SEASON`. Preview and Development scopes hold none, which is what keeps production data off pull-request preview URLs. `AUTH_DEV_LOGIN` is absent, not empty. Vercel's GitHub App remains scoped to selected repositories, so a future private repository is not reachable by the host by default.
 
 **Deployment.** The first production build failed at output packaging with `No Output Directory named "public" found after the Build completed`: the project had been created CLI-first with no repository attached, so Vercel never ran framework detection and left the Framework Preset at `Other`. The Next.js compile itself succeeded on that attempt. After correcting the preset to `Next.js` with no overrides, a redeploy of the same commit `0ba39c6` on `main` reached Ready in one minute and is serving at the project's generated production origin behind Vercel Authentication.
 
 **Domain and TLS.** The canonical origin `results.scdescenders.com` resolves and serves over TLS. The record is a `CNAME` to `cname.vercel-dns.com` published at Squarespace, chosen over the apex-shaped `A` record Vercel recommended because the name is a subdomain and the CNAME survives a renumbering of that address. Vercel's offer to take over the zone's nameservers was declined and must stay declined: `scdescenders.com` carries the club's website and will carry the mail records. The certificate issued about two minutes after the record resolved.
 
-Signed-out verification against that origin: `/`, `/races`, `/clubs` and `/2026` each answer `307` to `/signin`; HSTS and `x-robots-tag: noindex, nofollow, noarchive` are present; `/robots.txt` is `Disallow: /`; `/api/auth/session` is `null`; `/api/auth/providers` was `{}`. That last one confirmed the conditional provider registration in production rather than only in code; it now returns the `nodemailer` provider, because `AUTH_EMAIL_SERVER` is set — the probe above is a snapshot taken before the mail sender existed. Because Standard Protection exempts custom production domains, this probe is the evidence for the posture recorded above — on this origin the application's own session check is the only thing in front of minors' names — and it should be re-run after any change to middleware or to Deployment Protection.
+Signed-out verification against that origin: `/`, `/races`, `/clubs` and `/2026` each answer `307` to `/signin`; HSTS and `x-robots-tag: noindex, nofollow, noarchive` are present; `/robots.txt` is `Disallow: /`; `/api/auth/session` is `null`; `/api/auth/providers` was `{}`. That last one confirmed the conditional provider registration in production rather than only in code; it now returns the `nodemailer` provider, because `AUTH_EMAIL_SERVER` is set — the probe above is a snapshot taken before the mail sender existed. Because Standard Protection exempts custom production domains, this probe is the evidence for the posture recorded above — on this origin the application's own session check is the only thing in front of the app's data — and it should be re-run after any change to middleware or to Deployment Protection.
 
 **What this does not yet prove.** The mail sender is live and one authenticated sign-in has succeeded, so the `nodemailer` provider is offered and the magic-link path works end to end. The verification pass is still incomplete: hosted reporting output has not been compared with local output. Hosted operation is therefore live, reachable and signed-in-capable, but its reporting is unverified beyond the signed-out surface above. The first magic link landed in spam, which is a rollout consideration rather than a defect — see the publish runbook.
 
@@ -171,6 +177,8 @@ TDD limits: conference denominator, missing-layout percentage, auth persistence/
 
 ## Decisions and readiness investigations
 
+Owner decision, 2026-09-10: rider names need no special handling. They are published results and the app is behind auth. The standing rule is that production data never goes into the repository or a test suite; the privacy guard, pre-commit hook, gitignored `fixtures/` and the local-only test lane stay as its enforcement. Pseudonymizing or redacting names in issues, PRs, docs and agent output is no longer required. See [fixtures](../fixtures.md).
+
 The owner activated delivery on 2026-09-07, approving product defaults/public seams subject to later decisions. Persistent administration and reviewed editorial writes narrowly supersede the historical plate-attachment-only rule; no private behavioral notes or discussion logs are authorized. Art direction and data analysis govern reporting acceptance. See [readiness notes](readiness-notes.md) for D2 composition and D5 transport research.
 
 Browser diagnosis preserved privacy headers: programmatic requestSubmit produced Origin:null; trusted post-hydration mouse submission succeeds. The actual sign-in cookie bounce came from mismatched AUTH_URL/browser hosts. Use one matching origin. Production smoke then exposed the separate dev-token replay defect fixed above.
@@ -272,3 +280,102 @@ Independent `topnav_standards` and `topnav_spec` reviews covered `1acbf3d...0871
 Final affected tests pass (nine navigation/selector tests), as do typecheck, formatting, lint with two existing optional-image warnings, and staged/new-file privacy (365 tracked files). The broader public run at the navigation checkpoint passed 1,158 tests with the known worktree hook-path assertion failure, 16 skips and one TODO; no hook setting was changed. A clean source-only production build passed at `08719b9` after the required font download; subsequent fallback changes passed affected checks. Exact final-head CI is tracked on PR #148 and is not yet claimed green in this record. Brand comparison skipped in this temporary worktree; previously recorded upstream drift remains unresolved.
 
 Local browser verification passed on source head `c9003bf` at the configured `localhost:3001` origin: sign-in, desktop/mobile panel display, initial focus, Escape/focus return, season change, Back dismissal, no mobile page overflow and actual sign-out. A final confirming batch also passed Club operations navigation, the absence of Season’s current-page marker there, and the wordmark return to the same season; closed desktop/mobile headers were inspected. An initial `127.0.0.1` attempt failed because it did not match the configured cookie origin; no application/auth configuration change was needed. Private captures were visually inspected and remain local. This verifies the navigation experience on the existing UAT runtime, not hosted authentication or Neon. The UAT worktree/runtime and publisher worktrees are preserved. Merge commit and cleanup are not applicable at this requested PR endpoint.
+
+### Branded authentication confirmation and recovery — 2026-09-09
+
+`feat/branded-auth-recovery` from dev `08d30ba` implements #159 (part of #157). `authConfig.pages`
+now names `verifyRequest: '/signin/check-email'` and `error: '/signin/recover'`, and the middleware
+matcher admits exactly those two paths as anchored alternatives beside `signin$`. The accepted Team
+Kit Pop presentation moved into `src/app/signin/SigninShell.tsx`, consumed unchanged by the door and
+both new states; the accepted headline, masthead, story column and MILO band are unchanged in
+substance, with only the indentation the extraction into a component forced.
+
+Two defects were found during implementation, neither present in the preserved uncommitted
+candidate's scope. First, `@auth/core@0.41.3` dispatches by error _kind_: only `SignInError` kinds
+return to `pages.signIn`, so configuring `pages.error` moved `AccessDenied` — raised in
+`send-token.js` when the `signIn` callback refuses, before any mail is sent — off `/signin` and away
+from the by-invitation refusal copy. `src/app/signin/messages.ts` now holds one copy table both
+surfaces read, so no code can read differently on the two pages. Second, local UAT found the refusal
+returning **HTTP 500** and a browser error page: the sign-in form posts through a Server Action,
+which is outside Auth.js routing, and the untrapped `AccessDenied` never reached `pages.error`. The
+actions moved to `src/app/signin/actions.ts`, catch `AuthError`, and route to the branded recovery
+page. Only `AccessDenied` and `Verification` are passed through as URL parameters; any other type
+drops the parameter and lands on the plain refusal, mirroring core's own client-safe filter.
+`redirect: false` on the email send puts the confirmation on its branded path instead of parking the
+browser on `/api/auth/verify-request`; the destination is a literal, and `redirectTo` still reaches
+Auth.js for trusted-origin validation.
+
+Local functional UAT on a synthetic corpus exercised the recorded paths: a refused address returns 303 to
+`/signin/recover?error=AccessDenied` with no mail delivered; an admitted address lands on
+`/signin/check-email` showing no address and no token; a captured link retains its `callbackUrl`,
+signs in on first use and is rejected to `?error=Verification` on reuse with no session minted; first
+Tab reaches the recovery link with a visible ring and Enter navigates; `/signin/check-email` and
+`/signin/recover` return 200 with zero redirects signed out and signed in; `/signin/check-email-preview`
+and `/signin/recover/more` remain gated. Desktop and 390×844 mobile captures are local at
+`~/.claude/jobs/44faaab1/tmp/uat-159/` and were not committed. This is local verification against a
+synthetic corpus and a local SMTP sink; it is not production or hosted-authentication verification.
+
+Typecheck, lint (two pre-existing optional-image warnings), Prettier, the privacy guard across 376
+tracked files and a production build all pass. The full suite passed 1,180 tests with 16 skips and
+one TODO; the single failure is the known worktree hook-path assertion, and no hook setting was
+changed. Brand comparison skips in this temporary worktree, with the previously recorded upstream
+drift unresolved. `docs/brand.md` now points the reskin inventory at `SigninShell.tsx`, which owns
+the sign-in wordmark for all three anonymous routes.
+
+A two-axis review of the committed diff found one user-visible defect, since fixed: both status
+pages offered a bare `/signin`, so a visitor who arrived with `?callbackUrl=` lost their destination
+when they asked for a second link. Auth.js forwards no `callbackUrl` to either page — its
+`pages.error` redirect is built with `?error=` alone and `pages.verifyRequest` with
+`?provider=&type=` — so the Server Actions, which still hold the value, now carry it onto the status
+page URL and the pages hand it back to the door. It stays attacker-supplied throughout: nothing
+redirects to it, `safeCallbackUrl` accepts only a same-origin absolute path (dropping `https://`,
+`//`, `/\` and the redundant `/`), and `URLSearchParams` encodes it rather than interpolating it into
+an href. Reading `searchParams` moves `/signin/check-email` from prerendered (`○`) to dynamic (`ƒ`),
+a deliberate trade for an anonymous page whose sibling is dynamic already. The review's other two
+findings were this record's own: a stale tracked-file count and a "byte-identical" claim the
+extraction's re-indentation had made untrue. Both are corrected above.
+
+Two findings are recorded but out of scope for #159 and unfixed. Gate redirects resolve to
+`http://localhost:<port>` regardless of `AUTH_URL` and request `Host`, so after a successful callback
+on any other host the session cookie is out of scope and the visitor appears signed out; this is
+independent of these pages and predates them. Auth.js also logs a full `[auth][error] AccessDenied`
+stack on every refused sign-in even though the error is caught, which will be noisy in production.
+The unbranded default magic-link email is likewise untouched, per the issue's scope.
+
+No PR, merge, release or production verification is claimed or authorized by this entry.
+
+Independent Standards and Spec reviews of the full working diff against base `08d30ba` were run
+before commit. Standards reported no blocking violations and three low-severity findings, all
+applied: `.signin-status-action` now joins the shared `.signin-submit, .signin-dev-submit` selector
+list and carries only its differences below it, so a reskin has one button box to find rather than a
+copy — `docs/brand.md`'s inventory depends on that; the middleware matcher comment was reflowed to
+the block's width and now names the `signin/recover` anchoring case; and the module rationale in
+`actions.ts` moved above the imports rather than reading as one helper's docstring.
+
+Spec reported every acceptance criterion met except account-existence, which it marked partial and
+referred to the owner rather than passing silently. A refused address lands on
+`/signin/recover?error=AccessDenied` with the by-invitation copy while an admitted one lands on
+`/signin/check-email`, so the pair still answers whether an address has access. That distinction
+predates these pages — at `08d30ba` the refusal threw out of the Server Action as a 500 while an
+admitted address reached `/api/auth/verify-request` — and the repository already assigns closing it
+to issue #9, which the removed `page.tsx` comment named; #159's out-of-scope list covers
+authentication redesign. The behavior is therefore unchanged and deliberate, the reasoning is
+recorded at `src/app/signin/actions.ts`, and the confirmation copy stays hedged against the day it
+closes. Collapsing the two outcomes would also withhold the "ask your club admin" guidance from the
+person it was written for, so it is an owner decision, not an implementation detail.
+
+Spec also noted two evidentiary gaps, both accepted: link reuse was covered by local UAT only and no
+distinct expired-link exercise was recorded; and `pages.verifyRequest` is asserted as configuration
+rather than exercised as a route, because the form redirects to the same path itself.
+`src/auth.config.ts` records why the key is still required — a POST straight to
+`/api/auth/signin/nodemailer` is dispatched by the library rather than by the form.
+
+A fresh post-merge comparison on 2026-09-10 found one bounded copy defect and opened #164. Auth.js
+uses `Verification` for an invalid email/token combination, which can mean either no matching row or
+expiry, while the page said the link had expired or was already used. The #164 correction keeps
+the existing heading and recovery action but changes the body to cause-neutral guidance. Its public
+route-rendering test failed on the old wording and passed after the correction. Commit
+`115ea0609dbf7e309320409872fd9e6e8af09f54` landed in `dev` through
+[PR #172](https://github.com/stonematt/bike_race_results/pull/172), merge
+`5b12fde74e599b42e05f52bb9df3abf3f962967e`, on 2026-09-11. Production promotion is now
+authorized by #175 task 1 and tracked in #177; it has not yet landed at this preparation checkpoint.

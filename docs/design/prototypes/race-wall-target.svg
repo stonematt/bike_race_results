@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" width="1000" height="300" role="img" aria-labelledby="t d">
+<title id="t">Race wall target render</title>
+<desc id="d">Three category rows on an axis anchored at the bonus-lap cutoff. Riders left of zero completed the bonus lap; riders right of zero recorded the base distance only. Club riders are marked in orange. Synthetic data.</desc>
+<g font-family="Nunito, ui-sans-serif, -apple-system, 'Segoe UI', sans-serif">
+<rect x="150" y="46" width="354.55" height="186" fill="#2a78d6" opacity="0.07"/>
+<rect x="504.55" y="46" width="106.36" height="186" fill="#898781" opacity="0.09"/>
+<line x1="185.45" y1="46" x2="185.45" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="185.45" y="38" font-size="11" text-anchor="middle" fill="#898781">−6:00</text>
+<line x1="291.82" y1="46" x2="291.82" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="291.82" y="38" font-size="11" text-anchor="middle" fill="#898781">−4:00</text>
+<line x1="398.18" y1="46" x2="398.18" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="398.18" y="38" font-size="11" text-anchor="middle" fill="#898781">−2:00</text>
+<line x1="504.55" y1="46" x2="504.55" y2="232" stroke="#4a4842" stroke-width="1.4" stroke-dasharray="4 4"/>
+<text x="504.55" y="38" font-size="11" text-anchor="middle" fill="#1a1915">cutoff</text>
+<line x1="610.91" y1="46" x2="610.91" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="610.91" y="38" font-size="11" text-anchor="middle" fill="#898781">+2:00</text>
+<line x1="717.27" y1="46" x2="717.27" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="717.27" y="38" font-size="11" text-anchor="middle" fill="#898781">+4:00</text>
+<line x1="823.64" y1="46" x2="823.64" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="823.64" y="38" font-size="11" text-anchor="middle" fill="#898781">+6:00</text>
+<line x1="930.0" y1="46" x2="930.0" y2="232" stroke="#e1e0d9" stroke-width="1"/>
+<text x="930.0" y="38" font-size="11" text-anchor="middle" fill="#898781">+8:00</text>
+<text x="327.27" y="252" font-size="11.5" text-anchor="middle" fill="#4a4842">bonus lap completed</text>
+<text x="770.45" y="252" font-size="11.5" text-anchor="middle" fill="#4a4842">base distance recorded</text>
+<text x="138" y="68" font-size="13" text-anchor="end" fill="#1a1915">HS1 boys</text>
+<text x="138" y="84" font-size="11" text-anchor="end" fill="#898781">3/2 laps · 31 of 46</text>
+<line x1="163.74" y1="63" x2="163.74" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="197.31" y1="63" x2="197.31" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="217.9" y1="63" x2="217.9" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="235.44" y1="63" x2="235.44" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="251.27" y1="63" x2="251.27" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="265.93" y1="63" x2="265.93" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="279.74" y1="63" x2="279.74" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="292.88" y1="63" x2="292.88" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="305.47" y1="63" x2="305.47" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="309.62" y1="63" x2="309.62" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="321.36" y1="63" x2="321.36" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="332.76" y1="63" x2="332.76" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="343.85" cy="70" r="5.5" fill="#eb6834"/>
+<line x1="354.68" y1="63" x2="354.68" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="365.27" y1="63" x2="365.27" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="375.64" y1="63" x2="375.64" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="385.81" y1="63" x2="385.81" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="387.83" y1="63" x2="387.83" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="397.65" y1="63" x2="397.65" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="407.31" y1="63" x2="407.31" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="416.83" y1="63" x2="416.83" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="426.21" y1="63" x2="426.21" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="435.46" y1="63" x2="435.46" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="444.59" y1="63" x2="444.59" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="453.61" y1="63" x2="453.61" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="462.53" y1="63" x2="462.53" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="463.36" cy="70" r="5.5" fill="#eb6834"/>
+<line x1="472.08" y1="63" x2="472.08" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="480.7" y1="63" x2="480.7" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="489.24" y1="63" x2="489.24" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="497.69" y1="63" x2="497.69" y2="77" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="512.47" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="517.76" cy="70" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="528.73" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="544.12" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="563.41" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="586.28" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="606.11" cy="70" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="635.47" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="667.86" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="703.14" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="741.21" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="782.0" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="825.42" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="871.41" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="913.51" cy="70" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<text x="138" y="128" font-size="13" text-anchor="end" fill="#1a1915">HS2 boys</text>
+<text x="138" y="144" font-size="11" text-anchor="end" fill="#898781">3/2 laps · 14 of 23</text>
+<line x1="163.74" y1="123" x2="163.74" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="222.31" y1="123" x2="222.31" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="257.95" y1="123" x2="257.95" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="288.21" y1="123" x2="288.21" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="315.43" y1="123" x2="315.43" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="340.61" cy="130" r="5.5" fill="#eb6834"/>
+<line x1="364.27" y1="123" x2="364.27" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="386.75" y1="123" x2="386.75" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="408.26" y1="123" x2="408.26" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="420.99" y1="123" x2="420.99" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="441.0" y1="123" x2="441.0" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="460.41" y1="123" x2="460.41" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="479.28" cy="130" r="5.5" fill="#eb6834"/>
+<line x1="497.69" y1="123" x2="497.69" y2="137" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="512.47" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="524.98" cy="130" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="552.18" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="590.84" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="639.6" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="697.62" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="757.9" cy="130" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="832.74" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="915.39" cy="130" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<text x="138" y="188" font-size="13" text-anchor="end" fill="#1a1915">MS girls</text>
+<text x="138" y="204" font-size="11" text-anchor="end" fill="#898781">2/1 laps · 6 of 13</text>
+<line x1="163.74" y1="183" x2="163.74" y2="197" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="275.05" y1="183" x2="275.05" y2="197" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="342.45" y1="183" x2="342.45" y2="197" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="399.52" cy="190" r="5.5" fill="#eb6834"/>
+<line x1="450.8" y1="183" x2="450.8" y2="197" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<line x1="498.16" y1="183" x2="498.16" y2="197" stroke="#898781" stroke-width="1.5" opacity="0.45"/>
+<circle cx="512.47" cy="190" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="532.4" cy="190" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="576.28" cy="190" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="638.85" cy="190" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="717.9" cy="190" r="5" fill="none" stroke="#eb6834" stroke-width="2"/>
+<circle cx="812.04" cy="190" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="913.89" cy="190" r="4" fill="none" stroke="#898781" stroke-width="1.5" opacity="0.5"/>
+<circle cx="150" cy="282" r="5.5" fill="#eb6834"/><text x="163" y="286" font-size="12" fill="#4a4842">Descender, bonus lap</text>
+<circle cx="345" cy="282" r="5" fill="none" stroke="#eb6834" stroke-width="2"/><text x="358" y="286" font-size="12" fill="#4a4842">Descender, base distance</text>
+<text x="560" y="286" font-size="12" fill="#898781">Shaded band right of the line: within 2:00 of the cutoff</text>
+</g></svg>

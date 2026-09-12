@@ -1,7 +1,7 @@
 /**
  * Safe, repeatable local data for a demonstration installation.
  *
- * This deliberately does not read config files, fixture files, or a names map.
+ * This deliberately does not read config files or fixture files.
  * Its entire dataset lives below as public-safe pseudonyms, so `pnpm demo`
  * cannot accidentally load local athlete data from another setup.
  */

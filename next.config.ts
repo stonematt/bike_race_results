@@ -12,7 +12,7 @@ const config: NextConfig = {
    */
   serverExternalPackages: ['@electric-sql/pglite'],
 
-  // The whole app renders minors' names behind auth. Nothing here should be
+  // The whole app is members-only, behind auth. Nothing here should be
   // indexed, cached by an intermediary, or embedded elsewhere. See issue #3.
   async headers() {
     return [

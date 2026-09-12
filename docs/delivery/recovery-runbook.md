@@ -25,7 +25,7 @@ development provider: `AUTH_DEV_LOGIN` is intentionally absent there.
 ## Fresh local synthetic walkthrough
 
 Use a new empty PGlite directory. The following creates only the committed
-pseudonymous demo and never reads club config, rider names or `fixtures/`:
+synthetic demo and never reads club config or `fixtures/`:
 
 ```sh
 DATABASE_URL=/private/tmp/descenders-demo pnpm demo
@@ -68,11 +68,12 @@ the archive built locally is what carries results to a hosted database.
 In order, with `DATABASE_URL` set to the **direct** (unpooled) URL:
 
 1. `pnpm db:migrate` — once, with the application stopped.
-2. `AUTH_ALLOWED_EMAILS=<address> pnpm seed --club-config --email <address>` —
-   the club, its roster and the first admin. Safe to re-run: a second pass
-   changes nothing and says so.
-3. `pnpm normalize --load-fixtures` then `pnpm normalize` — archive the local
+2. `pnpm normalize --load-fixtures` then `pnpm normalize` — archive the local
    corpus, then decode it. Both are idempotent.
+3. `AUTH_ALLOWED_EMAILS=<address> pnpm seed --club-config --email <address>` —
+   the club, its roster and the first admin. After normalize, because each
+   rider is named from their published results. Safe to re-run: a second pass
+   changes nothing and says so.
 
 Success lines name the database and its host, never the URL. Keep it that way:
 a hosted URL carries the password, and these lines end up in scrollback and
@@ -118,7 +119,7 @@ public runner or support artifact.
 Verified locally with synthetic data: persistent PGlite reopen, native
 PostgreSQL migrations and upgrades, transaction rollback, pool recovery,
 last-admin concurrency locking, production-mode Auth.js/browser smoke, and the
-privacy-first PGlite browser CI gate. The deployment candidate has **not** been
+synthetic-data PGlite browser CI gate. The deployment candidate has **not** been
 hosted or released.
 
 Before authorization to deploy, an operator must select and verify a provider,

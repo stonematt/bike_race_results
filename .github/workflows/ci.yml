@@ -1,13 +1,12 @@
 # Every pull request gets checked, so a broken schema, an unformatted file, or —
-# the one that actually matters — a stray payload carrying a rider's name cannot
-# land on `dev`. Issue #28.
+# the one that actually matters — a stray production payload cannot land on
+# `dev`. Issue #28.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # NEVER ADD A SCHEDULED INGEST TO THIS REPOSITORY WHILE IT IS PUBLIC.
 #
 # `bin/fetch.ts` pulls live results from a volunteer-run nonprofit's timing
-# vendor, and those payloads carry minors' full names, schools, grades, plates
-# and finish times. A `schedule:` trigger — or any workflow that runs fetch,
+# vendor, and those payloads are production data. A `schedule:` trigger — or any workflow that runs fetch,
 # normalize, seed, or the local-only test lane — would pull that data onto
 # GitHub's runners and into a public log. This was decided in #6 and reaffirmed
 # in #29; reopening it needs a fresh decision, not a pull request.

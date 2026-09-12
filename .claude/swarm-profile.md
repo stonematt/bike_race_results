@@ -21,9 +21,9 @@ user's own design surface.
 - `docs/brand.md` — mandatory before any UI work. Ink-on-orange is never white; orange is a
   highlight, not a field; navy banner ground. Nothing from `scd-brand/sources/` enters this repo.
 - `docs/fixtures.md` — the corpus, and why it is not committed
-- The wayfinder map, issue #1: `gh issue view 1`. It holds the destination, the domain
-  vocabulary and the standing decisions.
-- There is no `CONTEXT.md` and `docs/adr/` is empty. Proceed silently; do not create them.
+- The wayfinder map, issue #143: `gh issue view 143`. It holds the destination and the route.
+  Closed map #1 is decision history; its Standing decisions table still binds: `gh issue view 1`.
+- `CONTEXT.md` (domain vocabulary) and `docs/adr/` (architecture decisions) — both binding.
 
 **Dependency sync** `pnpm install --frozen-lockfile` in the fresh worktree. Node 24 (`.nvmrc`),
 pnpm 10.33.2.
@@ -166,7 +166,7 @@ from disk.
   ticket this branch closes. Apply its mechanical findings to the branch and commit them;
   escalate a judgement call with the finding quoted. This satisfies rung 3 of `stone-merge`
   Section 2.0.
-  *Why it is load-bearing here:* this app renders minors' names behind one auth gate, so the
+  *Why it is load-bearing here:* this app's data sits behind one auth gate, so the
   failure that matters is a diff that passes every convention while quietly widening access.
 - **Attribution:** no `Co-Authored-By: Claude`, no `Generated with Claude Code`, in any commit
   message or PR body. Every repo, every time.
@@ -199,12 +199,13 @@ explicitly: `git push origin --delete <branch>`. If *that* is refused by the cla
 record the branch SHA, hand the user the command, and carry on — do not loop, and never route
 around it with a different binary.
 
-## Privacy — the constraint above all others
+## Production data — out of the repo and out of test suites
 
-This repo is **public**. The payloads carry minors' full names, schools, grades, plates and
-finish times.
+`fixtures/` and the database hold production data. Rider names are published results and need
+no special handling; the rule is about where production data goes, not whose name is in it.
 
-- Nothing derived from the corpus gets committed or posted to an issue with a real name in it.
-  Pseudonymize first — the established form is `«RIDER-A»`, stable across a document.
-- No GitHub Actions schedule that fetches, while this repo is public.
-- If you are unsure whether something is safe to commit, it is not. Escalate.
+- Nothing from `fixtures/` or the database becomes a committed test fixture, seed or snapshot.
+  Tests use synthetic data; only `*.local.test.ts` under `pnpm test:local` reads the real corpus.
+- Quoting a rider by name in an issue, PR or doc is fine.
+- No GitHub Actions schedule that fetches.
+- If you are unsure whether something is production data, escalate.

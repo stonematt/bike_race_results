@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { pseudonymFor, type ClubConfig } from './club-config.ts';
+import type { ClubConfig } from './club-config.ts';
 import { postgresTracerUrl, withIsolatedPostgres } from './db/testing.ts';
 import * as schema from './db/schema.ts';
 import { seedAdmin, seedClubConfig } from './seed.ts';
@@ -24,11 +24,7 @@ const ADMIN = 'coach@example.org';
 const env = { AUTH_ALLOWED_EMAILS: ADMIN };
 
 const plate = (p: string) => ({ plate: p, fromRound: null, toRound: null });
-const rider = (key: string, ...plates: ReturnType<typeof plate>[]) => ({
-  key,
-  displayName: pseudonymFor(key),
-  plates,
-});
+const rider = (key: string, ...plates: ReturnType<typeof plate>[]) => ({ key, plates });
 
 const clubConfig = (): ClubConfig => ({
   club: CLUB,

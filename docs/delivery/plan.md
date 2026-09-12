@@ -1,5 +1,7 @@
 # Editorial application delivery
 
+> **Superseded 2026-09-11.** Delivery now runs one page at a time on map [#143](https://github.com/stonematt/bike_race_results/issues/143). Epic #121 is closed. Its open work moved to #143: hosted readiness (#129) and invitations (#128). This file is kept as the D1–D5 history; [status](status.md) holds current state.
+
 Updated 2026-09-07. Product direction and persistent administration are accepted. This is the execution plan for preparing a real application; [status](status.md) distinguishes decisions from delivered behavior.
 
 Deliver a local, authenticated PGlite application where a member opens the current season and personal squad, explores other permitted squads, reads a race review and drills into an athlete's season and race. Every reporting page should help a coach discuss growth, consistency and participation through accurate visual evidence. Add persistent squad administration and invitations, and prepare a tested hosted-Postgres deployment path.
@@ -22,7 +24,7 @@ GPT-6 Astra orchestrates architecture, context, issue state and integration. Def
 
 Use the TDD skill and existing public interfaces: protected requests/actions, reporting queries over migrated PGlite, management commands, editorial publishing, components/browser journeys and database adapters. The owner approved these seams at activation on 2026-09-07; the complete contract is in [accepted-contract.md](accepted-contract.md). Work one failing behavioral test to one minimal implementation at a time. Avoid speculative abstractions and implementation-coupled tests. No runtime tests were added in the decision-persistence session.
 
-Public CI uses pseudonymous data. Real corpus fidelity stays local. Do not refetch what is already available. Never commit or publish the playground's identifying mockups, extracts or screenshots. Use the destination's identity mapping, source semantics and privacy rules.
+Public CI uses synthetic data. Real corpus fidelity stays local. Do not refetch what is already available. Never commit the playground's mockups, extracts or screenshots that carry production data. Use the destination's identity mapping and source semantics.
 
 **Approved working defaults**
 

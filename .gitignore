@@ -6,18 +6,18 @@ coverage/
 
 # PGlite's on-disk database — local derived state, never committed. The glob also
 # catches hand-made backups like `.pglite.bak-20260905/`, which matter more than
-# "derived state" suggests: a seeded database holds the same minors' names, schools
-# and grades the corpus does, and this repo is public.
+# "derived state" suggests: a seeded database holds the same production data the
+# corpus does.
 .pglite*/
 
 # Local loopback controller state. Its log can describe private page requests,
 # so it belongs with the derived PGlite database rather than in the repository.
 .serverctl/
 
-# The fixture corpus lives here, in the tree, and is never committed: the
-# payloads carry minors' full names, schools, grades and finish times, and this
-# repo is public. This line stops an ordinary `git add`; scripts/git-hooks/
-# pre-commit reads the index and so stops `git add -f` too. See docs/fixtures.md.
+# The fixture corpus lives here, in the tree, and is never committed: it is
+# production data, which stays out of the repository and test suites. This
+# line stops an ordinary `git add`; scripts/git-hooks/pre-commit reads the
+# index and so stops `git add -f` too. See docs/fixtures.md.
 data/
 fixtures/
 
