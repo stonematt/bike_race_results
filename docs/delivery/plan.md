@@ -1,6 +1,6 @@
 # Editorial application delivery
 
-> **Superseded 2026-09-11.** Delivery now runs one page at a time on map [#143](https://github.com/stonematt/bike_race_results/issues/143). Epic #121 is closed. Its open work moved to #143: hosted parity (#129) and invitations (#128). This file is kept as the D1–D5 history; [status](status.md) holds current state.
+> **Superseded 2026-09-11.** Delivery now runs one page at a time on map [#143](https://github.com/stonematt/bike_race_results/issues/143). Epic #121 is closed. Its open work moved to #143: hosted readiness (#129) and invitations (#128). This file is kept as the D1–D5 history; [status](status.md) holds current state.
 
 Updated 2026-09-07. Product direction and persistent administration are accepted. This is the execution plan for preparing a real application; [status](status.md) distinguishes decisions from delivered behavior.
 
