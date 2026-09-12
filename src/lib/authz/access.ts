@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { Database } from '../db/index.ts';
+import { normalizeEmail } from '../email-address.ts';
 
 export type ClubRole = 'member' | 'coach' | 'admin';
 
@@ -26,13 +27,10 @@ export class AccessDenied extends Error {
 
 type Row = Record<string, unknown>;
 
-function role(value: unknown): ClubRole {
+/** A `club_role` value read from the database, or a throw if it is not one. */
+export function parseClubRole(value: unknown): ClubRole {
   if (value === 'member' || value === 'coach' || value === 'admin') return value;
   throw new Error('Database returned an invalid club role.');
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
 }
 
 /** A member may request a magic link; proof still happens in the provider. */
@@ -77,7 +75,7 @@ export async function readActiveMemberships(
     userId: String(row.user_id),
     clubId: Number(row.club_id),
     clubName: String(row.club_name),
-    role: role(row.role),
+    role: parseClubRole(row.role),
   }));
 }
 

@@ -3,10 +3,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Database } from './db/index.ts';
 import { schema } from './db/index.ts';
 import { AccessDenied, requireClubRole, type ClubRole } from './authz/access.ts';
+import { checkEmailAddress } from './email-address.ts';
 
 const INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
-const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
-const BASIC_EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+$/u;
 
 export type CreateClubInvitationInput = {
   actorId: string;
@@ -36,13 +35,13 @@ export class InvitationRejected extends Error {
 }
 
 function normalizedEmail(email: string): string {
-  if (CONTROL_CHARACTER.test(email)) throw new InvitationRejected('Invitation email is invalid.');
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) throw new InvitationRejected('Invitation email is required.');
-  if (!BASIC_EMAIL_ADDRESS.test(normalized)) {
-    throw new InvitationRejected('Invitation email is invalid.');
-  }
-  return normalized;
+  const checked = checkEmailAddress(email);
+  if (checked.ok) return checked.email;
+  throw new InvitationRejected(
+    checked.problem === 'required'
+      ? 'Invitation email is required.'
+      : 'Invitation email is invalid.',
+  );
 }
 
 function validRole(role: string): role is ClubRole {
