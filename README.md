@@ -90,7 +90,7 @@ pnpm dev
 
 The two `normalize` runs are two different jobs and both are needed. `--load-fixtures` archives payloads into `raw_fetch` and decodes nothing; the bare run decodes that archive into the result tables. The first prints a cheerful "archived 60 payloads" whether or not you run the second, so it is easy to stop early and find every result table empty. On a checkout with no `fixtures/` corpus, skip both — see [`docs/fixtures.md`](docs/fixtures.md).
 
-The `bin/` scripts read `.env.local` themselves, whether you run them as `pnpm seed` or as `node bin/seed.ts` — the file is resolved from the repo root, not from the directory you happen to be in. A variable already set in your shell beats the file, so `DATABASE_URL=... pnpm db:migrate` still points somewhere else for one run. Having no `.env.local` at all is fine: `DATABASE_URL` falls back to `./.pglite`, and nothing else is needed to migrate.
+The `bin/` scripts read `.env.local` themselves, whether you run them as `pnpm seed` or as `node bin/seed.ts` — the file is resolved from the repo root, not from the directory you happen to be in. A variable already set in your shell beats the file, so `DATABASE_URL=... pnpm db:migrate` still points somewhere else for one run. Having no `.env.local` at all is fine: `DATABASE_URL` falls back to `./.pglite`, and nothing else is needed to migrate. The one exception is `pnpm membership:grant`, which never reads `.env.local` and reaches a hosted database only through an explicit `--env-file <path>`; see the [publish runbook](docs/delivery/publish-runbook.md#hosted-credentials-the---env-file-rule).
 
 `seed.ts` is idempotent and refuses a first-admin bootstrap address outside
 `AUTH_ALLOWED_EMAILS`. It appoints an active admin only when the club has none;
@@ -193,6 +193,7 @@ Schema lives in `src/lib/db/schema.ts`; migrations in `src/lib/db/migrations/`. 
 | `pnpm demo`                         | Migrate and safely create the repeatable synthetic local demo      |
 | `pnpm db:studio`                    | Drizzle Studio                                                     |
 | `pnpm seed`                         | Seed the club config and the first admin                           |
+| `pnpm membership:grant`             | Grant a coach or member Club membership, dry run by default        |
 | `pnpm fetch`                        | Pull from RaceResult — live network, read `docs/fixtures.md` first |
 | `pnpm normalize --load-fixtures`    | Archive the local corpus into `raw_fetch`                          |
 | `pnpm normalize`                    | Decode that archive into the result tables                         |

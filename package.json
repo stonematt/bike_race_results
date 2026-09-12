@@ -28,6 +28,7 @@
     "demo": "node bin/demo.ts",
     "serverctl": "node bin/serverctl.ts",
     "seed": "node bin/seed.ts",
+    "membership:grant": "node bin/grant-membership.ts",
     "fetch": "node bin/fetch.ts",
     "normalize": "node bin/normalize.ts",
     "brand:check": "node bin/brand-check.ts"

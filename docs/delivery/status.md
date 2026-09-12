@@ -187,6 +187,8 @@ TDD limits: conference denominator, missing-layout percentage, auth persistence/
 
 ## Decisions and readiness investigations
 
+Owner decisions, 2026-09-12 (#182), recorded as decisions and not as verified state. Hosted credentials never enter a checkout as `.env.local`: a hosted run names a file outside the checkout with `--env-file`. This replaces the arrangement the hosted bring-up audit above describes, a `chmod 600` file symlinked in as `.env.local`. The operator grant (`pnpm membership:grant`) audits `membership.granted` with a null actor, meaning an operator outside the app; ADR-0005 calls for a minimal actor/action/time audit, and a null actor is how an out-of-app operator is recorded. See the [publish runbook](publish-runbook.md#hosted-credentials-the---env-file-rule).
+
 Owner decision, 2026-09-10: rider names need no special handling. They are published results and the app is behind auth. The standing rule is that production data never goes into the repository or a test suite; the privacy guard, pre-commit hook, gitignored `fixtures/` and the local-only test lane stay as its enforcement. Pseudonymizing or redacting names in issues, PRs, docs and agent output is no longer required. See [fixtures](../fixtures.md).
 
 The owner activated delivery on 2026-09-07, approving product defaults/public seams subject to later decisions. Persistent administration and reviewed editorial writes narrowly supersede the historical plate-attachment-only rule; no private behavioral notes or discussion logs are authorized. Art direction and data analysis govern reporting acceptance. See [readiness notes](readiness-notes.md) for D2 composition and D5 transport research.
