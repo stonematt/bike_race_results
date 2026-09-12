@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Run Codex against a goal issue, one task per iteration, until it reports a
+# gate, completion or a block. See docs/agents/codex-loop.md for the brief.
+#
+#   bin/codex-loop <goal-issue> [max-iterations]
+#
+# CODEX_WORKDIR   checkout Codex works in (default: cwd)
+# CODEX_MODEL     default gpt-6-astra
+# CODEX_LOOP_LOGDIR  where per-iteration transcripts land (default: /tmp/codex-loop)
+set -euo pipefail
+
+issue=${1:?goal issue number}
+max=${2:-12}
+work=${CODEX_WORKDIR:-$PWD}
+model=${CODEX_MODEL:-gpt-6-astra}
+logdir=${CODEX_LOOP_LOGDIR:-/tmp/codex-loop}
+here=$(cd "$(dirname "$0")/.." && pwd)
+brief=$here/docs/agents/codex-loop.md
+
+mkdir -p "$logdir"
+gitdir=$(git -C "$work" rev-parse --git-common-dir)
+store=$(pnpm store path 2>/dev/null || true)
+dirs=(--add-dir "$gitdir")
+[[ -n $store ]] && dirs+=(--add-dir "$store")
+
+for ((i = 1; i <= max; i++)); do
+  last=$logdir/iteration-$i.md
+  echo "== iteration $i / $max ($model) $(date +%H:%M)"
+  sed "s/{{ISSUE}}/$issue/g" "$brief" \
+    | codex exec -m "$model" -s workspace-write \
+        -c approval_policy=never \
+        -c sandbox_workspace_write.network_access=true \
+        "${dirs[@]}" -C "$work" -o "$last" - >"$logdir/iteration-$i.log" 2>&1 || true
+  status=$(grep -E '^STATUS: ' "$last" 2>/dev/null | tail -1 || true)
+  echo "$status"
+  cat "$last" 2>/dev/null
+  case $status in
+    "STATUS: continue") continue ;;
+    "STATUS: gate") echo "stopped: gate"; exit 10 ;;
+    "STATUS: done") echo "stopped: done"; exit 0 ;;
+    *) echo "stopped: ${status:-no status line}"; exit 20 ;;
+  esac
+done
+echo "stopped: max iterations"
+exit 30
