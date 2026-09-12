@@ -33,7 +33,10 @@ async function cedarClub(db: TestDatabase) {
 
 type Harness = {
   deps: GrantCommandDeps;
+  /** What went to stdout: the dry-run report and success lines. */
   output: () => string;
+  /** What went to stderr: refusals and usage. */
+  errors: () => string;
   opened: string[];
   asked: string[];
 };
@@ -45,9 +48,12 @@ function harness(
     files?: Record<string, string>;
     interactive?: boolean;
     typed?: string;
+    /** Local PGlite directories that exist. Every one does, unless listed here. */
+    localDatabases?: string[];
   } = {},
 ): Harness {
   const lines: string[] = [];
+  const errorLines: string[] = [];
   const opened: string[] = [];
   const asked: string[] = [];
   const files = options.files ?? { [ENV_FILE]: `DATABASE_URL=${HOSTED_URL}\n` };
@@ -55,6 +61,7 @@ function harness(
     opened,
     asked,
     output: () => lines.join('\n'),
+    errors: () => errorLines.join('\n'),
     deps: {
       env: options.env ?? {},
       readFile: (file) => {
@@ -62,6 +69,7 @@ function harness(
         if (content === undefined) throw new Error(`ENOENT: ${file}`);
         return content;
       },
+      localDatabaseExists: (directory) => options.localDatabases?.includes(directory) ?? true,
       openDatabase: (url) => {
         opened.push(url);
         return { db, close: async () => {} };
@@ -74,6 +82,7 @@ function harness(
         },
       },
       print: (line) => lines.push(line),
+      error: (line) => errorLines.push(line),
     },
   };
 }
@@ -113,6 +122,7 @@ describe('operator grant: dry run', () => {
     expect(out).toContain('membership.granted');
     expect(out).toMatch(/dry run/i);
     expect(out).not.toContain('s3cret-password');
+    expect(h.errors()).toBe('');
     expect(await snapshot(db)).toEqual(before);
   });
 });
@@ -127,8 +137,8 @@ describe('operator grant: target', () => {
 
     expect(code).toBe(1);
     expect(h.opened).toEqual([]);
-    expect(h.output()).toMatch(/refused:.*--env-file/);
-    expect(h.output()).not.toContain('s3cret-password');
+    expect(h.errors()).toMatch(/refused:.*--env-file/);
+    expect(h.output() + h.errors()).not.toContain('s3cret-password');
   });
 
   it('without --env-file or DATABASE_URL targets the local PGlite default, not .env.local', async () => {
@@ -140,6 +150,29 @@ describe('operator grant: target', () => {
 
     expect(code).toBe(0);
     expect(h.opened).toEqual(['./.pglite']);
+  });
+
+  it('refuses a local database directory that does not exist, rather than opening and so creating it', async () => {
+    const db = await createTestDb();
+    const h = harness(db, { env: {}, localDatabases: [] });
+
+    const code = await runGrantCommand(['--email', 'coach@example.com', '--role', 'coach'], h.deps);
+
+    expect(code).toBe(1);
+    expect(h.opened).toEqual([]);
+    expect(h.errors()).toMatch(/refused:.*no local database exists at \.\/\.pglite/);
+    expect(h.errors()).toContain('pnpm db:migrate');
+  });
+
+  it('opens an in-memory PGlite target, which has no directory to look for', async () => {
+    const db = await createTestDb();
+    await cedarClub(db);
+    const h = harness(db, { env: { DATABASE_URL: 'memory://' }, localDatabases: [] });
+
+    const code = await runGrantCommand(['--email', 'coach@example.com', '--role', 'coach'], h.deps);
+
+    expect(code).toBe(0);
+    expect(h.opened).toEqual(['memory://']);
   });
 
   it("takes DATABASE_URL from --env-file over the shell's", async () => {
@@ -166,24 +199,72 @@ describe('operator grant: target', () => {
     expect(await runGrantCommand(argv, empty.deps)).toBe(1);
     expect(missing.opened).toEqual([]);
     expect(empty.opened).toEqual([]);
-    expect(empty.output()).toMatch(/refused:.*DATABASE_URL/);
+    expect(empty.errors()).toMatch(/refused:.*DATABASE_URL/);
   });
 
   /**
    * Asserted against the source, as `seed.test.ts` does for the entry points
    * that must load `.env.local`: running a bin script is the one thing a test
    * here will not do, because it writes to whatever its target resolves to.
+   * The walk follows every relative import, so a module the entry point pulls
+   * in cannot load the file on its behalf.
    */
-  it('has the bin/ entry point never load .env.local', () => {
-    const source = fs.readFileSync(
-      path.join(import.meta.dirname, '..', '..', 'bin', 'grant-membership.ts'),
-      'utf8',
-    );
+  it('never loads .env.local from the bin/ entry point or any module it imports', () => {
+    const root = path.join(import.meta.dirname, '..', '..');
+    const modules = reachableModules(path.join(root, 'bin', 'grant-membership.ts'));
+    const reached = [...modules.keys()].map((file) => path.relative(root, file));
 
-    expect(source).toMatch(/runGrantCommand/);
-    expect(source).not.toMatch(/loadEnvLocal|loadEnvFile|['"]\.\/env\.ts['"]/);
+    // Not a vacuous walk: it reaches the command, the database runtime, and
+    // `db/users.ts` through a multi-line import.
+    expect(reached).toEqual(
+      expect.arrayContaining([
+        'bin/grant-membership.ts',
+        'src/lib/operator-grant.ts',
+        'src/lib/db/runtime.ts',
+        'src/lib/db/users.ts',
+      ]),
+    );
+    expect(reached).not.toContain('bin/env.ts');
+    for (const [file, code] of modules) {
+      expect(code, path.relative(root, file)).not.toMatch(
+        /\bloadEnvLocal\s*\(|\bloadEnvFile\b|\.env\.local/u,
+      );
+    }
   });
 });
+
+/** Source with its block and line comments removed; `://` in a URL survives. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/(^|[^:])\/\/.*$/gmu, '$1');
+}
+
+/**
+ * Every module reachable from `entry` through relative `.ts` imports, mapped
+ * to its code without comments. It follows `import … from`, `export … from`,
+ * a bare `import '…'` and `import('…')`. `import type` and `export type` load
+ * nothing at run time, so they are skipped.
+ */
+function reachableModules(entry: string): Map<string, string> {
+  const modules = new Map<string, string>();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const file = pending.pop()!;
+    if (modules.has(file)) continue;
+    const code = withoutComments(fs.readFileSync(file, 'utf8'));
+    modules.set(file, code);
+    const specifiers = [
+      ...code.matchAll(/^\s*(?:import|export)\s+(?!type\b)[^'"]*?\bfrom\s+['"]([^'"]+)['"]/gmu),
+      ...code.matchAll(/^\s*import\s+['"]([^'"]+)['"]/gmu),
+      ...code.matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/gu),
+    ].map((match) => match[1]!);
+    for (const specifier of specifiers) {
+      if (specifier.startsWith('.') && specifier.endsWith('.ts')) {
+        pending.push(path.resolve(path.dirname(file), specifier));
+      }
+    }
+  }
+  return modules;
+}
 
 describe('operator grant: --apply', () => {
   const applyArgv = [
@@ -206,7 +287,7 @@ describe('operator grant: --apply', () => {
 
     expect(code).toBe(1);
     expect(h.asked).toEqual([]);
-    expect(h.output()).toMatch(/refused:.*terminal/);
+    expect(h.errors()).toMatch(/refused:.*terminal/);
     expect(await snapshot(db)).toEqual(before);
   });
 
@@ -220,7 +301,7 @@ describe('operator grant: --apply', () => {
 
     expect(code).toBe(1);
     expect(h.asked).toHaveLength(1);
-    expect(h.output()).toMatch(/did not match/);
+    expect(h.errors()).toMatch(/refused:.*did not match/);
     expect(await snapshot(db)).toEqual(before);
   });
 
@@ -320,7 +401,7 @@ describe('operator grant: existing state', () => {
     expect(code).toBe(1);
     expect(h.asked).toEqual([]);
     expect(h.output()).toMatch(/membership:\s+revoked coach/);
-    expect(h.output()).toMatch(/revoked.*nothing was written/i);
+    expect(h.errors()).toMatch(/refused:.*revoked.*nothing was written/i);
     expect(await snapshot(db)).toEqual(before);
     const [membership] = await db
       .select()
@@ -329,13 +410,13 @@ describe('operator grant: existing state', () => {
     expect(membership!.revokedAt).not.toBeNull();
   });
 
-  it('matches an existing user row the way sign-in does, leaving no second user row', async () => {
+  it('reuses a user row stored exactly as a magic-link sign-in stores the address, leaving no second row', async () => {
     const db = await createTestDb();
     const club = await cedarClub(db);
-    await db.insert(schema.users).values({ id: 'coach-user', email: ' Coach@Example.COM' });
+    await db.insert(schema.users).values({ id: 'coach-user', email: 'coach@example.com' });
     const h = harness(db, { interactive: true, typed: HOST });
 
-    const code = await runGrantCommand(grantArgv(), h.deps);
+    const code = await runGrantCommand(grantArgv({ email: ' Coach@Example.COM ' }), h.deps);
 
     expect(code).toBe(0);
     expect(h.output()).toMatch(/user row:\s+present/);
@@ -345,6 +426,22 @@ describe('operator grant: existing state', () => {
     expect(memberships).toEqual([
       expect.objectContaining({ clubId: club.id, userId: 'coach-user', role: 'coach' }),
     ]);
+  });
+
+  it('refuses a user row that matches only after trimming and lowercasing, which sign-in would not find', async () => {
+    const db = await createTestDb();
+    await cedarClub(db);
+    await db.insert(schema.users).values({ id: 'coach-user', email: ' Coach@Example.COM' });
+    const before = await snapshot(db);
+    const h = harness(db, { interactive: true, typed: HOST });
+
+    const code = await runGrantCommand(grantArgv(), h.deps);
+
+    expect(code).toBe(1);
+    expect(h.asked).toEqual([]);
+    expect(h.output()).toMatch(/user row:.*coach-user/);
+    expect(h.errors()).toMatch(/refused:.*sign-in.*nothing was written/i);
+    expect(await snapshot(db)).toEqual(before);
   });
 
   it('reports an active membership with a different role and changes nothing', async () => {
@@ -361,16 +458,16 @@ describe('operator grant: existing state', () => {
 
     expect(code).toBe(1);
     expect(h.asked).toEqual([]);
-    expect(h.output()).toMatch(/already an active member.*in the app/i);
+    expect(h.errors()).toMatch(/refused:.*already an active member.*in the app/i);
     expect(await snapshot(db)).toEqual(before);
   });
 
-  it('refuses when more than one user row matches the email', async () => {
+  it('refuses when more than one user row matches the email exactly', async () => {
     const db = await createTestDb();
     await cedarClub(db);
     await db.insert(schema.users).values([
       { id: 'first', email: 'coach@example.com' },
-      { id: 'second', email: 'Coach@example.com ' },
+      { id: 'second', email: 'coach@example.com' },
     ]);
     const before = await snapshot(db);
     const h = harness(db, { interactive: true, typed: HOST });
@@ -379,7 +476,7 @@ describe('operator grant: existing state', () => {
 
     expect(code).toBe(1);
     expect(h.asked).toEqual([]);
-    expect(h.output()).toMatch(/2 user rows/);
+    expect(h.errors()).toMatch(/refused:.*2 user rows/);
     expect(await snapshot(db)).toEqual(before);
   });
 });
@@ -394,7 +491,17 @@ describe('operator grant: arguments', () => {
 
     expect(code).toBe(2);
     expect(h.opened).toEqual([]);
-    expect(h.output()).toMatch(/refused:.*admin/);
+    expect(h.errors()).toMatch(/refused:.*admin/);
+  });
+
+  it('prints usage to stderr and nothing to stdout', async () => {
+    const db = await createTestDb();
+    const h = harness(db);
+
+    expect(await runGrantCommand([], h.deps)).toBe(2);
+    expect(h.errors()).toMatch(/usage: pnpm membership:grant/);
+    expect(h.output()).toBe('');
+    expect(h.opened).toEqual([]);
   });
 
   it('rejects a malformed email, before opening the database', async () => {
@@ -404,6 +511,27 @@ describe('operator grant: arguments', () => {
     expect(await runGrantCommand(grantArgv({ email: 'not-an-address' }), h.deps)).toBe(2);
     expect(await runGrantCommand(grantArgv({ email: 'coach@exam\nple.com' }), h.deps)).toBe(2);
     expect(h.opened).toEqual([]);
+  });
+
+  /**
+   * Sign-in normalizes the typed address again (`defaultNormalizer`, @auth/core
+   * `lib/actions/signin/send-token.js`): NFKC, lowercased, trimmed, a quote
+   * rejected, the domain cut at its first comma. The adapter then matches it
+   * exactly, so an address that normalizer would change further must be refused
+   * rather than granted to a row sign-in never finds.
+   */
+  it.each([
+    ['a comma', 'coach,team@example.com'],
+    ['a comma in the domain', 'coach@example.com,example.org'],
+    ['a quote', '"coach"@example.com'],
+    ['a character NFKC changes', 'coach@\uFB01eld.example.com'],
+  ])('rejects an address with %s, before opening the database', async (_, email) => {
+    const db = await createTestDb();
+    const h = harness(db);
+
+    expect(await runGrantCommand(grantArgv({ email }), h.deps)).toBe(2);
+    expect(h.opened).toEqual([]);
+    expect(h.errors()).toMatch(/refused:.*sign-in/);
   });
 
   it('grants the member role', async () => {
@@ -448,7 +576,7 @@ describe('operator grant: Club selection', () => {
 
     expect(await runGrantCommand(grantArgv(), h.deps)).toBe(1);
 
-    expect(h.output()).toMatch(/refused:.*--club.*alder.*cedar/);
+    expect(h.errors()).toMatch(/refused:.*--club.*alder.*cedar/);
     expect(await snapshot(db)).toEqual(before);
   });
 
@@ -461,9 +589,9 @@ describe('operator grant: Club selection', () => {
     const none = harness(empty, { interactive: true, typed: HOST });
 
     expect(await runGrantCommand(grantArgv({ club: 'birch' }), unknown.deps)).toBe(1);
-    expect(unknown.output()).toMatch(/refused:.*birch/);
+    expect(unknown.errors()).toMatch(/refused:.*birch/);
     expect(await runGrantCommand(grantArgv(), none.deps)).toBe(1);
-    expect(none.output()).toMatch(/refused:.*no Club/);
+    expect(none.errors()).toMatch(/refused:.*no Club/);
     expect((await snapshot(db)).memberships).toEqual([]);
   });
 });

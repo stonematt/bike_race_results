@@ -19,6 +19,10 @@
  *     it returned the typed address as `user.id` and every query keyed on
  *     `coach.user_id` missed (#107).
  *
+ * The operator grant (`src/lib/operator-grant.ts`, #182) is a third: it looks
+ * rows up with the two `findUserIds…` functions and creates one through
+ * `findOrCreateUser`.
+ *
  * It sits under `db/` rather than in `seed.ts` so that the auth path does not
  * import the seeding module: `seed.ts` pulls in `club-config.ts`, which reads
  * files off disk, and production auth has no business depending on any of it.
@@ -40,7 +44,7 @@
  * database.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from './index.ts';
 import * as schema from './schema.ts';
 
@@ -49,6 +53,40 @@ type Db = Database;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 /** Either handle — this is called inside a seeding transaction and outside one. */
 export type UserExecutor = Db | Tx;
+
+/**
+ * The ids of every `user` row stored under exactly this address, by id. It is
+ * the match the auth adapter's `getUserByEmail` makes
+ * (`@auth/drizzle-adapter`, `lib/pg.js`), so these are the rows a magic-link
+ * sign-in can find.
+ */
+export async function findUserIdsByEmail(executor: UserExecutor, email: string): Promise<string[]> {
+  const rows = await executor
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .orderBy(schema.users.id);
+  return rows.map((row) => row.id);
+}
+
+/**
+ * The ids of every `user` row whose stored address, trimmed and lowercased,
+ * equals `email` (passed already normalized), by id. This is the sign-in
+ * gate's looser comparison (`canStartEmailSignIn`, `authz/access.ts`). A row
+ * found here but not by `findUserIdsByEmail` is one the gate admits and the
+ * adapter never finds.
+ */
+export async function findUserIdsByNormalizedEmail(
+  executor: UserExecutor,
+  email: string,
+): Promise<string[]> {
+  const rows = await executor
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(sql`lower(btrim(${schema.users.email})) = ${email}`)
+    .orderBy(schema.users.id);
+  return rows.map((row) => row.id);
+}
 
 /** The id of the `user` row for this address, creating the row if it is new. */
 export async function findOrCreateUser(

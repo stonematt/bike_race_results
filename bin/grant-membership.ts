@@ -26,6 +26,7 @@ import { runGrantCommand } from '../src/lib/operator-grant.ts';
 const exitCode = await runGrantCommand(process.argv.slice(2), {
   env: process.env,
   readFile: (file) => fs.readFileSync(file, 'utf8'),
+  localDatabaseExists: (directory) => fs.existsSync(directory),
   openDatabase: (url) => {
     const runtime = createDatabaseRuntime(url);
     return { db: runtime.db, close: () => runtime.close() };
@@ -42,6 +43,7 @@ const exitCode = await runGrantCommand(process.argv.slice(2), {
     },
   },
   print: (line) => console.log(line),
+  error: (line) => console.error(line),
 });
 
 process.exit(exitCode);

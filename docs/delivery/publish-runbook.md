@@ -27,13 +27,15 @@ These are not negotiable by convenience during this work.
 
 ## Decisions
 
-| Question                | Answer                                                                                             | Recorded   |
-| ----------------------- | -------------------------------------------------------------------------------------------------- | ---------- |
-| Host                    | Vercel                                                                                             | 2026-09-09 |
-| Database provider       | Neon                                                                                               | 2026-09-09 |
-| Hostname                | `results.scdescenders.com`                                                                         | 2026-09-09 |
-| Mail sender             | Resend                                                                                             | 2026-09-09 |
-| Owning account identity | `admin@scdescenders.com`; the host account may use the owner's GitHub login for deploy integration | 2026-09-09 |
+| Question                | Answer                                                                                                                                     | Recorded   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| Host                    | Vercel                                                                                                                                     | 2026-09-09 |
+| Database provider       | Neon                                                                                                                                       | 2026-09-09 |
+| Hostname                | `results.scdescenders.com`                                                                                                                 | 2026-09-09 |
+| Mail sender             | Resend                                                                                                                                     | 2026-09-09 |
+| Owning account identity | `admin@scdescenders.com`; the host account may use the owner's GitHub login for deploy integration                                         | 2026-09-09 |
+| Hosted credentials      | Never in a checkout as `.env.local`; a hosted run names a file outside the checkout with `--env-file` (#182)                               | 2026-09-12 |
+| Operator grant audit    | `membership.granted` with a null actor: an operator outside the app (owner's decision in #182; ADR-0005's minimal actor/action/time audit) | 2026-09-12 |
 
 DNS for `scdescenders.com` is at Squarespace. The operator is a board member with
 registrar access and expects to hand the accounts over later; prefer a club
@@ -187,18 +189,27 @@ pnpm membership:grant --env-file <path> --email <address> --role coach --apply
   not) and the exact planned writes. It writes nothing.
 - **`--apply`** refuses without an interactive terminal, and writes only after
   the database host is typed at the prompt. It runs one transaction: find or
-  create the user, matching the email as the sign-in gate does (trimmed and
-  lowercased); insert the membership; write a `club_audit_event` with action
-  `membership.granted`, the user as subject and a null actor.
+  create the user, matching the email exactly as a magic-link sign-in will
+  store it (trimmed and lowercased); insert the membership; write a
+  `club_audit_event` with action `membership.granted`, the user as subject and
+  a null actor.
+- **The email is refused** if it holds a comma, a quote, or a character that
+  Unicode NFKC normalization changes. Sign-in normalizes those again, so the
+  grant could land on a row sign-in never finds.
 - **`--club <slug>`** may be left off when the database holds exactly one
   Club. The dry run names the Club it chose.
 - **It writes nothing, and says so,** when the membership is already active in
   that role. It reports and leaves alone a revoked membership, an active
-  membership in another role (role changes are made in the app), and an email
-  that matches more than one user row.
+  membership in another role (role changes are made in the app), an email
+  stored on more than one user row, and a user row whose stored email differs
+  from it only in case or whitespace (sign-in matches exactly, so it would not
+  find that row).
+- **A missing local database is refused, not created.** Without `--env-file`
+  or `DATABASE_URL` the target is `./.pglite`; if it does not exist, run
+  `pnpm db:migrate` first.
 - **Exit codes:** `0` for a dry run, a grant, or nothing to write; `1` for a
   refusal or a state it leaves alone; `2` for a usage error, including
-  `--role admin`.
+  `--role admin`. Refusals and usage go to stderr.
 
 ### Owner step: the coach UAT membership
 
@@ -241,9 +252,7 @@ Append one line per completed step: date, what was done, and the evidence.
   deliberately not run: deployment is Vercel's, and vendor agent files do not
   belong in a public repository. The connection strings live outside every
   checkout, in the operator's password manager and a `chmod 600` file symlinked
-  in as `.env.local`. _Amended by #182:_ that file is no longer symlinked in as
-  `.env.local`. A hosted run names it explicitly; see
-  [Hosted credentials](#hosted-credentials-the---env-file-rule).
+  in as `.env.local`.
 - 2026-09-09. `sslmode` changed from `require` to `verify-full` on the direct
   URL. `pg` treats `require` as full verification today and warns that v9 will
   silently weaken it to libpq semantics — encrypted but unverified. The pooled
@@ -356,10 +365,7 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. **Hazard, recorded because the project is now linked.** Never run
   `vercel deploy` from the publish worktree. It uploads the local working tree,
   and that tree carries `.env.local` and `fixtures/` as symlinks to real
-  credentials and real athlete data. _Amended by #182:_ production credentials
-  no longer enter a checkout as `.env.local` (see
-  [Hosted credentials](#hosted-credentials-the---env-file-rule)), but the
-  upload stays unsafe regardless. Every deployment must originate from git —
+  credentials and real athlete data. Every deployment must originate from git —
   a push to `main`, or a redeploy of a commit already there. `.gitignore` covers
   `.vercel/`; there is no `.vercelignore`, and adding one would not make a
   working-tree upload safe.
