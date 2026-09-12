@@ -93,6 +93,8 @@ Where the league publishes lap counts and cutoff times, they are captured once p
 
 The ambiguous-split case is why the [season config](season-setup.md) carries an explicit `bonus_lap: true | false` per race and category. Derivation is a good check and a poor arbiter.
 
+Season config is proposed, not built. The race wall does not wait for it: until it exists, an ambiguous split is flagged, never guessed. When it lands it stays a reviewed file, or a hand-maintained table the view joins. It never writes onto an ingested result row (owner, map #143, 2026-09-11).
+
 ---
 
 ## 4. The cutoff estimate
@@ -248,7 +250,7 @@ offset_from_cutoff         signed seconds, fewer-lap riders with a base split
 first_start_of_season      bool
 ```
 
-`cutoff_value`, `cutoff_source` and `lap_group` are stored per result row, not inferred at render time.
+`cutoff_value`, `cutoff_source` and `lap_group` arrive on each result row from a database view that computes them from the published rows. Nothing stores them, and the page never infers them at render time. A replay updates result rows in place and deletes any plate a correction drops, so nothing of ours is stored on an ingested row (owner, map #143, 2026-09-11).
 
 ---
 
@@ -374,6 +376,6 @@ carrying its own value, ordered alphabetically, never by result.
 On selection, dim the context and add a neutral ring. Do not recolor.
 Do not add podium, place, or points markers. Do not sort riders by result.
 
-Read lap_group, cutoff_value and cutoff_source from the result row; do not
-infer them at render time.
+Read lap_group, cutoff_value and cutoff_source from the result row, where a
+database view computes them; do not infer them at render time.
 ```
