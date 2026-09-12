@@ -22,7 +22,7 @@ The source design system is `stonematt/scd-brand` (`DESIGN.md`, status APPROVED)
 
 ## Wayfinder
 
-Planning for this project is charted as a wayfinder map on the issue tracker: `gh issue list --label "wayfinder:map"`. Read the map before starting work; it holds the destination, domain vocabulary, and standing decisions.
+Planning for this project is charted as a wayfinder map on the issue tracker: `gh issue list --label "wayfinder:map"`. Read the map before starting work; it holds the destination and the route. The live map is #143. Closed map #1 is decision history, and its Standing decisions table still binds; domain vocabulary lives in `CONTEXT.md`.
 
 ## Product and delivery authority
 

@@ -21,9 +21,9 @@ user's own design surface.
 - `docs/brand.md` — mandatory before any UI work. Ink-on-orange is never white; orange is a
   highlight, not a field; navy banner ground. Nothing from `scd-brand/sources/` enters this repo.
 - `docs/fixtures.md` — the corpus, and why it is not committed
-- The wayfinder map, issue #1: `gh issue view 1`. It holds the destination, the domain
-  vocabulary and the standing decisions.
-- There is no `CONTEXT.md` and `docs/adr/` is empty. Proceed silently; do not create them.
+- The wayfinder map, issue #143: `gh issue view 143`. It holds the destination and the route.
+  Closed map #1 is decision history; its Standing decisions table still binds: `gh issue view 1`.
+- `CONTEXT.md` (domain vocabulary) and `docs/adr/` (architecture decisions) — both binding.
 
 **Dependency sync** `pnpm install --frozen-lockfile` in the fresh worktree. Node 24 (`.nvmrc`),
 pnpm 10.33.2.
