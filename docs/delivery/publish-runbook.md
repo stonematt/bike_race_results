@@ -97,9 +97,9 @@ is not an invitation list and cannot restore a revoked membership.
 
 ## Release prep: preview branch and migration rhythm
 
-`bin/wizard-release-prep` walks the operator through everything below, one
-gated step at a time; run it rather than doing this by hand. See #179 (refs
-#175 tasks 3 and 4).
+`bin/wizard-release-prep` walks the operator through every release, one gated
+step at a time; run it rather than doing this by hand. See #179 and the
+decision in #181.
 
 - **Neon account.** The results database lives under the Neon account
   `admin@scdescenders.com`, not the operator's personal Neon account. It needs
@@ -108,23 +108,45 @@ gated step at a time; run it rather than doing this by hand. See #179 (refs
   browser window avoids reusing the personal session). Every Neon call for
   this project passes `--profile scd`.
 - **Previews use a dedicated `preview` Neon branch**, copy-on-write from
-  `production`, reset by hand (`neon branches reset preview --parent`, or
-  `bin/preview-env-reset` once it lands). Migrations land on `preview` before
-  `production`.
-- **Vercel Preview scope** holds `DATABASE_URL` for the `preview` branch, plus
-  the same non-secret vars Production holds (`AUTH_URL`, `CURRENT_SEASON`,
-  `AUTH_EMAIL_FROM`). Preview does **not** get `AUTH_SECRET` or
-  `AUTH_EMAIL_SERVER` copied automatically — those are secrets, and whether a
-  preview deployment needs its own mail sender at all is an open question, not
-  something the wizard decides.
-- **Pre-release migration rhythm**, run in order and never automated: `db:status`
-  against preview (once #173 lands) → `db:migrate` against preview → UAT on
-  the PR preview URL → merge → `db:status` against production → `db:migrate`
-  against production, using the direct (unpooled) URL from
-  `~/.config/scdescenders/neon-direct.env`.
-- `bin/preview-env-setup` / `bin/preview-env-reset` (#175 task 3) are the
-  scripted path once landed; the wizard falls back to raw `neon` commands
-  until then.
+  `production`. It is reset from production every release
+  (`neon branches reset preview --parent`), so it is always a fresh copy.
+- **Vercel Preview scope** holds one set of variables, every one scoped to the
+  git branch `dev` (`vercel env add NAME preview dev`), never to Preview as a
+  whole:
+  - `DATABASE_URL`: the `preview` branch's pooled URL, marked sensitive.
+  - `AUTH_URL`: the `dev` preview's stable branch address, not Production's.
+  - `AUTH_SECRET`: generated for Preview; never a copy of Production's.
+  - `AUTH_EMAIL_SERVER`: Production's value, reused.
+  - `AUTH_EMAIL_FROM` and `CURRENT_SEASON`.
+
+  Only the `dev` preview can sign in. Other branches' previews and one-off
+  deployment addresses get none of these. Development still holds none.
+- **Why that is safe.** The `dev` preview sits behind Vercel Authentication and
+  the membership check, and its database is a copy of production, reset every
+  release. Preview never holds a production database URL. `AUTH_DEV_LOGIN`
+  stays absent on every hosted scope.
+- **The Resend key is shared** between Production and Preview, inside
+  `AUTH_EMAIL_SERVER`. Rotating it means updating both scopes.
+- **Per-release sequence.** The wizard's stages, in order:
+  1. Neon profile.
+  2. Reset `preview` from production, or create it if absent.
+  3. Set the `dev`-scoped Preview variables, then remove any Preview-wide
+     copy of them, asking before each removal.
+  4. Migrate `preview`: `db:status` (once #173 lands), then `db:migrate`, on
+     the direct URL. The wizard runs these itself, so the connection string
+     never reaches the terminal.
+  5. UAT on the `dev` preview, starting at `/signin` (#183). As admin: real
+     Season data, and Club accounts visible. As the coach UAT user: the same
+     data, stories open, and Club accounts, Approve and Publish absent. Until
+     #182's owner step grants the coach membership, the coach half is
+     recorded as skipped. The wizard prints a UAT record; paste it, gaps
+     included, into the release PR.
+  6. Migrate production, then promote `dev` → `main`. Owner steps: the wizard
+     prints the production commands, which read the direct URL from
+     `~/.config/scdescenders/neon-direct.env`, and waits.
+- `bin/preview-env-setup` and `bin/preview-env-reset` (#175 task 3) were
+  specified before the `dev` scoping and would write Preview-wide variables.
+  The wizard no longer calls them.
 
 ## Log
 
@@ -227,9 +249,9 @@ Append one line per completed step: date, what was done, and the evidence.
 - 2026-09-09. Environment variables set, **Production scope only**: `AUTH_URL`,
   `AUTH_SECRET` (both by CLI, values piped rather than typed so neither entered
   a shell history) and `DATABASE_URL`, the pooled endpoint, set in the dashboard.
-  With `CURRENT_SEASON` that is four. Preview and Development scopes hold none,
-  which is what keeps production data off pull-request preview URLs.
-  `AUTH_DEV_LOGIN` remains absent. `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM`
+  With `CURRENT_SEASON` that is four. Since #181, Preview holds the
+  `dev`-scoped set described under Release prep, and Development still holds
+  none. `AUTH_DEV_LOGIN` remains absent. `AUTH_EMAIL_SERVER` and `AUTH_EMAIL_FROM`
   wait on phase 5.
 - 2026-09-09. TLS switches validated against the code that consumes them.
   `src/lib/db/runtime.ts` builds its pool with a connection string and **no**
@@ -335,8 +357,11 @@ inspect`) was not gated, so the whole confirmation pass stayed with the agent.
   password in `AUTH_EMAIL_SERVER` =
   `smtps://resend:<key>@smtp.resend.com:465`. `AUTH_EMAIL_FROM` is
   `Descenders Race Dashboard <results@send.scdescenders.com>`, matching the app
-  title in `src/app/layout.tsx`. Both on **Production scope only** — Preview and
-  Development left empty, which is what keeps production data off preview URLs.
+  title in `src/app/layout.tsx`. Both were set on **Production scope only**.
+  Since #181, Preview carries its own `dev`-scoped copies. What keeps
+  production data safe there is that the `dev` preview sits behind Vercel
+  Authentication and the membership check, and its database is a copy of
+  production, reset every release.
   `AUTH_EMAIL_SERVER` is stored as a Vercel **Secret**, `AUTH_EMAIL_FROM` as
   **Config**, since only the first carries the key.
   Setting the variables does nothing on its own: `/api/auth/providers` still

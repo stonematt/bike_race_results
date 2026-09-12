@@ -48,3 +48,7 @@ next-env.d.ts
 
 # Vercel CLI link state; created by any `vercel` run in the checkout.
 .vercel/
+
+# Neon CLI local context; created by `neon set-context` or a `neon` run that
+# records a project in the checkout.
+.neon
