@@ -95,6 +95,37 @@ Runtime authorization is the active `club_membership` row read on each protected
 request. `AUTH_ALLOWED_EMAILS` bootstraps the first admin and nothing else; it
 is not an invitation list and cannot restore a revoked membership.
 
+## Release prep: preview branch and migration rhythm
+
+`bin/wizard-release-prep` walks the operator through everything below, one
+gated step at a time; run it rather than doing this by hand. See #179 (refs
+#175 tasks 3 and 4).
+
+- **Neon account.** The results database lives under the Neon account
+  `admin@scdescenders.com`, not the operator's personal Neon account. It needs
+  its own CLI profile, `scd` (`neon profile create scd`, then
+  `neon auth --profile scd`, signing in as the club address — a private
+  browser window avoids reusing the personal session). Every Neon call for
+  this project passes `--profile scd`.
+- **Previews use a dedicated `preview` Neon branch**, copy-on-write from
+  `production`, reset by hand (`neon branches reset preview --parent`, or
+  `bin/preview-env-reset` once it lands). Migrations land on `preview` before
+  `production`.
+- **Vercel Preview scope** holds `DATABASE_URL` for the `preview` branch, plus
+  the same non-secret vars Production holds (`AUTH_URL`, `CURRENT_SEASON`,
+  `AUTH_EMAIL_FROM`). Preview does **not** get `AUTH_SECRET` or
+  `AUTH_EMAIL_SERVER` copied automatically — those are secrets, and whether a
+  preview deployment needs its own mail sender at all is an open question, not
+  something the wizard decides.
+- **Pre-release migration rhythm**, run in order and never automated: `db:status`
+  against preview (once #173 lands) → `db:migrate` against preview → UAT on
+  the PR preview URL → merge → `db:status` against production → `db:migrate`
+  against production, using the direct (unpooled) URL from
+  `~/.config/scdescenders/neon-direct.env`.
+- `bin/preview-env-setup` / `bin/preview-env-reset` (#175 task 3) are the
+  scripted path once landed; the wizard falls back to raw `neon` commands
+  until then.
+
 ## Log
 
 Append one line per completed step: date, what was done, and the evidence.
