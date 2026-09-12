@@ -20,16 +20,17 @@ brief=$here/docs/agents/codex-loop.md
 mkdir -p "$logdir"
 gitdir=$(git -C "$work" rev-parse --git-common-dir)
 store=$(pnpm store path 2>/dev/null || true)
-roots="[\"$gitdir\"${store:+,\"$store\"}]"
+dirs=(--add-dir "$gitdir")
+[[ -n $store ]] && dirs+=(--add-dir "$store")
 
 for ((i = 1; i <= max; i++)); do
   last=$logdir/iteration-$i.md
   echo "== iteration $i / $max ($model) $(date +%H:%M)"
   sed "s/{{ISSUE}}/$issue/g" "$brief" \
-    | codex exec -m "$model" --full-auto \
+    | codex exec -m "$model" -s workspace-write \
+        -c approval_policy=never \
         -c sandbox_workspace_write.network_access=true \
-        -c "sandbox_workspace_write.writable_roots=$roots" \
-        -C "$work" -o "$last" - >"$logdir/iteration-$i.log" 2>&1 || true
+        "${dirs[@]}" -C "$work" -o "$last" - >"$logdir/iteration-$i.log" 2>&1 || true
   status=$(grep -E '^STATUS: ' "$last" 2>/dev/null | tail -1 || true)
   echo "$status"
   cat "$last" 2>/dev/null
