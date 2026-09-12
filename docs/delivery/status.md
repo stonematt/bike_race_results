@@ -4,6 +4,12 @@ Updated 2026-09-11 local date. **Goal active; D1, D2, D3A, D4 and D5 local runti
 
 GitHub: [epic #121](https://github.com/stonematt/bike_race_results/issues/121), [milestone 7](https://github.com/stonematt/bike_race_results/milestone/7). D1: #98/#106 reporting, #100 hook verification, #123 safe setup/runtime. D2: #125 implements the accepted journey and reuses #89/#34/#82. D3: #120/#128. D4: #130. D5: security #124 and runtime/recovery #129. All delivery tickets are native epic children. Unrelated backlog is preserved.
 
+## Pre-Madras auth release — preparation, 2026-09-11
+
+Goal [#175](https://github.com/stonematt/bike_race_results/issues/175), task 1, explicitly authorizes release PR [#177](https://github.com/stonematt/bike_race_results/pull/177) from `dev` to `main`. The initial candidate compares base `63923c2bb7483f6ada533d6030405498b85d50f9` with head `87742be48da284252df9e340bd3430aa8d9fadb4` (30 commits). It contains the authenticated sign-in redirect (#162), branded confirmation/recovery and preserved callback destinations (#163), cause-neutral verification copy (#172), and the intervening published-result name sourcing, server process identity fixes and accepted design/map documentation (#165/#169/#170/#171/#174). Migrations are byte-identical across the release range; no hosted database command is needed or authorized for this task.
+
+Fresh independent `release_standards` and `release_spec` reviews cite those exact SHAs. Standards found no violations or actionable smells. Spec confirmed the required auth behavior and found one P2: the #164 entry below still described a merged correction as awaiting a PR. This documentation change corrects that state. Review of the correction and final-head checks must be recorded on #177 before merge. The release is prepared, not yet deployed; its eventual merge SHA and deployment evidence belong to the completion audit. The phone pass on #157 will be informational and will not block the remaining #175 tasks. Task 2 (`db:status`, #173) is next; tasks 2–7 remain unchecked.
+
 | Increment  | Current state                                                                                                                                                                                                                                                                                                                                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Foundation | Merged through PR #122; cleanup verified below.                                                                                                                                                                                                                                                                                                                        |
@@ -368,6 +374,8 @@ A fresh post-merge comparison on 2026-09-10 found one bounded copy defect and op
 uses `Verification` for an invalid email/token combination, which can mean either no matching row or
 expiry, while the page said the link had expired or was already used. The #164 correction keeps
 the existing heading and recovery action but changes the body to cause-neutral guidance. Its public
-route-rendering test failed on the old wording and passed after the correction. The correction is
-committed on `fix/auth-verification-copy` for review and a PR into `dev`; no production release is
-claimed.
+route-rendering test failed on the old wording and passed after the correction. Commit
+`115ea0609dbf7e309320409872fd9e6e8af09f54` landed in `dev` through
+[PR #172](https://github.com/stonematt/bike_race_results/pull/172), merge
+`5b12fde74e599b42e05f52bb9df3abf3f962967e`, on 2026-09-11. Production promotion is now
+authorized by #175 task 1 and tracked in #177; it has not yet landed at this preparation checkpoint.
